@@ -1,0 +1,44 @@
+package components
+
+import "fmt"
+
+type Product struct {
+	Id   int32
+	Name string
+	Url  string
+}
+
+templ Order(products []Product) {
+	<main class="w-3/5 h-dvh grid grid-cols-4 gap-3 p-2 pl-16 place-items-center overflow-y-scroll">
+		for _, product := range products {
+			<figure
+				hx-put={ fmt.Sprintf("%s%d", "/order/list-item?id=", product.Id) }
+				hx-target="#order-list"
+				hx-swap="outerHTML"
+				class="size-full flex flex-col place-content-center border-4 rounded-md"
+			>
+				<img class="h-3/4 mx-auto" src={ product.Url } alt={ product.Name }/>
+				<figcaption class="my-auto text-center">{ product.Name }</figcaption>
+				// <input type="number" min="0" step="1" class="w-full" />
+			</figure>
+		}
+	</main>
+	<aside class="w-2/5 h-dvh px-2 py-4">
+		<h1 class="text-xl font-bold">注文一覧</h1>
+		@OrderList([]Product{products[0], products[1], products[2]})
+	</aside>
+}
+
+templ OrderList(products []Product) {
+	<ul id="order-list" class="text-lg pt-2 divide-y-4">
+		for _, product := range products {
+			<li class="flex p-4">
+				<p class="flex-1">{ product.Name }</p>
+				<button hx-delete="/order/list-item?id=">x</button>
+			</li>
+		}
+		// <li>{ products[0].Name }: 1,000,000本</li>
+		// <li>{ products[1].Name }: 2,000,000本</li>
+		// <li>{ products[2].Name }: 666本</li>
+	</ul>
+}

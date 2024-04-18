@@ -1,0 +1,5 @@
+<head><title>
+</title><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0\"><script src=\"/static/htmx.min.js\"></script><link rel=\"stylesheet\" href=\"/static/styles.css\"></head>
+<nav class=\"bg-teal\"><a class=\"text-gray-800\" href=\"/register\">register</a> <a class=\"text-gray-800\" href=\"/login\">login</a> <a class=\"text-gray-300\" href=\"/order\">order</a> <a class=\"text-gray-300\" href=\"/feed\">feed</a> <a class=\"text-gray-300\" href=\"/summary\">summary</a> <a class=\"text-gray-300\" href=\"/edit\">edit</a></nav>
+<body class=\"flex\">
+</body>
