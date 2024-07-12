@@ -100,6 +100,7 @@ async def get_root(request: Request):
     )
 
 
+# NOTE: I am not sure if this data should be stored in database or no or not.
 list_items: dict[int, dict[str, str] | None] = {}
 
 
