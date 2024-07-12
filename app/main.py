@@ -1,15 +1,14 @@
 # https://dev.to/jaydevm/fastapi-and-htmx-a-modern-approach-to-full-stack-bma
 
 import os
+from contextlib import asynccontextmanager
 
+import sqlalchemy
+from databases import Database
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-
-from databases import Database
-from contextlib import asynccontextmanager
-import sqlalchemy
 
 DATABASE_URL = "sqlite:///app.db"
 database = Database(DATABASE_URL)

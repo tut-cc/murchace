@@ -8,7 +8,7 @@
 $ target=linux-x64 # or linux-arm{64,v7}, macos-{arm,x}64, windows-{arm,x}64.exe
 $ curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-${target}
 $ chmod u+x tailwindcss-${target}
-$ ln -sf tailwindcss-macos-arm64 tailwindcss
+$ ln -sf tailwindcss-${target} tailwindcss
 ```
 
 - [rye](https://rye.astral.sh/) を用いて venv 環境の構築
@@ -58,3 +58,4 @@ Python
 - https://mypy.readthedocs.io/en/latest/cheat_sheet_py3.html
 - https://www.encode.io/databases/
 - https://docs.sqlalchemy.org/en/20/core/
+- https://jinja.palletsprojects.com/en/3.1.x/

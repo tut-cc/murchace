@@ -7,13 +7,12 @@
 </head>
 
 <body class="flex">
-  {# // @nav() #}
+  {# @nav #}
   {% block inner %}
   {% endblock %}
 </body>
 
-{#
-templ nav(allowlist) {
+{# @nav
 <nav class="bg-teal">
   <a class="text-gray-800" href="/register">register</a>
   <a class="text-gray-800" href="/login">login</a>
@@ -22,5 +21,4 @@ templ nav(allowlist) {
   <a class="text-gray-300" href="/summary">summary</a>
   <a class="text-gray-300" href="/edit">edit</a>
 </nav>
-}
 #}
