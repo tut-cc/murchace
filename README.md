@@ -1,10 +1,12 @@
 # order-notifier (開発初期段階)
 
-## 開発環境
+## 開発環境のインストール
 
 - [tailwindcss のインストール](https://tailwindcss.com/blog/standalone-cli)
 
 ```
+$ target=linux-x64 # or linux-arm{64,v7}, macos-{arm,x}64, windows-{arm,x}64.exe
+$ curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-${target}
 $ chmod u+x tailwindcss-${target}
 $ ln -sf tailwindcss-macos-arm64 tailwindcss
 ```
@@ -54,3 +56,5 @@ Python
 
 - https://fastapi.tiangolo.com/
 - https://mypy.readthedocs.io/en/latest/cheat_sheet_py3.html
+- https://www.encode.io/databases/
+- https://docs.sqlalchemy.org/en/20/core/
