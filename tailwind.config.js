@@ -1,10 +1,10 @@
-// https://github.com/TomDoesTech/GOTTH/blob/main/tailwind.config.js
+// https://tailwindcss.com/docs/content-configuration
 // const colors = require('tailwindcss/colors')
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
-    'components/**/*.templ',
+    'app/templates/**/*.html',
   ],
   // theme: {
   //   extend: {

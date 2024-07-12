@@ -1,0 +1,36 @@
+{% extends "layout.html" %}
+
+{% block inner %}
+  <main class="w-4/6 h-dvh grid grid-cols-4 gap-3 py-2 pl-16 pr-10 place-items-center overflow-y-scroll">
+    {% for id, product in products.items() %}
+      <figure
+        hx-post="/order/list-item?product_id={{ id }}"
+        hx-target="#order-list"
+        hx-swap="beforeend"
+        class="size-full flex flex-col place-content-center border-4 rounded-md"
+      >
+        <img class="h-3/4 mx-auto" src={{ url_for('static', path=product.filename) }} alt={{ product.name }} />
+        <figcaption class="my-auto text-center">{{ product.name }}</figcaption>
+        {# <input type="number" min="0" step="1" class="w-full" /> #}
+      </figure>
+    {% endfor %}
+  </main>
+  <aside class="w-2/6 h-dvh flex flex-col px-2 py-4">
+    <div class="h-1/6 flex flex-row items-center">
+      <div class="basis-2/4 text-xl font-bold text-left pl-4">注文一覧</div>
+      <div class="basis-1/4 text-xl text-center">保留</div>
+      <div class="basis-1/4 text-xl text-center">設定</div>
+    </div>
+    <ul id="order-list" class="text-lg pt-2 divide-y-4 overflow-y-scroll">
+      {% for index, product in idx_list_item_pairs %}
+        {% include "components/list-item.html" %}
+      {% endfor %}
+      {# <li>{ products[0].name }: 1,000,000本</li> #}
+      {# <li>{ products[1].name }: 2,000,000本</li> #}
+      {# <li>{ products[2].name }: 666本</li> #}
+    </ul>
+    <div class="h-1/6">
+      <button type="button" class="float-right">確定</button>
+    </div>
+  </aside>
+{% endblock %}

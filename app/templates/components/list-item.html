@@ -1,0 +1,10 @@
+<li id="list-item-{{ index }}" class="flex p-4">
+  {# <img class="h-3/4 mx-auto" src={{ url_for('static', path=product.filename) }} alt={{ product.name }} /> #}
+  <p class="flex-1">{{ product.name }}</p>
+  <button
+    hx-delete="/order/list-item?index={{ index }}"
+    hx-target="#list-item-{{ index }}"
+    hx-swap="outerHTML"
+    class="font-bold text-red-600 px-2 rounded bg-gray-200"
+  >X</button>
+</li>
