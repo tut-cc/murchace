@@ -3,26 +3,20 @@
 import os
 from contextlib import asynccontextmanager
 
-import sqlalchemy
 from databases import Database
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from .db import Product, ProductTable
+
 DATABASE_URL = "sqlite:///app.db"
 database = Database(DATABASE_URL)
 
 DEBUG = True if os.environ.get("ORDER_SYSTEM_DEBUG") else False
 
-products_table = sqlalchemy.Table(
-    "products",
-    sqlalchemy.MetaData(),
-    sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True),
-    sqlalchemy.Column("product_id", sqlalchemy.Integer),
-    sqlalchemy.Column("name", sqlalchemy.String(length=40)),
-    sqlalchemy.Column("filename", sqlalchemy.String(length=100)),
-)
+product_table = ProductTable(database)
 
 
 # https://stackoverflow.com/a/65270864
@@ -31,9 +25,8 @@ products_table = sqlalchemy.Table(
 async def lifespan(_: FastAPI):
     await database.connect()
 
-    schema = sqlalchemy.schema.CreateTable(products_table, if_not_exists=True)
-    await database.execute(str(schema.compile()))
-    if await database.fetch_one(products_table.select()) is None:
+    await product_table.create_if_not_exists()
+    if await product_table.empty():
         # TODO: read this data from csv or something
         # id: int32, name: string, filename: string
         products: dict[int, dict[str, str]] = {
@@ -70,9 +63,11 @@ async def lifespan(_: FastAPI):
             16: {"name": "シュガー", "filename": "/cooking_sugar_stick.png"},
             17: {"name": "ミルクシロップ", "filename": "/sweets_milk_cream.png"},
         }
-        await database.execute_many(
-            products_table.insert(),
-            [{"product_id": product_id, **d} for product_id, d in products.items()],
+        await product_table.insert_many(
+            [
+                Product(product_id, d["name"], d["filename"])
+                for product_id, d in products.items()
+            ],
         )
 
     yield
@@ -99,17 +94,13 @@ async def get_root(request: Request):
     )
 
 
-# NOTE: I am not sure if this data should be stored in database or no or not.
-list_items: dict[int, dict[str, str] | None] = {}
+# NOTE: I am not sure if this data should be stored in database or not.
+list_items: dict[int, Product | None] = {}
 
 
 # TODO: return a page with a newly generated UUID: /order?session_id={uuid}
 @app.get("/order", response_class=HTMLResponse)
 async def get_order(request: Request):
-    products = {
-        row[1]: {"name": row[2], "filename": row[3]}
-        for row in await database.fetch_all(products_table.select())
-    }
     idx_list_item_pairs = [
         (idx, list_item)
         for idx, list_item in list_items.items()
@@ -119,7 +110,7 @@ async def get_order(request: Request):
         "order.html",
         {
             "request": request,
-            "products": products,
+            "products": await product_table.select_all(),
             "idx_list_item_pairs": idx_list_item_pairs,
         },
     )
@@ -127,12 +118,9 @@ async def get_order(request: Request):
 
 @app.post("/order/list-item", response_class=HTMLResponse)
 async def post_order_list_item(request: Request, product_id: int):
-    row = await database.fetch_one(
-        products_table.select().where(products_table.c.product_id == product_id)
-    )
-    if row is None:
+    product = await product_table.by_product_id(product_id)
+    if product is None:
         return
-    product = {"name": row[2], "filename": row[3]}
     index = len(list_items.keys())
     list_items[index] = product
     return templates.TemplateResponse(

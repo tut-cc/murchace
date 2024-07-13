@@ -2,9 +2,9 @@
 
 {% block inner %}
   <main class="w-4/6 h-dvh grid grid-cols-4 gap-3 py-2 pl-16 pr-10 place-items-center overflow-y-scroll">
-    {% for id, product in products.items() %}
+    {% for product in products %}
       <figure
-        hx-post="/order/list-item?product_id={{ id }}"
+        hx-post="/order/list-item?product_id={{ product.product_id }}"
         hx-target="#order-list"
         hx-swap="beforeend"
         class="size-full flex flex-col place-content-center border-4 rounded-md"
