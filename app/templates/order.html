@@ -4,7 +4,7 @@
   <main class="w-4/6 h-dvh grid grid-cols-4 gap-3 py-2 pl-16 pr-10 place-items-center overflow-y-scroll">
     {% for product in products %}
       <figure
-        hx-post="/order/{{ session_id }}/list-item?product_id={{ product.product_id }}"
+        hx-post="/order/{{ session_id }}/item?product_id={{ product.product_id }}"
         hx-target="#order-list"
         hx-swap="beforeend"
         class="size-full flex flex-col place-content-center border-4 rounded-md"
@@ -23,7 +23,7 @@
     </div>
     <ul id="order-list" class="h-4/6 text-lg pt-2 divide-y-4 overflow-y-scroll">
       {% for index, product in idx_item_pairs %}
-        {% include "components/list-item.html" %}
+        {% include "components/item.html" %}
       {% endfor %}
       {# <li>{ products[0].name }: 1,000,000本</li> #}
       {# <li>{ products[1].name }: 2,000,000本</li> #}

@@ -1,5 +1,3 @@
-# https://dev.to/jaydevm/fastapi-and-htmx-a-modern-approach-to-full-stack-bma
-
 import os
 from contextlib import asynccontextmanager
 
@@ -130,8 +128,8 @@ async def get_order(request: Request, session_id: int):
     )
 
 
-@app.post("/order/{session_id}/list-item", response_class=HTMLResponse)
-async def post_order_list_item(request: Request, session_id: int, product_id: int):
+@app.post("/order/{session_id}/item", response_class=HTMLResponse)
+async def post_order_item(request: Request, session_id: int, product_id: int):
     if (product := await product_table.by_product_id(product_id)) is None:
         raise HTTPException(status_code=404, detail=f"Product {product_id} not found")
     if (item_list := item_list_sessions.get(session_id)) is None:
@@ -139,7 +137,7 @@ async def post_order_list_item(request: Request, session_id: int, product_id: in
     index = len(item_list)
     item_list.append(product)
     return templates.TemplateResponse(
-        "components/list-item.html",
+        "components/item.html",
         {
             "request": request,
             "product": product,
@@ -149,8 +147,8 @@ async def post_order_list_item(request: Request, session_id: int, product_id: in
     )
 
 
-@app.delete("/order/{session_id}/list-item/{index}", response_class=HTMLResponse)
-async def delete_order_list_item(session_id: int, index: int):
+@app.delete("/order/{session_id}/item/{index}", response_class=HTMLResponse)
+async def delete_order_item(session_id: int, index: int):
     item_list = item_list_sessions.get(session_id)
     if item_list is None:
         raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
