@@ -4,8 +4,8 @@ import os
 from contextlib import asynccontextmanager
 
 from databases import Database
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -94,41 +94,67 @@ async def get_root(request: Request):
     )
 
 
-# NOTE: I am not sure if this data should be stored in database or not.
-list_items: dict[int, Product | None] = {}
+# NOTE: I am not sure if these data should be stored in database or not.
+item_list_sessions: dict[int, list[Product | None]] = {}
 
 
-# TODO: return a page with a newly generated UUID: /order?session_id={uuid}
-@app.get("/order", response_class=HTMLResponse)
-async def get_order(request: Request):
-    idx_list_item_pairs = [
-        (idx, list_item)
-        for idx, list_item in list_items.items()
-        if list_item is not None
+@app.get("/order", response_class=RedirectResponse)
+async def get_order_redirect():
+    return RedirectResponse("/order/new")
+
+
+@app.get("/order/new", response_class=RedirectResponse)
+async def get_order_new():
+    new_session_id = len(item_list_sessions.keys())
+    item_list_sessions[new_session_id] = []
+    return RedirectResponse(f"/order/{new_session_id}")
+
+
+@app.get("/order/{session_id}", response_class=HTMLResponse)
+async def get_order(request: Request, session_id: int):
+    item_list = item_list_sessions.get(session_id)
+    if item_list is None:
+        raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+
+    idx_item_pairs = [
+        (idx, item) for idx, item in enumerate(item_list) if item is not None
     ]
     return templates.TemplateResponse(
         "order.html",
         {
             "request": request,
             "products": await product_table.select_all(),
-            "idx_list_item_pairs": idx_list_item_pairs,
+            "session_id": session_id,
+            "idx_item_pairs": idx_item_pairs,
         },
     )
 
 
-@app.post("/order/list-item", response_class=HTMLResponse)
-async def post_order_list_item(request: Request, product_id: int):
-    product = await product_table.by_product_id(product_id)
-    if product is None:
-        return
-    index = len(list_items.keys())
-    list_items[index] = product
+@app.post("/order/{session_id}/list-item", response_class=HTMLResponse)
+async def post_order_list_item(request: Request, session_id: int, product_id: int):
+    if (product := await product_table.by_product_id(product_id)) is None:
+        raise HTTPException(status_code=404, detail=f"Product {product_id} not found")
+    if (item_list := item_list_sessions.get(session_id)) is None:
+        raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+    index = len(item_list)
+    item_list.append(product)
     return templates.TemplateResponse(
         "components/list-item.html",
-        {"request": request, "product": product, "index": index},
+        {
+            "request": request,
+            "product": product,
+            "session_id": session_id,
+            "index": index,
+        },
     )
 
 
-@app.delete("/order/list-item", response_class=HTMLResponse)
-async def delete_order_list_item(index: int):
-    list_items[index] = None
+@app.delete("/order/{session_id}/list-item/{index}", response_class=HTMLResponse)
+async def delete_order_list_item(session_id: int, index: int):
+    item_list = item_list_sessions.get(session_id)
+    if item_list is None:
+        raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+    if item_list[index] is None:
+        raise HTTPException(status_code=404, detail=f"List item {index} not found")
+    else:
+        item_list[index] = None
