@@ -35,6 +35,19 @@ $ rye run watch
 - /docs でAPIの仕様が見れて、リクエストを投げることもできる
 - /order が（今の所）メインの画面
 
+#### 統合開発環境
+
+VSCodeの拡張機能一覧:
+
+- [otovo-oss.htmx-tags](https://marketplace.visualstudio.com/items?itemName=otovo-oss.htmx-tags): htmx の拡張属性の自動補完
+- [CraigRBroughton.htmx-attributes](https://marketplace.visualstudio.com/items?itemName=CraigRBroughton.htmx-attributes): htmx の拡張属性の自動補完（代替プラグイン）
+- [bradlc.vscode-tailwindcss](https://marketplace.visualstudio.com/items?itemName=bradlc.vscode-tailwindcss): tailwindcss の LSP
+- [ms-pyright.pyright](https://marketplace.visualstudio.com/items?itemName=ms-pyright.pyright): Python の型チェックに特化した LSP
+- [charliermarsh.ruff](https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff): 高速なPython LSP
+- [monosans.djlint](https://marketplace.visualstudio.com/items?itemName=monosans.djlint): Jinja テンプレートのリンター
+
+Vim、Emacs、もしくは他のエディタでの環境構築については説明を省きます。
+
 ### 本番環境
 
 ```
