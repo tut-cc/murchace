@@ -5,8 +5,7 @@
     {% for product in products %}
       <figure
         hx-post="/order/{{ session_id }}/item?product_id={{ product.product_id }}"
-        hx-target="#order-list"
-        hx-swap="beforeend"
+        hx-target="#order-session"
         class="size-full flex flex-col place-content-center border-4 rounded-md"
       >
         <img class="h-3/4 mx-auto" src={{ url_for('static', path=product.filename) }} alt={{ product.name }} />
@@ -16,21 +15,15 @@
     {% endfor %}
   </main>
   <aside class="w-2/6 h-dvh flex flex-col px-2 py-4">
-    <div class="h-1/6 flex flex-row items-center">
-      <div class="basis-2/4 text-xl font-bold text-left pl-4">注文一覧</div>
-      <div class="basis-1/4 text-xl text-center">保留</div>
-      <div class="basis-1/4 text-xl text-center">設定</div>
+    <div class="h-1/6 flex flex-row items-center content-stretch text-xl">
+      <div class="basis-2/4 text-left font-bold pl-4">注文一覧</div>
+      <div class="basis-1/4 text-center">保留</div>
+      <div hx-post="/order/{{ session_id }}/clear" hx-target="#order-session" class="basis-1/4 h-5/6 text-center text-red-600">全消去</div>
     </div>
-    <ul id="order-list" class="h-4/6 text-lg pt-2 divide-y-4 overflow-y-scroll">
-      {% for index, product in idx_item_pairs %}
-        {% include "components/item.html" %}
-      {% endfor %}
-      {# <li>{ products[0].name }: 1,000,000本</li> #}
-      {# <li>{ products[1].name }: 2,000,000本</li> #}
-      {# <li>{ products[2].name }: 666本</li> #}
-    </ul>
-    <div class="h-1/6">
-      <button type="button" class="float-right">確定</button>
+    <div id="order-session" class="h-5/6 pt-2">
+      {% with placement_status = "", order_frozen = false %}
+        {% include "components/order-session.html" %}
+      {% endwith %}
     </div>
   </aside>
 {% endblock %}

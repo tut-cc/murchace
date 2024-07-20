@@ -1,0 +1,33 @@
+<ul id="order-list" class="h-4/5 text-lg divide-y-4 overflow-y-scroll">
+  {% for index, product in idx_item_pairs %}
+    <li id="item-{{ index }}" class="flex p-4">
+      {# <img class="h-3/4 mx-auto" src={{ url_for('static', path=product.filename) }} alt={{ product.name }} /> #}
+      <p class="flex-1">{{ product.name }}</p>
+      {% with product__price = '¥100' %}
+        <div>{{ product__price }}（仮）</div>
+      {% endwith %}
+      {% if not order_frozen %}
+        <button
+          hx-delete="/order/{{ session_id }}/item/{{ index }}"
+          hx-target="#item-{{ index }}"
+          hx-swap="outerHTML"
+          class="font-bold text-red-600 bg-gray-200 px-2 rounded"
+        >X</button>
+      {% endif %}
+    </li>
+  {% endfor %}
+  {# <li>{ products[0].name }: 1,000,000本</li> #}
+  {# <li>{ products[1].name }: 2,000,000本</li> #}
+  {# <li>{ products[2].name }: 666本</li> #}
+</ul>
+<div id="place-order" class="h-1/5 flex flex-row items-center">
+  <div class="basis-2/4">{{ placement_status }}</div>
+  {% with price_str = '¥1,000' %}
+    <div class="basis-1/4">{{ price_str }}（仮）</div>
+  {% endwith %}
+  {% if order_frozen %}
+    <a href="/order/new" class="basis-1/4 text-xl text-center">新規</a>
+  {% else %}
+    <div hx-post="/order/{{ session_id }}" hx-target="#order-session" class="basis-1/4 text-xl text-center">確定</div>
+  {% endif %}
+</div>

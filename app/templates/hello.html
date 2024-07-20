@@ -1,2 +1,8 @@
-<div class="pt-4">hello, {{ name }}</div>
-{% debug %}
+{% extends "layout.html" %}
+
+{% block inner %}
+<div>
+  <div hx-replace-url="/order" class="pt-4">hello, {{ name }}</div>
+  {% debug %}
+</div>
+{% endblock %}
