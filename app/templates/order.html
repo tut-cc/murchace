@@ -18,7 +18,7 @@
     <div class="h-1/6 flex flex-row items-center content-stretch text-xl">
       <div class="basis-2/4 text-left font-bold pl-4">注文一覧</div>
       <div class="basis-1/4 text-center">保留</div>
-      <div hx-post="/order/{{ session_id }}/clear" hx-target="#order-session" class="basis-1/4 h-5/6 text-center text-red-600">全消去</div>
+      <div hx-post="/order/{{ session_id }}/clear" hx-target="#order-session" class="basis-1/4 text-center text-red-600">全消去</div>
     </div>
     <div id="order-session" class="h-5/6 pt-2">
       {% with placement_status = "", order_frozen = false %}
