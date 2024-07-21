@@ -1,0 +1,29 @@
+{% extends "layout.html" %}
+
+{% block inner %}
+  <main class="w-4/6 h-dvh grid grid-cols-4 gap-3 py-2 pl-16 pr-10 place-items-center overflow-y-scroll">
+    {% for product in products %}
+      <figure
+        hx-post="/order/{{ session_id }}/item?product_id={{ product.product_id }}"
+        hx-target="#order-session"
+        class="size-full flex flex-col place-content-center border-4 rounded-md"
+      >
+        <img class="h-3/4 mx-auto" src={{ url_for('static', path=product.filename) }} alt={{ product.name }} />
+        <figcaption class="my-auto text-center">{{ product.name }}</figcaption>
+        {# <input type="number" min="0" step="1" class="w-full" /> #}
+      </figure>
+    {% endfor %}
+  </main>
+  <aside class="w-2/6 h-dvh flex flex-col px-2 py-4">
+    <div class="h-1/6 flex flex-row items-center content-stretch text-xl">
+      <div class="basis-2/4 text-left font-bold pl-4">注文一覧</div>
+      <div class="basis-1/4 text-center">保留</div>
+      <div hx-post="/order/{{ session_id }}/clear" hx-target="#order-session" class="basis-1/4 text-center text-red-600">全消去</div>
+    </div>
+    <div id="order-session" class="h-5/6 pt-2">
+      {% with placement_status = "", order_frozen = false %}
+        {% include "components/order-session.html" %}
+      {% endwith %}
+    </div>
+  </aside>
+{% endblock %}
