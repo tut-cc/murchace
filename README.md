@@ -2,7 +2,7 @@
 
 ## 開発環境のインストール
 
-DockerとVSCodeを利用して開発環境を構築する場合は、[こちら](docker-vscode.md)を参照してください。 
+DockerとVSCodeを利用して開発環境を構築する場合は、[こちら](.devcontainer/docker-vscode.md)を参照してください。 
 
 - [tailwindcss のインストール](https://tailwindcss.com/blog/standalone-cli)
 
