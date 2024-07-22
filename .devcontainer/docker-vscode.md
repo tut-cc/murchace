@@ -66,6 +66,6 @@ sudo dnf install code
 [ms-vscode-remote.remote-containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) をインストール
 
 ## 開発環境の構築
-VSCodeを開いて`F1`キーを押してコマンドパレットを開き、`Remote-Containers: Clone Repository in Container Volume...`を選択して、このリポジトリ(https://github.com/tut-cc/order-notifier.git)をCloneしてください。  
+VSCodeを開いて`F1`キーを押してコマンドパレットを開き、`Remote-Containers: Clone Repository in Container Volume...`を選択して、このリポジトリ (https://github.com/tut-cc/order-notifier.git) をCloneしてください。  
 拡張機能やRye、tailwindcssなどのインストールは自動で行われます。  
 コンテナが起動した後、[開発環境](https://github.com/tut-cc/order-notifier?tab=readme-ov-file#%E9%96%8B%E7%99%BA%E7%92%B0%E5%A2%83) の手順に従って開発を行ってください。
