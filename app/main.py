@@ -39,32 +39,31 @@ async def get_root(request: Request):
     )
 
 
-# TODO: only expose this path operation when in debug mode
-@app.get("/test")
-async def test():
-    return {
-        "product_table": await ProductTable.select_all(),
-        "order_sessions": order.order_sessions,
-        "placed_order_table": await PlacedOrderTable.select_all(),
-        "placement_status_table": await PlacementStatusTable.select_all(),
-    }
+if DEBUG:
 
+    @app.get("/test")
+    async def test():
+        return {
+            "product_table": await ProductTable.select_all(),
+            "order_sessions": order.order_sessions,
+            "placed_order_table": await PlacedOrderTable.select_all(),
+            "placement_status_table": await PlacementStatusTable.select_all(),
+        }
 
-# TODO: only expose this path operation when in debug mode
-@app.get("/test/placed_order_sessions/{placement_id}", response_class=HTMLResponse)
-async def test_placed_order_sessions(request: Request, placement_id: int):
-    order_items = await PlacedOrderTable.by_placement_id(placement_id)
-    # NOTE: this is a performance nightmare; should use a proper SQl stmt
-    idx_item_pairs = [
-        (idx, await ProductTable.by_product_id(item.product_id))
-        for idx, item in enumerate(order_items)
-        if item is not None
-    ]
-    return templates.TemplateResponse(
-        "components/order-session.html",
-        {
-            "request": request,
-            "session_id": placement_id,
-            "idx_item_pairs": idx_item_pairs,
-        },
-    )
+    @app.get("/test/placed_order_sessions/{placement_id}", response_class=HTMLResponse)
+    async def test_placed_order_sessions(request: Request, placement_id: int):
+        order_items = await PlacedOrderTable.by_placement_id(placement_id)
+        # NOTE: this is a performance nightmare; should use a proper SQl stmt
+        idx_item_pairs = [
+            (idx, await ProductTable.by_product_id(item.product_id))
+            for idx, item in enumerate(order_items)
+            if item is not None
+        ]
+        return templates.TemplateResponse(
+            "components/order-session.html",
+            {
+                "request": request,
+                "session_id": placement_id,
+                "idx_item_pairs": idx_item_pairs,
+            },
+        )
