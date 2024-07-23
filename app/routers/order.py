@@ -12,8 +12,6 @@ order_sessions: dict[int, list[Product | None]] = {}
 last_session_id = 0
 
 
-# TODO: this path should use a post method
-# Also consider using this: https://htmx.org/headers/hx-location/
 @router.post("/order", response_class=Response)
 async def create_new_order():
     global last_session_id
@@ -139,7 +137,6 @@ async def delete_order_item(session_id: int, index: int):
     return
 
 
-# TODO: change this to @router.delete("/order/{session_id}")
 @router.delete("/order/{session_id}")
 async def clear_order_items(request: Request, session_id: int) -> Response:
     if (order_items := order_sessions.get(session_id)) is None:
