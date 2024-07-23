@@ -26,7 +26,7 @@
     <div class="basis-1/4">{{ price_str }}（仮）</div>
   {% endwith %}
   {% if order_frozen %}
-    <a href="/order/new" class="basis-1/4 text-xl text-center">新規</a>
+    <div hx-post="/order" class="basis-1/4 text-xl text-center">新規</a>
   {% else %}
     <div hx-post="/order/{{ session_id }}" hx-target="#order-session" class="basis-1/4 text-xl text-center">確定</div>
   {% endif %}
