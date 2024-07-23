@@ -1,5 +1,5 @@
-from fastapi import APIRouter, HTTPException, Request, Response
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter, HTTPException, Request, Response, status
+from fastapi.responses import HTMLResponse
 
 from ..db import PlacedOrderTable, PlacementStatusTable, Product, ProductTable
 from ..templates import templates
@@ -14,19 +14,18 @@ last_session_id = 0
 
 # TODO: this path should use a post method
 # Also consider using this: https://htmx.org/headers/hx-location/
-@router.get("/order", response_class=RedirectResponse)
-async def get_order_redirect():
-    return RedirectResponse("/order/new")
-
-
-# TODO: move the session generation logic to /order and remove this path
-@router.get("/order/new", response_class=RedirectResponse)
-async def get_order_new():
+@router.post("/order", response_class=Response)
+async def create_new_order():
     global last_session_id
     last_session_id += 1
     new_session_id = last_session_id
     order_sessions[new_session_id] = []
-    return RedirectResponse(f"/order/{new_session_id}")
+    location = f"/order/{new_session_id}"
+    return Response(
+        location,
+        status_code=status.HTTP_201_CREATED,
+        headers={"location": location, "hx-location": location},
+    )
 
 
 @router.get("/order/{session_id}", response_class=HTMLResponse)
@@ -100,7 +99,7 @@ async def add_order_item(
         if request.headers["HX-Request"] == "true":
             # If it is a request from `hx-post`, respond with a new order session even when the `session_id` is not valid
             global last_session_id
-            await get_order_new()
+            await create_new_order()
             new_session_id = last_session_id
             await add_order_item(request, new_session_id, product_id)
             return Response(
@@ -141,14 +140,14 @@ async def delete_order_item(session_id: int, index: int):
 
 
 # TODO: change this to @router.delete("/order/{session_id}")
-@router.post("/order/{session_id}/clear")
+@router.delete("/order/{session_id}")
 async def clear_order_items(request: Request, session_id: int) -> Response:
     if (order_items := order_sessions.get(session_id)) is None:
         # NOTE: the branching below is a bit complicated so it might be changed in the future
         if request.headers.get("HX-Request") == "true":
             # If it is a request from `hx-post`, respond with a new order session even when the `session_id` is not valid
             global last_session_id
-            await get_order_new()
+            await create_new_order()
             new_session_id = last_session_id
             return Response(
                 f"Session {session_id} not found",
