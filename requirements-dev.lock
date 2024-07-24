@@ -68,7 +68,6 @@ python-dotenv==1.0.1
     # via uvicorn
 python-multipart==0.0.9
     # via fastapi
-    # via fastapi-htmx-demo
 pyyaml==6.0.1
     # via uvicorn
 rich==13.7.1
@@ -95,7 +94,6 @@ ujson==5.10.0
     # via fastapi
 uvicorn==0.30.1
     # via fastapi
-    # via fastapi-htmx-demo
 uvloop==0.19.0
     # via uvicorn
 watchfiles==0.22.0
