@@ -8,7 +8,7 @@
       {% endwith %}
       {% if not order_frozen %}
         <button
-          hx-delete="/order/{{ session_id }}/item/{{ index }}"
+          hx-delete="/orders/{{ session_id }}/item/{{ index }}"
           hx-target="#item-{{ index }}"
           hx-swap="delete"
           class="font-bold text-red-600 bg-gray-200 px-2 rounded"
@@ -23,8 +23,12 @@
     <div class="basis-1/4">{{ price_str }}（仮）</div>
   {% endwith %}
   {% if order_frozen %}
-    <div hx-post="/order" class="basis-1/4 text-xl text-center">新規</a>
+    <div hx-post="/orders" class="basis-1/4 text-xl text-center cursor-pointer">新規</a>
   {% else %}
-    <div hx-post="/order/{{ session_id }}" hx-target="#order-session" class="basis-1/4 text-xl text-center">確定</div>
+    <div
+      hx-post="/orders/{{ session_id }}"
+      hx-target="#order-session"
+      class="basis-1/4 text-xl text-center cursor-pointer"
+    >確定</div>
   {% endif %}
 </div>

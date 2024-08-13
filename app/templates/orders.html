@@ -5,7 +5,7 @@
     <main class="w-4/6 h-full grid grid-cols-4 gap-3 py-2 pl-16 pr-10 place-items-center overflow-y-auto">
       {% for product in products %}
         <figure
-          hx-post="/order/{{ session_id }}/item?product_id={{ product.product_id }}"
+          hx-post="/orders/{{ session_id }}/item?product_id={{ product.product_id }}"
           hx-target="#order-session"
           class="size-full flex flex-col place-content-center border-4 rounded-md"
         >
@@ -18,8 +18,12 @@
     <aside class="w-2/6 h-full flex flex-col px-2 py-4">
       <div class="h-1/6 flex flex-row items-center content-stretch text-xl">
         <div class="basis-1/4 text-left font-bold pl-4">注文一覧</div>
-        <div class="basis-1/4 text-center">保留</div>
-        <div hx-delete="/order/{{ session_id }}" hx-target="#order-session" class="basis-1/4 text-center text-red-600">全消去</div>
+        <div class="basis-1/4 text-center cursor-pointer">保留</div>
+        <div
+          hx-delete="/orders/{{ session_id }}"
+          hx-target="#order-session"
+          class="basis-1/4 text-center text-red-600 cursor-pointer"
+        >全消去</div>
         <div class="basis-1/4 text-center text-sm">
           <a href="/">ホームに戻る</a>
         </div>
