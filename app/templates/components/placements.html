@@ -1,0 +1,42 @@
+{% for placement in placements %}
+  <div
+    id="placement-{{ placement.placement_id }}"
+    class="size-full h-56 flex flex-col gap-y-2 border-2 border-gray-300 rounded-lg p-2"
+  >
+    <div class="width-full flex mx-1 space-x-4">
+      <h2 class="grow text-2xl">#{{ placement.placement_id }}</h2>
+      {% if canceled == false %}
+        <button
+          hx-delete="/placements/{{ placement.placement_id }}"
+          hx-confirm="確定注文 #{{ placement.placement_id }} をキャンセルしますか？"
+          hx-target="#placement-{{ placement.placement_id }}"
+          hx-swap="delete"
+        >キャンセル</button>
+      {% endif %}
+      {% if completed == false %}
+        <button
+          hx-post="/placements/{{ placement.placement_id }}"
+          {% if canceled %}
+            hx-confirm="キャンセルされた注文を完了しますか？"
+          {% endif %}
+          hx-target="#placement-{{ placement.placement_id }}"
+          hx-swap="delete"
+        >完了</button>
+      {% endif %}
+    </div>
+    <ul class="flex-grow overflow-y-auto">
+      {% for product in placement.products %}
+        {% with product__price = '¥0' %}
+        <li class="flex flex-row justify-between items-end gap-x-2">
+          <span class="break-words">{{ product.name }}</span>
+          <span class="whitespace-nowrap">{{ product__price }}（仮） x {{ product.count }}</span>
+        </li>
+        {% endwith %}
+      {% endfor %}
+    </ul>
+    <p class="flex flex-row justify-between">
+      <span class="break-words">合計金額</span>
+      <span class="whitespace-nowrap">{{ placement.total_price }}（仮）</span>
+    </p>
+  </div>
+{% endfor %}

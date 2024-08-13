@@ -11,7 +11,7 @@ from .db import (
     startup_and_shutdown_db,
 )
 from .env import DEBUG
-from .routers import order
+from .routers import order, placements
 from .templates import templates
 
 
@@ -30,13 +30,12 @@ app = FastAPI(debug=DEBUG, lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.include_router(order.router)
+app.include_router(placements.router)
 
 
 @app.get("/", response_class=HTMLResponse)
 async def get_root(request: Request):
-    return templates.TemplateResponse(
-        "hello.html", {"request": request, "name": "world"}
-    )
+    return templates.TemplateResponse(request, "index.html")
 
 
 if DEBUG:
@@ -53,7 +52,7 @@ if DEBUG:
     @app.get("/test/placed_order_sessions/{placement_id}", response_class=HTMLResponse)
     async def test_placed_order_sessions(request: Request, placement_id: int):
         order_items = await PlacedOrderTable.by_placement_id(placement_id)
-        # NOTE: this is a performance nightmare; should use a proper SQl stmt
+        # NOTE: this is a performance nightmare; should use a proper SQL stmt
         idx_item_pairs = [
             (idx, await ProductTable.by_product_id(item.product_id))
             for idx, item in enumerate(order_items)

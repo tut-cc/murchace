@@ -1,4 +1,4 @@
-<ul id="order-list" class="h-4/5 text-lg divide-y-4 overflow-y-scroll">
+<ul id="order-list" class="h-4/5 text-lg divide-y-4 overflow-y-auto">
   {% for index, product in idx_item_pairs %}
     <li id="item-{{ index }}" class="flex p-4">
       {# <img class="h-3/4 mx-auto" src={{ url_for('static', path=product.filename) }} alt={{ product.name }} /> #}
@@ -10,15 +10,12 @@
         <button
           hx-delete="/order/{{ session_id }}/item/{{ index }}"
           hx-target="#item-{{ index }}"
-          hx-swap="outerHTML"
+          hx-swap="delete"
           class="font-bold text-red-600 bg-gray-200 px-2 rounded"
         >X</button>
       {% endif %}
     </li>
   {% endfor %}
-  {# <li>{ products[0].name }: 1,000,000本</li> #}
-  {# <li>{ products[1].name }: 2,000,000本</li> #}
-  {# <li>{ products[2].name }: 666本</li> #}
 </ul>
 <div id="place-order" class="h-1/5 flex flex-row items-center">
   <div class="basis-2/4">{{ placement_status }}</div>

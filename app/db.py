@@ -53,46 +53,43 @@ class ProductTable(Table):
             # id: int32, name: string, filename: string
             products: dict[int, dict[str, str]] = {
                 # Coffee
-                1: {"name": "ブレンドコーヒー", "filename": "/coffee01_blend.png"},
-                2: {"name": "アメリカンコーヒー", "filename": "/coffee02_american.png"},
-                3: {"name": "カフェオレコーヒー", "filename": "/coffee03_cafeole.png"},
+                1: {"name": "ブレンドコーヒー", "filename": "coffee01_blend.png"},
+                2: {"name": "アメリカンコーヒー", "filename": "coffee02_american.png"},
+                3: {"name": "カフェオレコーヒー", "filename": "coffee03_cafeole.png"},
                 4: {
                     "name": "ブレンドブラックコーヒー",
-                    "filename": "/coffee04_blend_black.png",
+                    "filename": "coffee04_blend_black.png",
                 },
                 5: {
                     "name": "カプチーノコーヒー",
-                    "filename": "/coffee05_cappuccino.png",
+                    "filename": "coffee05_cappuccino.png",
                 },
-                6: {
-                    "name": "カフェラテコーヒー",
-                    "filename": "/coffee06_cafelatte.png",
-                },
+                6: {"name": "カフェラテコーヒー", "filename": "coffee06_cafelatte.png"},
                 7: {
                     "name": "マキアートコーヒー",
-                    "filename": "/coffee07_cafe_macchiato.png",
+                    "filename": "coffee07_cafe_macchiato.png",
                 },
-                8: {"name": "モカコーヒー", "filename": "/coffee08_cafe_mocha.png"},
+                8: {"name": "モカコーヒー", "filename": "coffee08_cafe_mocha.png"},
                 9: {
                     "name": "カラメルコーヒー",
-                    "filename": "/coffee09_caramel_macchiato.png",
+                    "filename": "coffee09_caramel_macchiato.png",
                 },
-                10: {"name": "アイスコーヒー", "filename": "/coffee10_iced_coffee.png"},
+                10: {"name": "アイスコーヒー", "filename": "coffee10_iced_coffee.png"},
                 11: {
                     "name": "アイスミルクコーヒー",
-                    "filename": "/coffee11_iced_milk_coffee.png",
+                    "filename": "coffee11_iced_milk_coffee.png",
                 },
                 12: {
                     "name": "エスプレッソコーヒー",
-                    "filename": "/coffee12_espresso.png",
+                    "filename": "coffee12_espresso.png",
                 },
                 # Tea
-                13: {"name": "レモンティー", "filename": "/tea_lemon.png"},
-                14: {"name": "ミルクティー", "filename": "/tea_milk.png"},
-                15: {"name": "ストレイトティー", "filename": "/tea_straight.png"},
+                13: {"name": "レモンティー", "filename": "tea_lemon.png"},
+                14: {"name": "ミルクティー", "filename": "tea_milk.png"},
+                15: {"name": "ストレイトティー", "filename": "tea_straight.png"},
                 # Others
-                16: {"name": "シュガー", "filename": "/cooking_sugar_stick.png"},
-                17: {"name": "ミルクシロップ", "filename": "/sweets_milk_cream.png"},
+                16: {"name": "シュガー", "filename": "cooking_sugar_stick.png"},
+                17: {"name": "ミルクシロップ", "filename": "sweets_milk_cream.png"},
             }
             await cls.insert_many(
                 [
@@ -161,6 +158,89 @@ class PlacedOrderTable(Table):
         return [PlacedOrder(**dict(row)) for row in await db.fetch_all(query)]
 
     @classmethod
+    async def select_placements(
+        cls,
+        canceled: bool,
+        completed: bool,
+    ) -> list[dict[str, int | list[dict[str, int | str]] | str]]:
+        # list of products with each row containing the number of ordered items
+        query = f"""
+            SELECT
+                {cls.TABLE.c.placement_id},
+                {cls.TABLE.c.product_id},
+                COUNT({cls.TABLE.c.product_id}) AS count,
+                {ProductTable.TABLE.c.name},
+                {ProductTable.TABLE.c.filename}
+            FROM {cls.TABLE}
+            JOIN {ProductTable.TABLE} ON {cls.TABLE.c.product_id} = {ProductTable.TABLE.c.product_id}
+            JOIN {PlacementStatusTable.TABLE} ON {cls.TABLE.c.placement_id} = {PlacementStatusTable.TABLE.c.placement_id}
+            WHERE {PlacementStatusTable.TABLE.c.canceled} = {int(canceled)} AND
+                  {PlacementStatusTable.TABLE.c.completed} = {int(completed)}
+            GROUP BY {cls.TABLE.c.placement_id}, {cls.TABLE.c.product_id}
+            ORDER BY {cls.TABLE.c.placement_id} ASC, {cls.TABLE.c.product_id} ASC
+        """
+        # JOIN {PlacementStatusTable.TABLE.name}
+        placements: list[dict[str, int | list[dict[str, int | str]] | str]] = []
+        prev_placement_id = -1
+        prev_products: list[dict[str, int | str]] = []
+        total_price = 0
+        for row in await db.fetch_all(query):
+            placement_id = row["placement_id"]
+            if placement_id != prev_placement_id:
+                if prev_placement_id != -1:
+                    placements.append(
+                        {
+                            "placement_id": prev_placement_id,
+                            "products": prev_products,
+                            "total_price": f"¥{total_price}",
+                        }
+                    )
+                prev_placement_id = placement_id
+                prev_products = []
+                total_price = 0
+            # TODO: Add this line when the price field is implemented
+            # price = row["price"]
+            prev_products.append(
+                {
+                    "product_id": row["product_id"],
+                    "count": row["count"],
+                    "name": row["name"],
+                    "filename": row["filename"],
+                    # TODO: Add this line when the price field is implemented
+                    # "price": price,
+                }
+            )
+            # TODO: Add this line when the price field is implemented
+            # total_price += price
+        placements.append(
+            {
+                "placement_id": prev_placement_id,
+                "products": prev_products,
+                "total_price": f"¥{total_price}",
+            }
+        )
+        return placements
+
+    # NOTE:get placements by incoming order in datetime
+    #
+    # @classmethod
+    # async def select_placements_by_incoming_order(cls) -> dict[int, list[dict]]:
+    #     query = f"""
+    #         SELECT
+    #             {cls.TABLE.c.placement_id},
+    #             {cls.TABLE.c.product_id},
+    #             {ProductTable.TABLE.c.name},
+    #             {ProductTable.TABLE.c.filename}
+    #         FROM {cls.TABLE}
+    #         JOIN {ProductTable.TABLE} ON {cls.TABLE.c.product_id} = {ProductTable.TABLE.c.product_id}
+    #         ORDER BY {cls.TABLE.c.placement_id} ASC, {cls.TABLE.c.item_no} ASC;
+    #     """
+    #     placements: dict[int, list[dict]] = {}
+    #     for row in await db.fetch_all(query):
+    #         print(dict(row))
+    #     return placements
+
+    @classmethod
     async def issue(cls, product_ids: list[int]) -> int:
         placement_id = (cls.last_placement_id or 0) + 1
         await db.execute_many(
@@ -174,7 +254,6 @@ class PlacedOrderTable(Table):
         return placement_id
 
     # NOTE: this function needs authorization since it destroys all receipts
-    #
     @classmethod
     async def clear(cls) -> None:
         await db.execute(cls.TABLE.delete())
@@ -184,7 +263,7 @@ class PlacedOrderTable(Table):
 class PlacementStatus(BaseModel):
     placement_id: int
     canceled: bool
-    done: bool
+    completed: bool
 
 
 class PlacementStatusTable(Table):
@@ -197,7 +276,7 @@ class PlacementStatusTable(Table):
             "canceled", sqlalchemy.Boolean, server_default=sqlalchemy.text("0")
         ),
         sqlalchemy.Column(
-            "done", sqlalchemy.Boolean, server_default=sqlalchemy.text("0")
+            "completed", sqlalchemy.Boolean, server_default=sqlalchemy.text("0")
         ),
     )
 
@@ -210,21 +289,30 @@ class PlacementStatusTable(Table):
         await db.execute(cls.TABLE.insert(), {"placement_id": placement_id})
 
     @classmethod
-    async def update(cls, placement_id: int, canceled: bool, done: bool):
+    async def update(cls, placement_id: int, canceled: bool, completed: bool):
         query = cls.TABLE.update().where(cls.TABLE.c.placement_id == placement_id)
-        await db.execute(query, {"canceled": canceled, "done": done})
+        await db.execute(query, {"canceled": canceled, "completed": completed})
 
     @classmethod
     async def cancel(cls, placement_id: int):
-        await cls.update(placement_id, canceled=True, done=False)
+        await cls.update(placement_id, canceled=True, completed=False)
 
     @classmethod
-    async def done(cls, placement_id: int):
-        await cls.update(placement_id, canceled=False, done=True)
+    async def complete(cls, placement_id: int):
+        await cls.update(placement_id, canceled=False, completed=True)
 
     @classmethod
     async def reset(cls, placement_id: int):
-        await cls.update(placement_id, canceled=False, done=False)
+        await cls.update(placement_id, canceled=False, completed=False)
+
+    @classmethod
+    async def by_placement_id(cls, placement_id: int) -> PlacementStatus | None:
+        query = cls.TABLE.select().where(cls.TABLE.c.placement_id == placement_id)
+        return (
+            None
+            if (row := await db.fetch_one(query)) is None
+            else PlacementStatus(**dict(row))
+        )
 
     @classmethod
     async def select_all(cls) -> list[PlacementStatus]:
