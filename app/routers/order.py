@@ -40,9 +40,9 @@ async def get_order_session(request: Request, session_id: int):
         (idx, item) for idx, item in enumerate(order_items) if item is not None
     ]
     return templates.TemplateResponse(
+        request,
         "order.html",
         {
-            "request": request,
             "products": await ProductTable.select_all(),
             "session_id": session_id,
             "idx_item_pairs": idx_item_pairs,
@@ -61,9 +61,9 @@ async def place_order(request: Request, session_id: int):
 
     if len(idx_item_pairs) == 0:
         return templates.TemplateResponse(
+            request,
             "components/order-session.html",
             {
-                "request": request,
                 "session_id": session_id,
                 "idx_item_pairs": [],
                 "placement_status": "Error: there is no item",
@@ -79,9 +79,9 @@ async def place_order(request: Request, session_id: int):
     await PlacementStatusTable.insert(placement_id)
     placement_status = f"発行注文番号: {placement_id}"
     return templates.TemplateResponse(
+        request,
         "components/order-session.html",
         {
-            "request": request,
             "session_id": session_id,
             "idx_item_pairs": idx_item_pairs,
             "placement_status": placement_status,
@@ -98,7 +98,7 @@ async def add_order_item(
         raise HTTPException(status_code=404, detail=f"Product {product_id} not found")
     if (order_items := order_sessions.get(session_id)) is None:
         # NOTE: the branching below is a bit complicated so it might be changed in the future
-        if request.headers["HX-Request"] == "true":
+        if request.headers.get("HX-Request") == "true":
             # If it is a request from `hx-post`, respond with a new order session even when the `session_id` is not valid
             new_session_id = create_new_session()
             await add_order_item(request, new_session_id, product_id)
@@ -118,12 +118,9 @@ async def add_order_item(
         (idx, item) for idx, item in enumerate(order_items) if item is not None
     ]
     return templates.TemplateResponse(
+        request,
         "components/order-session.html",
-        {
-            "request": request,
-            "session_id": session_id,
-            "idx_item_pairs": idx_item_pairs,
-        },
+        {"session_id": session_id, "idx_item_pairs": idx_item_pairs},
     )
 
 
@@ -158,12 +155,9 @@ async def clear_order_items(request: Request, session_id: int) -> Response:
     order_items.clear()
 
     return templates.TemplateResponse(
+        request,
         "components/order-session.html",
-        {
-            "request": request,
-            "session_id": session_id,
-            "idx_item_pairs": [],
-        },
+        {"session_id": session_id, "idx_item_pairs": []},
     )
 
 
@@ -185,9 +179,7 @@ async def clear_order_items(request: Request, session_id: int) -> Response:
 #     deferred_order_lists[session_id] = order_items
 #     # TODO: respond with a message about the success of the deferral action
 #     # return templates.TemplateResponse(
+#     #     request,
 #     #     "components/item.html",
-#     #     {
-#     #         "request": request,
-#     #         "session_id": session_id,
-#     #     },
+#     #     {"session_id": session_id},
 #     # )
