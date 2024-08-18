@@ -212,13 +212,14 @@ class PlacedOrderTable(Table):
             )
             # TODO: Add this line when the price field is implemented
             # total_price += price
-        placements.append(
-            {
-                "placement_id": prev_placement_id,
-                "products": prev_products,
-                "total_price": f"¥{total_price}",
-            }
-        )
+        if prev_placement_id != -1:
+            placements.append(
+                {
+                    "placement_id": prev_placement_id,
+                    "products": prev_products,
+                    "total_price": f"¥{total_price}",
+                }
+            )
         return placements
 
     # NOTE:get placements by incoming order in datetime

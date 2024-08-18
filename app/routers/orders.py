@@ -1,4 +1,6 @@
-from fastapi import APIRouter, HTTPException, Request, Response, status
+from typing import Annotated
+
+from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse
 
 from ..db import PlacedOrderTable, PlacementStatusTable, Product, ProductTable
@@ -92,14 +94,17 @@ async def place_order(request: Request, session_id: int):
 
 @router.post("/orders/{session_id}/item")
 async def add_order_item(
-    request: Request, session_id: int, product_id: int
+    request: Request,
+    session_id: int,
+    product_id: int,
+    hx_request: Annotated[str | None, Header()] = None,
 ) -> Response:
     if (product := await ProductTable.by_product_id(product_id)) is None:
         raise HTTPException(status_code=404, detail=f"Product {product_id} not found")
     if (order_items := order_sessions.get(session_id)) is None:
         # NOTE: the branching below is a bit complicated so it might be changed in the future
-        if request.headers.get("HX-Request") == "true":
-            # If it is a request from `hx-post`, respond with a new order session even when the `session_id` is not valid
+        if hx_request == "true":
+            # If requested by `hx-post`, respond with a new order session even when the `session_id` is not valid
             new_session_id = create_new_session()
             await add_order_item(request, new_session_id, product_id)
             location = f"/orders/{new_session_id}"
@@ -137,18 +142,21 @@ async def delete_order_item(session_id: int, index: int):
 
 
 @router.delete("/orders/{session_id}")
-async def clear_order_items(request: Request, session_id: int) -> Response:
+async def clear_order_items(
+    request: Request,
+    session_id: int,
+    hx_request: Annotated[str | None, Header()] = None,
+) -> Response:
     if (order_items := order_sessions.get(session_id)) is None:
         # NOTE: the branching below is a bit complicated so it might be changed in the future
-        if request.headers.get("HX-Request") == "true":
-            # If it is a request from `hx-post`, respond with a new order session even when the `session_id` is not valid
+        if hx_request == "true":
+            # If requested by `hx-post`, respond with a new order session even when the `session_id` is not valid
             location = f"/orders/{create_new_session()}"
             return Response(
                 f"Session {session_id} not found; redirecting to a newly created order",
                 status_code=status.HTTP_200_OK,
                 headers={"location": location, "hx-redirect": location},
             )
-
         else:
             # otherwise report back that the `session_id` is not valid
             raise HTTPException(
@@ -169,7 +177,7 @@ async def clear_order_items(request: Request, session_id: int) -> Response:
 # deferred_order_lists: dict[int, list[Product | None]] = {}
 #
 #
-# @router.post("/deferal/", response_class=HTMLResponse)
+# @router.post("/deferred_orders/{session_id}", response_class=HTMLResponse)
 # async def post_order_defer_session(request: Request, session_id: int):
 #     if (order_items := order_sessions.get(session_id)) is None:
 #         raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
@@ -183,6 +191,6 @@ async def clear_order_items(request: Request, session_id: int) -> Response:
 #     # TODO: respond with a message about the success of the deferral action
 #     # return templates.TemplateResponse(
 #     #     request,
-#     #     "components/item.html",
+#     #     "components/order-session.html",
 #     #     {"session_id": session_id},
 #     # )
