@@ -1,14 +1,17 @@
 <html lang="ja">
   <head>
     <title>{{ title }}</title>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-    <script src={{ url_for('static', path='/htmx.min.js') }}></script>
-    {# TODO: Find a way to switch to minified css file when in production mode #}
-    <link rel="stylesheet" href={{ url_for('static', path='/styles.css') }}/>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+    {% if DEBUG %}
+      <script src={{ url_for('static', path='/htmx.js') }}></script>
+      <link rel="stylesheet" href={{ url_for('static', path='/styles.css') }}/>
+    {% else %}
+      <script src={{ url_for('static', path='/htmx.min.js') }}></script>
+      <link rel="stylesheet" href={{ url_for('static', path='/styles.min.css') }}/>
+    {% endif %}
   </head>
   <body>
-    {# @nav #}
     {% block inner %}
     {% endblock %}
   </body>
