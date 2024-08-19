@@ -26,17 +26,15 @@
     </div>
     <ul class="flex-grow overflow-y-auto">
       {% for product in placement.products %}
-        {% with product__price = '¥0' %}
         <li class="flex flex-row justify-between items-end gap-x-2">
           <span class="break-words">{{ product.name }}</span>
-          <span class="whitespace-nowrap">{{ product__price }}（仮） x {{ product.count }}</span>
+          <span class="whitespace-nowrap">{{ product.price }} x {{ product.count }}</span>
         </li>
-        {% endwith %}
       {% endfor %}
     </ul>
     <p class="flex flex-row justify-between">
       <span class="break-words">合計金額</span>
-      <span class="whitespace-nowrap">{{ placement.total_price }}（仮）</span>
+      <span class="whitespace-nowrap">{{ placement.total_price }}</span>
     </p>
   </div>
 {% endfor %}

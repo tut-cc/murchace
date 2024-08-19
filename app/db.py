@@ -26,12 +26,19 @@ class Table(ABC):
         return await db.fetch_one(cls.TABLE.select()) is None
 
 
-# TODO: add price field
-# TODO: add no. stock field
 class Product(BaseModel):
     product_id: int
     name: str
     filename: str
+    price: int
+    no_stock: int | None
+
+    def price_str(self) -> str:
+        return self.to_price_str(self.price)
+
+    @staticmethod
+    def to_price_str(price: int) -> str:
+        return f"¥{price}"
 
 
 class ProductTable(Table):
@@ -42,6 +49,8 @@ class ProductTable(Table):
         sqlalchemy.Column("product_id", sqlalchemy.Integer),
         sqlalchemy.Column("name", sqlalchemy.String(length=40)),
         sqlalchemy.Column("filename", sqlalchemy.String(length=100)),
+        sqlalchemy.Column("price", sqlalchemy.Integer),
+        sqlalchemy.Column("no_stock", sqlalchemy.Integer, nullable=True),
     )
 
     @classmethod
@@ -50,46 +59,112 @@ class ProductTable(Table):
 
         if await cls.empty():
             # TODO: read this data from CSV or something
-            # id: int32, name: string, filename: string
-            products: dict[int, dict[str, str]] = {
+            products: dict[int, dict[str, str | int | None]] = {
                 # Coffee
-                1: {"name": "ブレンドコーヒー", "filename": "coffee01_blend.png"},
-                2: {"name": "アメリカンコーヒー", "filename": "coffee02_american.png"},
-                3: {"name": "カフェオレコーヒー", "filename": "coffee03_cafeole.png"},
+                1: {
+                    "name": "ブレンドコーヒー",
+                    "filename": "coffee01_blend.png",
+                    "price": 150,
+                    "no_stock": 100,
+                },
+                2: {
+                    "name": "アメリカンコーヒー",
+                    "filename": "coffee02_american.png",
+                    "price": 150,
+                    "no_stock": 100,
+                },
+                3: {
+                    "name": "カフェオレコーヒー",
+                    "filename": "coffee03_cafeole.png",
+                    "price": 150,
+                    "no_stock": 100,
+                },
                 4: {
                     "name": "ブレンドブラックコーヒー",
                     "filename": "coffee04_blend_black.png",
+                    "price": 150,
+                    "no_stock": 100,
                 },
                 5: {
                     "name": "カプチーノコーヒー",
                     "filename": "coffee05_cappuccino.png",
+                    "price": 150,
+                    "no_stock": 100,
                 },
-                6: {"name": "カフェラテコーヒー", "filename": "coffee06_cafelatte.png"},
+                6: {
+                    "name": "カフェラテコーヒー",
+                    "filename": "coffee06_cafelatte.png",
+                    "price": 150,
+                    "no_stock": 100,
+                },
                 7: {
                     "name": "マキアートコーヒー",
                     "filename": "coffee07_cafe_macchiato.png",
+                    "price": 150,
+                    "no_stock": 100,
                 },
-                8: {"name": "モカコーヒー", "filename": "coffee08_cafe_mocha.png"},
+                8: {
+                    "name": "モカコーヒー",
+                    "filename": "coffee08_cafe_mocha.png",
+                    "price": 150,
+                    "no_stock": 100,
+                },
                 9: {
                     "name": "カラメルコーヒー",
                     "filename": "coffee09_caramel_macchiato.png",
+                    "price": 150,
+                    "no_stock": 100,
                 },
-                10: {"name": "アイスコーヒー", "filename": "coffee10_iced_coffee.png"},
+                10: {
+                    "name": "アイスコーヒー",
+                    "filename": "coffee10_iced_coffee.png",
+                    "price": 150,
+                    "no_stock": 100,
+                },
                 11: {
                     "name": "アイスミルクコーヒー",
                     "filename": "coffee11_iced_milk_coffee.png",
+                    "price": 150,
+                    "no_stock": 100,
                 },
                 12: {
                     "name": "エスプレッソコーヒー",
                     "filename": "coffee12_espresso.png",
+                    "price": 150,
+                    "no_stock": 100,
                 },
                 # Tea
-                13: {"name": "レモンティー", "filename": "tea_lemon.png"},
-                14: {"name": "ミルクティー", "filename": "tea_milk.png"},
-                15: {"name": "ストレイトティー", "filename": "tea_straight.png"},
+                13: {
+                    "name": "レモンティー",
+                    "filename": "tea_lemon.png",
+                    "price": 100,
+                    "no_stock": 100,
+                },
+                14: {
+                    "name": "ミルクティー",
+                    "filename": "tea_milk.png",
+                    "price": 100,
+                    "no_stock": 100,
+                },
+                15: {
+                    "name": "ストレイトティー",
+                    "filename": "tea_straight.png",
+                    "price": 100,
+                    "no_stock": 100,
+                },
                 # Others
-                16: {"name": "シュガー", "filename": "cooking_sugar_stick.png"},
-                17: {"name": "ミルクシロップ", "filename": "sweets_milk_cream.png"},
+                16: {
+                    "name": "シュガー",
+                    "filename": "cooking_sugar_stick.png",
+                    "price": 0,
+                    "no_stock": None,
+                },
+                17: {
+                    "name": "ミルクシロップ",
+                    "filename": "sweets_milk_cream.png",
+                    "price": 0,
+                    "no_stock": None,
+                },
             }
             await cls.insert_many(
                 [
@@ -170,7 +245,8 @@ class PlacedOrderTable(Table):
                 {cls.TABLE.c.product_id},
                 COUNT({cls.TABLE.c.product_id}) AS count,
                 {ProductTable.TABLE.c.name},
-                {ProductTable.TABLE.c.filename}
+                {ProductTable.TABLE.c.filename},
+                {ProductTable.TABLE.c.price}
             FROM {cls.TABLE}
             JOIN {ProductTable.TABLE} ON {cls.TABLE.c.product_id} = {ProductTable.TABLE.c.product_id}
             JOIN {PlacementStatusTable.TABLE} ON {cls.TABLE.c.placement_id} = {PlacementStatusTable.TABLE.c.placement_id}
@@ -192,32 +268,29 @@ class PlacedOrderTable(Table):
                         {
                             "placement_id": prev_placement_id,
                             "products": prev_products,
-                            "total_price": f"¥{total_price}",
+                            "total_price": Product.to_price_str(total_price),
                         }
                     )
                 prev_placement_id = placement_id
                 prev_products = []
                 total_price = 0
-            # TODO: Add this line when the price field is implemented
-            # price = row["price"]
+            count, price = row["count"], row["price"]
             prev_products.append(
                 {
                     "product_id": row["product_id"],
-                    "count": row["count"],
+                    "count": count,
                     "name": row["name"],
                     "filename": row["filename"],
-                    # TODO: Add this line when the price field is implemented
-                    # "price": price,
+                    "price": Product.to_price_str(price),
                 }
             )
-            # TODO: Add this line when the price field is implemented
-            # total_price += price
+            total_price += count * price
         if prev_placement_id != -1:
             placements.append(
                 {
                     "placement_id": prev_placement_id,
                     "products": prev_products,
-                    "total_price": f"¥{total_price}",
+                    "total_price": Product.to_price_str(total_price),
                 }
             )
         return placements

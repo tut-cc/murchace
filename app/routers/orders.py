@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Header, HTTPException, Request, Response, status
+from fastapi import APIRouter, Form, Header, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse
 
 from ..db import PlacedOrderTable, PlacementStatusTable, Product, ProductTable
@@ -22,6 +22,14 @@ def create_new_session() -> int:
     return new_session_id
 
 
+def compute_total_price(order_items: list[Product | None]) -> str:
+    total_price = 0
+    for item in order_items:
+        if item is not None:
+            total_price += item.price
+    return Product.to_price_str(total_price)
+
+
 @router.post("/orders", response_class=Response)
 async def create_new_order():
     location = f"/orders/{create_new_session()}"
@@ -38,16 +46,15 @@ async def get_order_session(request: Request, session_id: int):
     if order_items is None:
         raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
 
-    idx_item_pairs = [
-        (idx, item) for idx, item in enumerate(order_items) if item is not None
-    ]
+    total_price = compute_total_price(order_items)
     return templates.TemplateResponse(
         request,
         "orders.html",
         {
             "products": await ProductTable.select_all(),
             "session_id": session_id,
-            "idx_item_pairs": idx_item_pairs,
+            "order_items": order_items,
+            "total_price": total_price,
         },
     )
 
@@ -57,37 +64,30 @@ async def place_order(request: Request, session_id: int):
     if (order_items := order_sessions.get(session_id)) is None:
         raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
 
-    idx_item_pairs = [
-        (idx, item) for idx, item in enumerate(order_items) if item is not None
-    ]
+    if len(list(filter(lambda x: x is not None, order_items))) == 0:
+        total_price = Product.to_price_str(0)
+        placement_status = "エラー：商品が選択されていません"
+        order_frozen = False
+    else:
+        order_sessions.pop(session_id)
 
-    if len(idx_item_pairs) == 0:
-        return templates.TemplateResponse(
-            request,
-            "components/order-session.html",
-            {
-                "session_id": session_id,
-                "idx_item_pairs": [],
-                "placement_status": "Error: there is no item",
-            },
-        )
+        total_price = compute_total_price(order_items)
+        product_ids = [item.product_id for item in order_items if item is not None]
+        placement_id = await PlacedOrderTable.issue(product_ids)
+        # TODO: add a branch for out of stock error
+        await PlacementStatusTable.insert(placement_id)
+        placement_status = f"注文番号: {placement_id}"
+        order_frozen = True
 
-    order_sessions.pop(session_id)
-
-    placement_id = await PlacedOrderTable.issue(
-        [item.product_id for item in order_items if item is not None]
-    )
-    # TODO: add a branch for out of stock error
-    await PlacementStatusTable.insert(placement_id)
-    placement_status = f"発行注文番号: {placement_id}"
     return templates.TemplateResponse(
         request,
         "components/order-session.html",
         {
             "session_id": session_id,
-            "idx_item_pairs": idx_item_pairs,
+            "order_items": order_items,
+            "total_price": total_price,
             "placement_status": placement_status,
-            "order_frozen": True,
+            "order_frozen": order_frozen,
         },
     )
 
@@ -96,7 +96,7 @@ async def place_order(request: Request, session_id: int):
 async def add_order_item(
     request: Request,
     session_id: int,
-    product_id: int,
+    product_id: Annotated[int, Form()],
     hx_request: Annotated[str | None, Header()] = None,
 ) -> Response:
     if (product := await ProductTable.by_product_id(product_id)) is None:
@@ -120,25 +120,34 @@ async def add_order_item(
             )
 
     order_items.append(product)
-    idx_item_pairs = [
-        (idx, item) for idx, item in enumerate(order_items) if item is not None
-    ]
     return templates.TemplateResponse(
         request,
         "components/order-session.html",
-        {"session_id": session_id, "idx_item_pairs": idx_item_pairs},
+        {
+            "session_id": session_id,
+            "order_items": order_items,
+            "total_price": compute_total_price(order_items),
+        },
     )
 
 
 @router.delete("/orders/{session_id}/item/{index}", response_class=HTMLResponse)
-async def delete_order_item(session_id: int, index: int):
+async def delete_order_item(request: Request, session_id: int, index: int):
     if (order_items := order_sessions.get(session_id)) is None:
         raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
     if order_items[index] is None:
         raise HTTPException(status_code=404, detail=f"Order item {index} not found")
-    else:
-        order_items[index] = None
-    return
+
+    order_items[index] = None
+    return templates.TemplateResponse(
+        request,
+        "components/order-session.html",
+        {
+            "session_id": session_id,
+            "order_items": order_items,
+            "total_price": compute_total_price(order_items),
+        },
+    )
 
 
 @router.delete("/orders/{session_id}")
@@ -168,7 +177,11 @@ async def clear_order_items(
     return templates.TemplateResponse(
         request,
         "components/order-session.html",
-        {"session_id": session_id, "idx_item_pairs": []},
+        {
+            "session_id": session_id,
+            "order_items": [],
+            "total_price": Product.to_price_str(0),
+        },
     )
 
 
@@ -189,8 +202,9 @@ async def clear_order_items(
 #     order_sessions.pop(session_id)
 #     deferred_order_lists[session_id] = order_items
 #     # TODO: respond with a message about the success of the deferral action
+#     # placement_status = "注文を保留しました"
 #     # return templates.TemplateResponse(
 #     #     request,
 #     #     "components/order-session.html",
-#     #     {"session_id": session_id},
+#     #     {"session_id": session_id, "order_items": [], "total_price": Product.to_price_str(0), "placement_status": placement_status},
 #     # )
