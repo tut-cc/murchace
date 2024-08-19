@@ -1,34 +1,30 @@
 <ul id="order-list" class="h-4/5 text-lg divide-y-4 overflow-y-auto">
-  {% for index, product in idx_item_pairs %}
-    <li id="item-{{ index }}" class="flex p-4">
-      {# <img class="h-3/4 mx-auto" src={{ url_for('static', path=product.filename) }} alt={{ product.name }} /> #}
-      <p class="flex-1">{{ product.name }}</p>
-      {% with product__price = '¥100' %}
-        <div>{{ product__price }}（仮）</div>
-      {% endwith %}
-      {% if not order_frozen %}
-        <button
-          hx-delete="/orders/{{ session_id }}/item/{{ index }}"
-          hx-target="#item-{{ index }}"
-          hx-swap="delete"
-          class="font-bold text-red-600 bg-gray-200 px-2 rounded"
-        >X</button>
-      {% endif %}
-    </li>
+  {% for product in order_items %}
+    {% if product is not none %}
+      <li id="item-{{ loop.index0 }}" class="flex p-4 gap-3">
+        <p class="flex-1">{{ product.name }}</p>
+        <div>{{ product.price_str() }}</div>
+        {% if order_frozen is not defined or order_frozen == false %}
+          <button
+            hx-delete="/orders/{{ session_id }}/item/{{ loop.index0 }}"
+            hx-target="#order-session"
+            class="font-bold text-red-600 bg-gray-200 px-2 rounded"
+          >X</button>
+        {% endif %}
+      </li>
+    {% endif %}
   {% endfor %}
 </ul>
-<div id="place-order" class="h-1/5 flex flex-row items-center">
-  <div class="basis-2/4">{{ placement_status }}</div>
-  {% with price_str = '¥1,000' %}
-    <div class="basis-1/4">{{ price_str }}（仮）</div>
-  {% endwith %}
-  {% if order_frozen %}
-    <div hx-post="/orders" class="basis-1/4 text-xl text-center cursor-pointer">新規</a>
+<div class="h-1/5 flex flex-row items-center">
+  <div class="basis-2/4">{{ placement_status | default('') }}</div>
+  <div class="basis-1/4 text-center">{{ total_price }}</div>
+  {% if order_frozen is defined and order_frozen == true %}
+    <button hx-post="/orders" class="basis-1/4 text-xl text-center">新規</button>
   {% else %}
-    <div
+    <button
       hx-post="/orders/{{ session_id }}"
       hx-target="#order-session"
-      class="basis-1/4 text-xl text-center cursor-pointer"
-    >確定</div>
+      class="basis-1/4 text-xl text-center"
+    >確定</button>
   {% endif %}
 </div>

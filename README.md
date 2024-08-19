@@ -1,4 +1,12 @@
-# order-notifier
+# murchace
+
+このREADMEは、主に開発環境構築と実行方法について説明しています。
+詳細なドキュメントは、 [docs](/docs) ディレクトリに置かれています。
+
+## プロジェクト名について
+
+purchase /ˈpɜː.t͡ʃəs/ 「購入する」、merchandise /ˈmɜːt͡ʃəndaɪs/ 「商品」を組み合わせ、接尾語に ace /eɪs/ 「秀でている」を充てた造語です。
+マーチェス /ˈmɜːt͡ʃəs/ もしくはマーチェイス /ˈmɜːt͡ʃeɪs/ と読みます。
 
 ## 開発環境のインストール
 
@@ -30,12 +38,8 @@ $ rye run tailwind-watch
 別のttyで、開発Webサーバーを立ち上げる:
 
 ```
-$ source .venv/bin/activate
 $ rye run watch
 ```
-
-- /docs でAPIの仕様が見れて、リクエストを投げることもできる
-- /orders が（今の所）メインの画面
 
 #### VSCodeの拡張機能一覧
 
@@ -54,21 +58,3 @@ Vim、Emacs、他のエディタでの環境構築については説明を省き
 $ rye run tailwind-build
 $ rye run serve
 ```
-
-## 参考リンク
-
-htmx
-
-- https://htmx.org/docs/
-
-tailwindcss
-
-- https://tailwindcss.com/docs/utility-first
-
-Python
-
-- https://fastapi.tiangolo.com/
-- https://mypy.readthedocs.io/en/latest/cheat_sheet_py3.html
-- https://www.encode.io/databases/
-- https://docs.sqlalchemy.org/en/20/core/
-- https://jinja.palletsprojects.com/en/3.1.x/
