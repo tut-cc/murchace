@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Form, Header, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse
 
-from ..db import PlacedOrderTable, PlacementStatusTable, Product, ProductTable
+from ..db import PlacedItemTable, PlacementTable, Product, ProductTable
 from ..templates import templates
 
 router = APIRouter()
@@ -73,9 +73,9 @@ async def place_order(request: Request, session_id: int):
 
         total_price = compute_total_price(order_items)
         product_ids = [item.product_id for item in order_items if item is not None]
-        placement_id = await PlacedOrderTable.issue(product_ids)
+        placement_id = await PlacedItemTable.issue(product_ids)
         # TODO: add a branch for out of stock error
-        await PlacementStatusTable.insert(placement_id)
+        await PlacementTable.insert(placement_id)
         placement_status = f"注文番号: {placement_id}"
         order_frozen = True
 
