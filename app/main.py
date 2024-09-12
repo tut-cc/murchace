@@ -5,13 +5,13 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from .db import (
-    PlacedOrderTable,
-    PlacementStatusTable,
+    PlacedItemTable,
+    PlacementTable,
     ProductTable,
     startup_and_shutdown_db,
 )
 from .env import DEBUG
-from .routers import orders, placements
+from .routers import ordered_products, orders, placements
 from .templates import templates
 
 
@@ -29,6 +29,7 @@ app = FastAPI(debug=DEBUG, lifespan=lifespan)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+app.include_router(ordered_products.router)
 app.include_router(orders.router)
 app.include_router(placements.router)
 
@@ -45,6 +46,6 @@ if DEBUG:
         return {
             "product_table": await ProductTable.select_all(),
             "order_sessions": orders.order_sessions,
-            "placed_order_table": await PlacedOrderTable.select_all(),
-            "placement_status_table": await PlacementStatusTable.select_all(),
+            "placed_item_table": await PlacedItemTable.select_all(),
+            "placement_table": await PlacementTable.select_all(),
         }

@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Header, HTTPException, Request
 
-from ..db import PlacedOrderTable, PlacementStatusTable
+from ..db import PlacementTable, select_placements
 from ..templates import templates
 
 router = APIRouter()
@@ -15,7 +15,7 @@ async def get_placements(
     completed: bool = False,
     hx_request: Annotated[str | None, Header()] = None,
 ):
-    placements = await PlacedOrderTable.select_placements(canceled, completed)
+    placements = await select_placements(canceled, completed)
     return templates.TemplateResponse(
         request,
         "components/placements.html" if hx_request == "true" else "placements.html",
@@ -25,7 +25,7 @@ async def get_placements(
 
 @router.get("/placements/{placement_id}")
 async def get_placement(request: Request, placement_id: int):
-    if (placement := await PlacementStatusTable.by_placement_id(placement_id)) is None:
+    if (placement := await PlacementTable.by_placement_id(placement_id)) is None:
         raise HTTPException(404, f"Placement {placement_id} not found")
     return templates.TemplateResponse(
         request, "components/placement.html", {"placement": placement}
@@ -34,9 +34,9 @@ async def get_placement(request: Request, placement_id: int):
 
 @router.post("/placements/{placement_id}")
 async def complete_placement(placement_id: int):
-    await PlacementStatusTable.complete(placement_id)
+    await PlacementTable.complete(placement_id)
 
 
 @router.delete("/placements/{placement_id}")
 async def cancel_placement(placement_id: int):
-    await PlacementStatusTable.cancel(placement_id)
+    await PlacementTable.cancel(placement_id)
