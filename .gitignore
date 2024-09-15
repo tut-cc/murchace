@@ -9,5 +9,5 @@ wheels/
 # venv
 .venv
 
-/app.db
+/db/app.db
 /tailwindcss*
