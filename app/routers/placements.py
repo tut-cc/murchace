@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Header, HTTPException, Request
 
-from ..db import PlacementTable, select_placements
+from ..store import PlacementTable, select_placements
 from ..templates import templates
 
 router = APIRouter()

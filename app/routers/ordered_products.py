@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request
 
-from ..db import SortOrderedProductsBy as SortBy
-from ..db import select_ordered_products
+from ..store import SortOrderedProductsBy as SortBy
+from ..store import select_ordered_products
 from ..templates import templates
 
 router = APIRouter()
