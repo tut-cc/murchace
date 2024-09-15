@@ -1,21 +1,24 @@
-<ul id="order-list" class="h-4/5 text-lg divide-y-4 overflow-y-auto">
-  {% for product in order_items %}
-    {% if product is not none %}
-      <li id="item-{{ loop.index0 }}" class="flex p-4 gap-3">
-        <p class="flex-1">{{ product.name }}</p>
-        <div>{{ product.price_str() }}</div>
-        {% if order_frozen is not defined or order_frozen == false %}
-          <button
-            hx-delete="/orders/{{ session_id }}/item/{{ loop.index0 }}"
-            hx-target="#order-session"
-            class="font-bold text-red-600 bg-gray-200 px-2 rounded"
-          >X</button>
-        {% endif %}
-      </li>
-    {% endif %}
-  {% endfor %}
-</ul>
-<div class="h-1/5 flex flex-row items-center">
+{# `flex-col-reverse` lets the browser to pin scroll to bottom #}
+<div class="flex flex-col-reverse overflow-y-auto">
+  <ul class="text-lg divide-y-4">
+    {% for product in order_items %}
+      {% if product is not none %}
+        <li id="item-{{ loop.index0 }}" class="flex p-4 gap-3">
+          <p class="flex-1">{{ product.name }}</p>
+          <div>{{ product.price_str() }}</div>
+          {% if order_frozen is not defined or order_frozen == false %}
+            <button
+              hx-delete="/orders/{{ session_id }}/item/{{ loop.index0 }}"
+              hx-target="#order-session"
+              class="font-bold text-red-600 bg-gray-200 px-2 rounded"
+            >X</button>
+          {% endif %}
+        </li>
+      {% endif %}
+    {% endfor %}
+  </ul>
+</div>
+<div class="flex flex-row p-2 items-center">
   <div class="basis-2/4">{{ placement_status | default('') }}</div>
   <div class="basis-1/4 text-center">{{ total_price }}</div>
   {% if order_frozen is defined and order_frozen == true %}
