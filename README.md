@@ -59,3 +59,10 @@ Vim、Emacs、他のエディタでの環境構築については説明を省き
 $ just run tailwind-build
 $ just run serve
 ```
+
+コンテナを利用する場合:
+```
+$ sudo dnf install podman
+$ podman volume create murchace-db
+$ podman run -d --name murchace -p 8000:8000 -v murchace-db:/murchace/db ghcr.io/tut-cc/murchace:main
+```

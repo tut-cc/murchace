@@ -11,7 +11,7 @@ from .placed_item import PlacedItem
 from .placement import Placement
 from .product import Product
 
-DATABASE_URL = "sqlite:///app.db"
+DATABASE_URL = "sqlite:///db/app.db"
 database = Database(DATABASE_URL)
 
 
