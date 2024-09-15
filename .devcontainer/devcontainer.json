@@ -3,9 +3,7 @@
 {
     "name": "order-notifier",
     // Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
-    "build": {
-        "dockerfile": "Dockerfile"
-    },
+    "image": "ghcr.io/tut-cc/murchace-dev:main",
     // Configure tool-specific properties.
     "customizations": {
         "vscode": {
