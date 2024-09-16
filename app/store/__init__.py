@@ -1,9 +1,9 @@
+from datetime import datetime
 from enum import Enum
 from typing import assert_never
 
 import sqlalchemy
 from databases import Database
-from pydantic import BaseModel
 from sqlmodel import SQLModel
 
 from . import placed_item, placement, product
@@ -20,69 +20,57 @@ PlacedItemTable = placed_item.Table(database)
 PlacementTable = placement.Table(database)
 
 
-class PlacementReceipt(BaseModel):
-    class ProductEntry(BaseModel):
-        product_id: int
-        count: int
-        name: str
-        filename: str
-        price: int
-
-    placement_id: int
-    products: list[ProductEntry]
-    total_price: int
-
-    class Result(BaseModel):
-        placement_id: int
-        product_id: int
-        count: int
-        name: str
-        filename: str
-        price: int
+def _to_time(unix_epoch: int) -> str:
+    return datetime.fromtimestamp(unix_epoch).strftime("%H:%M:%S")
 
 
 async def select_placements(
     canceled: bool,
     completed: bool,
-) -> list[dict[str, int | list[dict[str, int | str]] | str]]:
+) -> list[dict[str, int | list[dict[str, int | str]] | str | datetime | None]]:
     # list of products with each row alongside the number of ordered items
     query = f"""
         SELECT
-            {PlacedItem.placement_id},
+            {Placement.placement_id},
+            unixepoch({Placement.placed_at}) as placed_at,
+            unixepoch({Placement.completed_at}) as completed_at,
             {PlacedItem.product_id},
             COUNT({PlacedItem.product_id}) AS count,
             {Product.name},
             {Product.filename},
             {Product.price}
-        FROM {PlacedItem.__tablename__} as {PlacedItem.__name__}
+        FROM {Placement.__tablename__} as {Placement.__name__}
+        JOIN {PlacedItem.__tablename__} as {PlacedItem.__name__} ON {Placement.placement_id} = {PlacedItem.placement_id}
         JOIN {Product.__tablename__} as {Product.__name__} ON {PlacedItem.product_id} = {Product.product_id}
-        JOIN {Placement.__tablename__} as {Placement.__name__} ON {PlacedItem.placement_id} = {Placement.placement_id}
         WHERE {Placement.canceled} = {int(canceled)} AND
               {Placement.completed} = {int(completed)}
-        GROUP BY {PlacedItem.placement_id}, {PlacedItem.product_id}
-        ORDER BY {PlacedItem.placement_id} ASC, {PlacedItem.product_id} ASC
+        GROUP BY {Placement.placement_id}, {PlacedItem.product_id}
+        ORDER BY {Placement.placement_id} ASC, {PlacedItem.product_id} ASC
     """
-    placements: list[dict[str, int | list[dict[str, int | str]] | str]] = []
+    placements: list[
+        dict[str, int | list[dict[str, int | str]] | str | datetime | None]
+    ] = []
     prev_placement_id = -1
-    prev_products: list[dict[str, int | str]] = []
+    products = []
     total_price = 0
-
     async for map in database.iterate(query):
-        placement_id = map["placement_id"]
-        if placement_id != prev_placement_id:
-            if prev_placement_id != -1:
-                placements.append(
-                    {
-                        "placement_id": prev_placement_id,
-                        "products": prev_products,
-                        "total_price": Product.to_price_str(total_price),
-                    }
-                )
+        if (placement_id := map["placement_id"]) != prev_placement_id:
             prev_placement_id = placement_id
-            prev_products = []
+            if len(placements) > 0:
+                placements[-1]["total_price"] = Product.to_price_str(total_price)
+            products = []
+            completed_at = _to_time(field) if (field := map["completed_at"]) else None
+            placements.append(
+                {
+                    "placement_id": placement_id,
+                    "products": products,
+                    "placed_at": _to_time(map["placed_at"]),
+                    "completed_at": completed_at,
+                }
+            )
             total_price = 0
         count, price = map["count"], map["price"]
-        prev_products.append(
+        products.append(
             {
                 "product_id": map["product_id"],
                 "count": count,
@@ -92,14 +80,9 @@ async def select_placements(
             }
         )
         total_price += count * price
-    if prev_placement_id != -1:
-        placements.append(
-            {
-                "placement_id": prev_placement_id,
-                "products": prev_products,
-                "total_price": Product.to_price_str(total_price),
-            }
-        )
+    if len(placements) > 0:
+        placements[-1]["total_price"] = Product.to_price_str(total_price)
+
     return placements
 
 
