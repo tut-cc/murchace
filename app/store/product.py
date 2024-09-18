@@ -22,7 +22,11 @@ class Product(sqlmodel.SQLModel, table=True):
 
     @staticmethod
     def to_price_str(price: int) -> str:
-        return f"¥{price}"
+        s = str(price)
+        rt = s[:(len(s)-1)%3+1]
+        for i in range((len(s)-1)%3+1, len(s), 3):
+            rt += ',' + s[i:i+3]
+        return rt
 
 
 class Table:
