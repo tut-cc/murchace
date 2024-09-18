@@ -7,7 +7,7 @@ from ..templates import templates
 router = APIRouter()
 
 
-@router.get("/ordered_products")
+@router.get("/ordered-products")
 async def get_ordered_products(request: Request, sort_by: SortBy = SortBy.PRODUCT_ID):
     return await select_ordered_products(sort_by, False, False)
     # return templates.TemplateResponse(
