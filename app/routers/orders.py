@@ -76,7 +76,7 @@ async def place_order(request: Request, session_id: int):
         placement_id = await PlacedItemTable.issue(product_ids)
         # TODO: add a branch for out of stock error
         await PlacementTable.insert(placement_id)
-        placement_status = f"注文番号: {placement_id}"
+        placement_status = f"注文番号: #{placement_id}"
         order_frozen = True
 
     return templates.TemplateResponse(
