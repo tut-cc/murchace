@@ -4,14 +4,14 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
+from .env import DEBUG
+from .routers import ordered_products, orders, placements
 from .store import (
     PlacedItemTable,
     PlacementTable,
     ProductTable,
     startup_and_shutdown_db,
 )
-from .env import DEBUG
-from .routers import ordered_products, orders, placements
 from .templates import templates
 
 
