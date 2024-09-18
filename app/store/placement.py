@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Annotated
 
 import sqlmodel
@@ -18,6 +19,15 @@ class Placement(sqlmodel.SQLModel, table=True):
     completed: Annotated[
         bool, sqlmodel.Field(sa_column_kwargs={"server_default": sqlmodel.text("0")})
     ]
+    placed_at: Annotated[
+        datetime,
+        sqlmodel.Field(
+            sa_column_kwargs={"server_default": sqlmodel.text("CURRENT_TIMESTAMP")}
+        ),
+    ]
+    completed_at: datetime | None = sqlmodel.Field(
+        default=None, sa_column=sqlmodel.Column(sqlmodel.DateTime(timezone=True))
+    )
 
 
 class Table:
@@ -32,7 +42,12 @@ class Table:
         clause = Placement.placement_id == placement_id
         # NOTE: I don't why, but this where clause argument does not typecheck
         query = sqlmodel.update(Placement).where(clause)  # type: ignore[reportArgumentType]
-        await self._db.execute(query, {"canceled": canceled, "completed": completed})
+        values = {
+            "canceled": canceled,
+            "completed": completed,
+            "completed_at": datetime.now(timezone.utc) if completed else None,
+        }
+        await self._db.execute(query, values)
 
     async def cancel(self, placement_id: int) -> None:
         await self.update(placement_id, canceled=True, completed=False)

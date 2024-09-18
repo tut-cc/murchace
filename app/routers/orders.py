@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Form, Header, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse
 
-from ..db import PlacedItemTable, PlacementTable, Product, ProductTable
+from ..store import PlacedItemTable, PlacementTable, Product, ProductTable
 from ..templates import templates
 
 router = APIRouter()

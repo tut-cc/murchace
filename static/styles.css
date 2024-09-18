@@ -3,7 +3,7 @@ https://tailwindcss.com/docs/content-configuration
 */
 
 /*
-! tailwindcss v3.4.4 | MIT License | https://tailwindcss.com
+! tailwindcss v3.4.11 | MIT License | https://tailwindcss.com
 */
 
 /*
@@ -585,6 +585,10 @@ video {
   margin-bottom: 0px;
 }
 
+.ml-1 {
+  margin-left: 0.25rem;
+}
+
 .block {
   display: block;
 }
@@ -602,24 +606,8 @@ video {
   height: 100%;
 }
 
-.h-1\/5 {
-  height: 20%;
-}
-
-.h-1\/6 {
-  height: 16.666667%;
-}
-
 .h-3\/4 {
   height: 75%;
-}
-
-.h-4\/5 {
-  height: 80%;
-}
-
-.h-5\/6 {
-  height: 83.333333%;
 }
 
 .h-56 {
@@ -632,6 +620,10 @@ video {
 
 .h-full {
   height: 100%;
+}
+
+.min-h-0 {
+  min-height: 0px;
 }
 
 .w-2\/6 {
@@ -690,6 +682,10 @@ video {
   flex-direction: column;
 }
 
+.flex-col-reverse {
+  flex-direction: column-reverse;
+}
+
 .place-content-center {
   place-content: center;
 }
@@ -698,8 +694,8 @@ video {
   place-items: center;
 }
 
-.content-stretch {
-  align-content: stretch;
+.items-start {
+  align-items: flex-start;
 }
 
 .items-end {
@@ -718,8 +714,16 @@ video {
   justify-content: space-between;
 }
 
+.justify-around {
+  justify-content: space-around;
+}
+
 .gap-12 {
   gap: 3rem;
+}
+
+.gap-2 {
+  gap: 0.5rem;
 }
 
 .gap-3 {
@@ -748,10 +752,10 @@ video {
   row-gap: 0.75rem;
 }
 
-.space-x-4 > :not([hidden]) ~ :not([hidden]) {
+.space-x-2 > :not([hidden]) ~ :not([hidden]) {
   --tw-space-x-reverse: 0;
-  margin-right: calc(1rem * var(--tw-space-x-reverse));
-  margin-left: calc(1rem * calc(1 - var(--tw-space-x-reverse)));
+  margin-right: calc(0.5rem * var(--tw-space-x-reverse));
+  margin-left: calc(0.5rem * calc(1 - var(--tw-space-x-reverse)));
 }
 
 .divide-y-4 > :not([hidden]) ~ :not([hidden]) {
@@ -843,11 +847,6 @@ video {
   padding-bottom: 0.75rem;
 }
 
-.py-4 {
-  padding-top: 1rem;
-  padding-bottom: 1rem;
-}
-
 .py-8 {
   padding-top: 2rem;
   padding-bottom: 2rem;
@@ -855,10 +854,6 @@ video {
 
 .pl-16 {
   padding-left: 4rem;
-}
-
-.pl-4 {
-  padding-left: 1rem;
 }
 
 .pr-10 {
@@ -871,10 +866,6 @@ video {
 
 .pt-4 {
   padding-top: 1rem;
-}
-
-.text-left {
-  text-align: left;
 }
 
 .text-center {
@@ -913,5 +904,25 @@ video {
 .text-red-600 {
   --tw-text-opacity: 1;
   color: rgb(220 38 38 / var(--tw-text-opacity));
+}
+
+.underline {
+  text-decoration-line: underline;
+}
+
+.decoration-blue-500 {
+  text-decoration-color: #3b82f6;
+}
+
+.decoration-red-500 {
+  text-decoration-color: #ef4444;
+}
+
+.decoration-2 {
+  text-decoration-thickness: 2px;
+}
+
+.underline-offset-4 {
+  text-underline-offset: 4px;
 }
 

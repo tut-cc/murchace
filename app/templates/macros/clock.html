@@ -1,0 +1,20 @@
+{% macro clock(class_attributes = '') %}
+  <div id="clock" class={{ class_attributes }}>XX:XX</div>
+  <script>
+    document.addEventListener("htmx:load", () => {
+      const clock = document.getElementById("clock")
+      const updateTimer = () => {
+        const date = new Date()
+        const hh = date.getHours().toString().padStart(2, '0')
+        const mm = date.getMinutes().toString().padStart(2, '0')
+        clock.textContent = `${hh}:${mm}`
+      }
+      updateTimer()
+      const ssOffset = 60 - (new Date()).getSeconds()
+      setTimeout(() => {
+        updateTimer()
+        setInterval(updateTimer, 1000 * 60)
+      }, 1000 * ssOffset)
+    }, {once: true});
+  </script>
+{% endmacro %}

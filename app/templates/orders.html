@@ -1,8 +1,10 @@
+{% from 'macros/clock.html' import clock %}
+
 {% extends "layout.html" %}
 
 {% block title %}murchace - 新規注文{% endblock %}
 
-{% block inner %}
+{% block body %}
   <div class="h-dvh flex flex-row">
     <main class="w-4/6 h-full grid grid-cols-4 gap-3 py-2 pl-16 pr-10 place-items-center overflow-y-auto">
       {% for product in products %}
@@ -18,21 +20,26 @@
         </figure>
       {% endfor %}
     </main>
-    <aside class="w-2/6 h-full flex flex-col px-2 py-4">
-      <div class="h-1/6 flex flex-row items-center content-stretch text-xl">
-        <div class="basis-1/4 text-left font-bold pl-4">注文一覧</div>
-        <button class="basis-1/4 text-center" tabindex="0">保留</button>
-        <button
-          hx-delete="/orders/{{ session_id }}"
-          hx-target="#order-session"
-          class="basis-1/4 text-center text-red-600"
-          tabindex="0"
-        >全消去</button>
-        <button class="basis-1/4 text-center text-sm" tabindex="0">
-          <a href="/" tabindex="-1">ホームに戻る</a>
-        </button>
+    <aside class="w-2/6 h-full flex flex-col p-4 justify-between">
+      <div class="flex flex-row p-2 items-center">
+        <div class="flex-grow flex flex-row justify-around">
+          <div class="text-xl font-bold">注文一覧</div>
+          <button class="text-xl text-center" tabindex="0">保留</button>
+          <button
+            hx-delete="/orders/{{ session_id }}"
+            hx-target="#order-session"
+            class="text-xl text-center text-red-600"
+            tabindex="0"
+          >全消去</button>
+        </div>
+        <div class="flex flex-row gap-2">
+          <button class="text-center text-sm" tabindex="0">
+            <a href="/" tabindex="-1">ホームに戻る</a>
+          </button>
+          {{ clock() }}
+        </div>
       </div>
-      <div id="order-session" class="h-5/6 pt-2">
+      <div id="order-session" class="min-h-0 pt-2 flex flex-col">
         {% with placement_status = "", order_frozen = false %}
           {% include "components/order-session.html" with context %}
         {% endwith %}
