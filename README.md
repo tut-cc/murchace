@@ -29,4 +29,3 @@ $ sudo dnf install podman
 $ podman volume create murchace-db
 $ podman run -d --name murchace -p 8000:8000 -v murchace-db:/murchace/db ghcr.io/tut-cc/murchace:main
 ```
-aaaaaaaaaaaaaaa
