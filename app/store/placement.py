@@ -7,7 +7,7 @@ from databases import Database
 
 class Placement(sqlmodel.SQLModel, table=True):
     # NOTE: there are no Pydantic ways to set the generated table's name, as per https://github.com/fastapi/sqlmodel/issues/159
-    __tablename__ = "placements"  # type: ignore[reportAssignmentType]
+    __tablename__ = "placements"  # pyright: ignore[reportAssignmentType]
 
     id: int | None = sqlmodel.Field(default=None, primary_key=True)
     placement_id: int
@@ -41,7 +41,7 @@ class Table:
     async def update(self, placement_id: int, canceled: bool, completed: bool) -> None:
         clause = Placement.placement_id == placement_id
         # NOTE: I don't why, but this where clause argument does not typecheck
-        query = sqlmodel.update(Placement).where(clause)  # type: ignore[reportArgumentType]
+        query = sqlmodel.update(Placement).where(clause)  # pyright: ignore[reportArgumentType]
         values = {
             "canceled": canceled,
             "completed": completed,
