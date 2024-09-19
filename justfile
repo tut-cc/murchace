@@ -1,3 +1,6 @@
+default:
+    @just --list --unsorted --justfile {{ justfile() }}
+
 sync:
     uv sync --frozen
 
@@ -12,3 +15,13 @@ tailwind-build:
 
 tailwind-watch:
     tailwindcss --watch -i app/styles.css -o static/styles.css
+
+test:
+    JUST_UNSTABLE=1 just --fmt --check
+    ruff check
+    ruff format --diff
+    uv run --frozen pyright --stats
+    uv run --frozen pytest
+
+snapshot-review:
+    uv run --frozen pytest --inline-snapshot=review
