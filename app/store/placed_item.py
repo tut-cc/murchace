@@ -4,7 +4,7 @@ from databases import Database
 
 class PlacedItem(sqlmodel.SQLModel, table=True):
     # NOTE: there are no Pydantic ways to set the generated table's name, as per https://github.com/fastapi/sqlmodel/issues/159
-    __tablename__ = "placed_items"  # type: ignore[reportAssignmentType]
+    __tablename__ = "placed_items"  # pyright: ignore[reportAssignmentType]
 
     id: int | None = sqlmodel.Field(default=None, primary_key=True)
     placement_id: int
