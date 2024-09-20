@@ -3,8 +3,8 @@ from typing import Annotated
 from fastapi import APIRouter, Form, Header, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse
 
+from .. import templates
 from ..store import PlacedItemTable, PlacementTable, Product, ProductTable
-from ..templates import templates
 
 router = APIRouter()
 
@@ -47,15 +47,9 @@ async def get_order_session(request: Request, session_id: int):
         raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
 
     total_price = compute_total_price(order_items)
-    return templates.TemplateResponse(
-        request,
-        "orders.html",
-        {
-            "products": await ProductTable.select_all(),
-            "session_id": session_id,
-            "order_items": order_items,
-            "total_price": total_price,
-        },
+    products = await ProductTable.select_all()
+    return HTMLResponse(
+        templates.orders(request, session_id, products, order_items, total_price)
     )
 
 
@@ -78,17 +72,15 @@ async def place_order(request: Request, session_id: int):
         await PlacementTable.insert(placement_id)
         placement_status = f"注文番号: #{placement_id}"
         order_frozen = True
-
-    return templates.TemplateResponse(
-        request,
-        "components/order-session.html",
-        {
-            "session_id": session_id,
-            "order_items": order_items,
-            "total_price": total_price,
-            "placement_status": placement_status,
-            "order_frozen": order_frozen,
-        },
+    return HTMLResponse(
+        templates.components.order_session(
+            request,
+            session_id,
+            order_items,
+            total_price,
+            placement_status=placement_status,
+            order_frozen=order_frozen,
+        )
     )
 
 
@@ -120,14 +112,10 @@ async def add_order_item(
             )
 
     order_items.append(product)
-    return templates.TemplateResponse(
-        request,
-        "components/order-session.html",
-        {
-            "session_id": session_id,
-            "order_items": order_items,
-            "total_price": compute_total_price(order_items),
-        },
+    return HTMLResponse(
+        templates.components.order_session(
+            request, session_id, order_items, compute_total_price(order_items)
+        )
     )
 
 
@@ -139,14 +127,10 @@ async def delete_order_item(request: Request, session_id: int, index: int):
         raise HTTPException(status_code=404, detail=f"Order item {index} not found")
 
     order_items[index] = None
-    return templates.TemplateResponse(
-        request,
-        "components/order-session.html",
-        {
-            "session_id": session_id,
-            "order_items": order_items,
-            "total_price": compute_total_price(order_items),
-        },
+    return HTMLResponse(
+        templates.components.order_session(
+            request, session_id, order_items, compute_total_price(order_items)
+        )
     )
 
 
@@ -174,14 +158,10 @@ async def clear_order_items(
 
     order_items.clear()
 
-    return templates.TemplateResponse(
-        request,
-        "components/order-session.html",
-        {
-            "session_id": session_id,
-            "order_items": [],
-            "total_price": Product.to_price_str(0),
-        },
+    return HTMLResponse(
+        templates.components.order_session(
+            request, session_id, [], Product.to_price_str(0)
+        )
     )
 
 
@@ -203,8 +183,6 @@ async def clear_order_items(
 #     deferred_order_lists[session_id] = order_items
 #     # TODO: respond with a message about the success of the deferral action
 #     # placement_status = "注文を保留しました"
-#     # return templates.TemplateResponse(
-#     #     request,
-#     #     "components/order-session.html",
-#     #     {"session_id": session_id, "order_items": [], "total_price": Product.to_price_str(0), "placement_status": placement_status},
+#     # return HTMLResponse(
+#     #     templates.components.order_session(request, session_id, [], Product.to_price_str(0), placement_status=placement_status)
 #     # )

@@ -1,14 +1,15 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi import APIRouter, Header, Request
+from fastapi.responses import HTMLResponse
 
+from .. import templates
 from ..store import PlacementTable, select_placements
-from ..templates import templates
 
 router = APIRouter()
 
 
-@router.get("/placements")
+@router.get("/placements", response_class=HTMLResponse)
 async def get_placements(
     request: Request,
     canceled: bool = False,
@@ -16,20 +17,19 @@ async def get_placements(
     hx_request: Annotated[str | None, Header()] = None,
 ):
     placements = await select_placements(canceled, completed)
-    return templates.TemplateResponse(
-        request,
-        "components/placements.html" if hx_request == "true" else "placements.html",
-        {"placements": placements, "canceled": canceled, "completed": completed},
+    macro = (
+        templates.components.placements
+        if hx_request == "true"
+        else templates.placements
     )
+    return HTMLResponse(macro(request, placements, canceled, completed))
 
 
-@router.get("/placements/{placement_id}")
-async def get_placement(request: Request, placement_id: int):
-    if (placement := await PlacementTable.by_placement_id(placement_id)) is None:
-        raise HTTPException(404, f"Placement {placement_id} not found")
-    return templates.TemplateResponse(
-        request, "components/placement.html", {"placement": placement}
-    )
+# @router.get("/placements/{placement_id}")
+# async def get_placement(request: Request, placement_id: int):
+#     if (placement := await PlacementTable.by_placement_id(placement_id)) is None:
+#         raise HTTPException(404, f"Placement {placement_id} not found")
+#     return templates.components.placement(request, placement)
 
 
 @router.post("/placements/{placement_id}")

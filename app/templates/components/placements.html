@@ -1,50 +1,52 @@
-{% for placement in placements | reverse %}
-  <div
-    id="placement-{{ placement.placement_id }}"
-    class="size-full h-56 flex flex-col gap-y-2 border-2 border-gray-300 rounded-lg p-2"
-  >
-    <div class="width-full flex flex-row mx-1 items-start">
-      <div class="grow flex flex-row items-end">
-        <h2 class="text-2xl">#{{ placement.placement_id }}</h2>
-        <p class="ml-1">@{{ placement.placed_at }}</p>
-        {% if placement.completed_at %}
-          <p>/{{ placement.completed_at }}</p>
-        {% endif %}
+{% macro placements(placements, canceled = false, completed = false) %}
+  {% for placement in placements | reverse %}
+    <div
+      id="placement-{{ placement.placement_id }}"
+      class="size-full h-56 flex flex-col gap-y-2 border-2 border-gray-300 rounded-lg p-2"
+    >
+      <div class="width-full flex flex-row mx-1 items-start">
+        <div class="grow flex flex-row items-end">
+          <h2 class="text-2xl">#{{ placement.placement_id }}</h2>
+          <p class="ml-1">@{{ placement.placed_at }}</p>
+          {% if placement.completed_at %}
+            <p>/{{ placement.completed_at }}</p>
+          {% endif %}
+        </div>
+        <div class="space-x-2">
+          {% if canceled == false %}
+            <button
+              hx-delete="/placements/{{ placement.placement_id }}"
+              hx-confirm="確定注文 #{{ placement.placement_id }} を取り消しますか？"
+              hx-target="#placement-{{ placement.placement_id }}"
+              hx-swap="delete"
+              class="underline underline-offset-4 decoration-red-500 decoration-2"
+            >取消</button>
+          {% endif %}
+          {% if completed == false %}
+            <button
+              hx-post="/placements/{{ placement.placement_id }}"
+              {% if canceled %}
+                hx-confirm="取り消された注文を完了しますか？"
+              {% endif %}
+              hx-target="#placement-{{ placement.placement_id }}"
+              hx-swap="delete"
+              class="underline underline-offset-4 decoration-blue-500 decoration-2"
+            >完了</button>
+          {% endif %}
+        </div>
       </div>
-      <div class="space-x-2">
-        {% if canceled == false %}
-          <button
-            hx-delete="/placements/{{ placement.placement_id }}"
-            hx-confirm="確定注文 #{{ placement.placement_id }} を取り消しますか？"
-            hx-target="#placement-{{ placement.placement_id }}"
-            hx-swap="delete"
-            class="underline underline-offset-4 decoration-red-500 decoration-2"
-          >取消</button>
-        {% endif %}
-        {% if completed == false %}
-          <button
-            hx-post="/placements/{{ placement.placement_id }}"
-            {% if canceled %}
-              hx-confirm="取り消された注文を完了しますか？"
-            {% endif %}
-            hx-target="#placement-{{ placement.placement_id }}"
-            hx-swap="delete"
-            class="underline underline-offset-4 decoration-blue-500 decoration-2"
-          >完了</button>
-        {% endif %}
-      </div>
+      <ul class="flex-grow overflow-y-auto">
+        {% for product in placement.products %}
+          <li class="flex flex-row justify-between items-end gap-x-2">
+            <span class="break-words">{{ product.name }}</span>
+            <span class="whitespace-nowrap">{{ product.price }} x {{ product.count }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+      <p class="flex flex-row mx-1 justify-between">
+        <span class="break-words">合計金額</span>
+        <span class="whitespace-nowrap">{{ placement.total_price }}</span>
+      </p>
     </div>
-    <ul class="flex-grow overflow-y-auto">
-      {% for product in placement.products %}
-        <li class="flex flex-row justify-between items-end gap-x-2">
-          <span class="break-words">{{ product.name }}</span>
-          <span class="whitespace-nowrap">{{ product.price }} x {{ product.count }}</span>
-        </li>
-      {% endfor %}
-    </ul>
-    <p class="flex flex-row mx-1 justify-between">
-      <span class="break-words">合計金額</span>
-      <span class="whitespace-nowrap">{{ placement.total_price }}</span>
-    </p>
-  </div>
-{% endfor %}
+  {% endfor %}
+{% endmacro %}
