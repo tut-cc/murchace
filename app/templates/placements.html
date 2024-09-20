@@ -1,45 +1,49 @@
-{% from 'macros/clock.html' import clock %}
+{% from "layout.html" import layout %}
+{% from "macros/clock.html" import clock %}
+{% from "components/placements.html" import placements as placements_component %}
 
-{% extends "layout.html" %}
+{% macro _head() %}
+  <script src={{ url_for('static', path='/sse.js') }}></script>
+{% endmacro %}
 
-{% block title %}確定注文 - murchace{% endblock %}
-
-{% block body %}
-  <div class="h-dvh flex flex-col">
-    <header class="w-full px-16 py-3 flex gap-3 border-b-2 border-gray-500 text-2xl">
-      <nav class="flex-grow">
-        <ul class="flex flex-row gap-3">
-          <li><a href="/" class="cursor-pointer">ホーム</a></li>
-          <li><a hx-post="/orders" class="cursor-pointer">注文</a></li>
-        </ul>
-      </nav>
-      <form id="placements-filter" action="/placements" method="GET" class="mb-0 flex gap-6">
-        <fieldset class="flex gap-3">
-          <legend class="float-left">フィルタ：</legend>
-          <input
-            id="waiting" type="radio" name="placements"
-            hx-get="/placements" hx-params="not placements" hx-push-url="true" hx-target="#placements"
-            checked
-          />
-          <label for="waiting">受け取り待ち</label>
-          <input
-            id="canceled" type="radio" name="placements"
-            hx-get="/placements" hx-params="not placements" hx-vals='{"canceled": 1}' hx-push-url="true" hx-target="#placements" hx-trigger="change"
-          />
-          <label for="canceled">取消</label>
-          <input
-            id="completed" type="radio" name="placements"
-            hx-get="/placements" hx-params="not placements" hx-vals='{"completed": 1}' hx-push-url="true" hx-target="#placements" hx-trigger="change"
-          />
-          <label for="completed">完了</label>
-        </fieldset>
-        {# TODO: update the path when the radio button is changed through hx-swap-oob #}
-        <!--<button hx-get="/placements" hx-target="#placements">更新</button>-->
-      </form>
-      {{ clock() }}
-    </header>
-    <main id="placements" class="size-full grid grid-cols-4 gap-x-6 gap-y-3 py-2 px-16 overflow-y-auto">
-      {% include "components/placements.html" with context %}
-    </main>
-  </div>
-{% endblock %}
+{% macro placements(placements, canceled = false, completed = false) %}
+  {% call layout("確定注文 - murchace", _head()) %}
+    <div class="h-dvh flex flex-col">
+      <header class="w-full px-16 py-3 flex gap-3 border-b-2 border-gray-500 text-2xl">
+        <nav class="flex-grow">
+          <ul class="flex flex-row gap-3">
+            <li><a href="/" class="cursor-pointer">ホーム</a></li>
+            <li><a hx-post="/orders" class="cursor-pointer">注文</a></li>
+          </ul>
+        </nav>
+        <form id="placements-filter" action="/placements" method="GET" class="mb-0 flex gap-6">
+          <fieldset class="flex gap-3">
+            <legend class="float-left">フィルタ：</legend>
+            <input
+              id="waiting" type="radio" name="placements"
+              hx-get="/placements" hx-params="not placements" hx-push-url="true" hx-target="#placements"
+              checked
+            />
+            <label for="waiting">受け取り待ち</label>
+            <input
+              id="canceled" type="radio" name="placements"
+              hx-get="/placements" hx-params="not placements" hx-vals='{"canceled": 1}' hx-push-url="true" hx-target="#placements" hx-trigger="change"
+            />
+            <label for="canceled">取消</label>
+            <input
+              id="completed" type="radio" name="placements"
+              hx-get="/placements" hx-params="not placements" hx-vals='{"completed": 1}' hx-push-url="true" hx-target="#placements" hx-trigger="change"
+            />
+            <label for="completed">完了</label>
+          </fieldset>
+          {# TODO: update the path when the radio button is changed through hx-swap-oob #}
+          <!--<button hx-get="/placements" hx-target="#placements">更新</button>-->
+        </form>
+        {{ clock() }}
+      </header>
+      <main id="placements" class="size-full grid grid-cols-4 gap-x-6 gap-y-3 py-2 px-16 overflow-y-auto">
+        {{ placements_component(placements, canceled, completed) }}
+      </main>
+    </div>
+  {% endcall %}
+{% endmacro %}

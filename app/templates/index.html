@@ -1,20 +1,20 @@
-{% extends "layout.html" %}
+{% from "layout.html" import layout %}
 
-{% block title %}ホーム - murchace{% endblock %}
-
-{% block body %}
-  <div class="w-full h-dvh px-16 py-8 grid grid-cols-2 gap-12">
-    <div class="flex items-center justify-center pt-4 text-4xl border-2 border-gray-500 rounded-2xl">
-      <a hx-post="/orders" class="cursor-pointer">新しい注文</a>
+{% macro index() %}
+  {% call layout("ホーム - murchace") %}
+    <div class="w-full h-dvh px-16 py-8 grid grid-cols-2 gap-12">
+      <div class="flex items-center justify-center pt-4 text-4xl border-2 border-gray-500 rounded-2xl">
+        <a hx-post="/orders" class="cursor-pointer">新しい注文</a>
+      </div>
+      <div class="flex items-center justify-center pt-4 text-4xl border-2 border-gray-500 rounded-2xl">
+        <a href="/placements" class="cursor-pointer">確定注文一覧</a>
+      </div>
+      <div class="flex items-center justify-center pt-4 text-4xl border-2 border-gray-500 rounded-2xl">
+        <a href="/ordered-products" class="cursor-pointer">商品編集（実装中）</a>
+      </div>
+      <div class="flex items-center justify-center pt-4 text-4xl border-2 border-gray-500 rounded-2xl">
+        <a class="cursor-not-allowed">設定（未実装）</a>
+      </div>
     </div>
-    <div class="flex items-center justify-center pt-4 text-4xl border-2 border-gray-500 rounded-2xl">
-      <a href="/placements" class="cursor-pointer">確定注文一覧</a>
-    </div>
-    <div class="flex items-center justify-center pt-4 text-4xl border-2 border-gray-500 rounded-2xl">
-      <a href="/ordered-products" class="cursor-pointer">商品編集（実装中）</a>
-    </div>
-    <div class="flex items-center justify-center pt-4 text-4xl border-2 border-gray-500 rounded-2xl">
-      <a class="cursor-not-allowed">設定（未実装）</a>
-    </div>
-  </div>
-{% endblock %}
+  {% endcall %}
+{% endmacro %}
