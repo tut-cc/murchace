@@ -8,5 +8,4 @@ RUN dnf update -y \
     && dnf install -y git vim curl wget --allowerasing \
     && dnf clean all \
     && rm -rf /var/cache/dnf \
-    && curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/bin/ \
-    && just dev
+    && curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/bin/
