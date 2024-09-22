@@ -24,4 +24,7 @@ dev-dependencies = [
     "pytest>=8.3.3",
     "inline-snapshot>=0.13.1",
     "pyright>=1.1.381",
+    "pytailwindcss>=0.2.0",
+    "ruff>=0.6.7",
+    "djlint>=1.35.2",
 ]
