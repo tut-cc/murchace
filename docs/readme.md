@@ -5,13 +5,15 @@
 
 ---
 
-## Docker と VSCode で開発環境構築
+## 開発環境の構築
 
-ローカルで開発したい場合は [ローカルで開発環境構築][#ローカルで開発環境構築] を参照してください。
+### Docker & VSCode で環境構築
+
+ローカルで開発したい場合は [ローカルで環境構築](#ローカルで環境構築) を参照してください。
 
 - [Docker](https://docs.docker.com/get-docker/) のインストール
 
-```
+```sh
 ## Windows
 winget install Docker.DockerDesktop
 
@@ -47,7 +49,7 @@ newgrp docker
 
 - VSCode のインストール
 
-```
+```sh
 ## Windows
 winget install Microsoft.VisualStudioCode
 
@@ -74,18 +76,20 @@ sudo dnf install code
 - `F1` キーを押してコマンドパレットを開く。`Remote-Containers: Clone Repository in Container Volume...` を実行し、このリポジトリ (https://github.com/tut-cc/murchace.git) 選んで Clone する。すると、拡張機能や依存ライブラリが自動でインストールされる。
 
 テンプレートファイルへの CSS の変更を反映させたいときは、`just tailwind-watch` もしくは `just tw` を実行してください。変更を保存すると自動的に CSS を再生成します。
+
 `just watch` もしくは `just w` を実行すると開発 Web サーバーが立ち上がります。Python ファイルに変更を加えると、サーバが自動的に再起動します。
 
-## ローカルで開発環境構築
+### ローカルで環境構築
 
-開発環境を構築するためには、Python のパッケージマネージャ [uv](https://github.com/astral-sh/uv) と、CLIツール [just](https://github.com/casey/just) のインストールが必要です。どちらもインストールが終わったら、次のコマンドを実行してください。
+Python のパッケージマネージャ [uv](https://github.com/astral-sh/uv) と、CLIツール [just](https://github.com/casey/just) のインストールが必要です。どちらもインストールが終わったら、次のコマンドを実行してください。
 
-```
+```console
 $ git clone tut-cc/murchace.git && cd murchace
 $ just dev
 ```
 
 テンプレートファイルへの CSS の変更を反映させたいときは、`just tailwind-watch` もしくは `just tw` を実行してください。変更を保存すると自動的に CSS を再生成します。
+
 `just watch` もしくは `just w` を実行すると開発 Web サーバーが立ち上がります。Python ファイルに変更を加えると、サーバが自動的に再起動します。
 
 ## 技術スタック
@@ -131,11 +135,10 @@ UI は基本 HTML で記述します。
 - 非同期データベースライブラリ: https://www.encode.io/databases/ (English)
 - SQL のドメイン固有言語: https://docs.sqlalchemy.org/en/20/core/ (English)
 
-### VSCodeの拡張機能一覧
+### VSCode の拡張機能一覧
 
 - [charliermarsh.ruff](https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff): 高速な Python LSP
-- [ms-pyright.pyright](https://marketplace.visualstudio.com/items?itemName=ms-pyright.pyright): Python の型チェックに特化した LSP
-  VSCode の場合は Pylance でも可
+- [ms-pyright.pyright](https://marketplace.visualstudio.com/items?itemName=ms-pyright.pyright): Python の型チェックに特化した LSP (VSCode の場合は Pylance でも可)
 - [ms-python.debugpy](https://marketplace.visualstudio.com/items?itemName=ms-python.debugpy): Python のデバッグサポート
 - [monosans.djlint](https://marketplace.visualstudio.com/items?itemName=monosans.djlint): Jinja テンプレートのリンター
 - [otovo-oss.htmx-tags](https://marketplace.visualstudio.com/items?itemName=otovo-oss.htmx-tags): htmx の拡張属性の自動補完
