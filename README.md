@@ -15,11 +15,11 @@ purchase /ˈpɜː.t͡ʃəs/ 「購入する」、merchandise /ˈmɜːt͡ʃənda�
 
 ## 実行方法
 
-実行するためには、Pythonのパッケージマネージャ [uv](https://github.com/astral-sh/uv) と、CLIツール [just](https://github.com/casey/just) のインストールが必要です。
-どちらもインストールが終わった後に、以下のコマンドを実行すると Web サーバが起動します:
+実行するためには、Python のパッケージマネージャ [uv](https://github.com/astral-sh/uv) と、CLIツール [just](https://github.com/casey/just) のインストールが必要です。
+どちらもインストールが終わった後に、次のコマンドを実行すると Web サーバが起動します:
 
 ```
-$ just run serve
+$ just run
 ```
 
 別の実行方法として、コンテナを利用する場合は以下のコマンドを実行してください:
