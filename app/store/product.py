@@ -6,7 +6,7 @@ import sqlmodel
 
 class Product(sqlmodel.SQLModel, table=True):
     # NOTE: there are no Pydantic ways to set the generated table's name, as per https://github.com/fastapi/sqlmodel/issues/159
-    __tablename__ = "products"  # type: ignore[reportAssignmentType]
+    __tablename__ = "products"  # pyright: ignore[reportAssignmentType]
 
     id: int | None = sqlmodel.Field(default=None, primary_key=True)
     product_id: int
@@ -22,7 +22,7 @@ class Product(sqlmodel.SQLModel, table=True):
 
     @staticmethod
     def to_price_str(price: int) -> str:
-        return f"¥{price}"
+        return f"¥{price:,}"
 
 
 class Table:
