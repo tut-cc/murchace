@@ -1,8 +1,8 @@
-# DockerとVSCodeを利用した開発環境のインストール
+# Docker と VSCode を利用した開発環境のインストール
 
-## DockerとVSCodeのインストール
+## Docker と VSCode のインストール
 
-- [Docker](https://docs.docker.com/get-docker/)のインストール
+- [Docker](https://docs.docker.com/get-docker/) のインストール
 
 ```
 ## Windows
@@ -38,7 +38,7 @@ sudo usermod -aG docker $USER
 newgrp docker
 ```
 
-- VSCodeのインストール
+- VSCode のインストール
 
 ```
 ## Windows
@@ -62,10 +62,12 @@ sudo dnf check-update
 sudo dnf install code
 ```
 
-- VSCodeの拡張機能のインストール  
+- VSCode の拡張機能のインストール
+
 [ms-vscode-remote.remote-containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) をインストール
 
 ## 開発環境の構築
-VSCodeを開いて`F1`キーを押してコマンドパレットを開き、`Remote-Containers: Clone Repository in Container Volume...`を選択して、このリポジトリ (https://github.com/tut-cc/order-notifier.git) をCloneしてください。  
-拡張機能やRye、tailwindcssなどのインストールは自動で行われます。  
-コンテナが起動した後、[開発環境](https://github.com/tut-cc/order-notifier?tab=readme-ov-file#%E9%96%8B%E7%99%BA%E7%92%B0%E5%A2%83) の手順に従って開発を行ってください。
+
+VSCode を開いて `F1` キーを押してコマンドパレットを開き、`Remote-Containers: Clone Repository in Container Volume...` を選択して、このリポジトリ (https://github.com/tut-cc/murchace.git) を Clone してください。
+拡張機能や uv、Tailwind CSS などのインストールは自動で行われます。
+コンテナが起動した後、[開発環境](./readme.md#開発環境) の手順に従って開発を行ってください。

@@ -5,29 +5,21 @@ from typing import Any, Callable, Concatenate, ParamSpec
 import jinja2
 from fastapi import Request
 from fastapi.datastructures import URL
+from jinja2.ext import debug as debug_ext
 
 from .env import DEBUG
 from .store import Product
 
 TEMPLATES_DIR = Path("app/templates")
 
-if DEBUG:
-    from jinja2.ext import debug
 
-    env = jinja2.Environment(
-        extensions=[debug],
-        undefined=jinja2.StrictUndefined,
-        autoescape=True,
-        loader=jinja2.FileSystemLoader(TEMPLATES_DIR),
-    )
-    globals: dict[str, Any] = {"DEBUG": DEBUG}
-else:
-    env = jinja2.Environment(
-        undefined=jinja2.StrictUndefined,
-        autoescape=True,
-        loader=jinja2.FileSystemLoader(TEMPLATES_DIR),
-    )
-    globals: dict[str, Any] = {}
+env = jinja2.Environment(
+    extensions=[debug_ext] if DEBUG else [],
+    undefined=jinja2.StrictUndefined,
+    autoescape=True,
+    loader=jinja2.FileSystemLoader(TEMPLATES_DIR),
+)
+globals: dict[str, Any] = {"DEBUG": DEBUG}
 
 
 @jinja2.pass_context
@@ -47,12 +39,10 @@ def load_macro(
     `name` with hyphen characters will be converted to underscores to follow the
     convetion of common HTML file names.
     """
-    g = globals.copy()
-    g.setdefault("request", request)
-    module = env.get_template(name, globals=g).module
+    template = env.get_template(name, globals={"request": request, **globals})
     if macro_name is None:
         macro_name = Path(name).stem.replace("-", "_")
-    macro = getattr(module, macro_name)
+    macro = getattr(template.module, macro_name)
     if not isinstance(macro, jinja2.runtime.Macro):
         raise Exception(f"{macro} is not a jinja2.runtime.Macro instance")
     return macro
