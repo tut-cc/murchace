@@ -121,9 +121,7 @@ async def select_ordered_products(
         case SortOrderedProductsBy.PRODUCT_ID:
             order_by = f"{PlacedItem.product_id} ASC"
         case SortOrderedProductsBy.TIME:
-            # TODO: add datatime field to the placements table
-            # order_by = Placement.datetime
-            order_by = NotImplemented
+            order_by = f"{Placement.placed_at} DESC"
         case SortOrderedProductsBy.NO_ITEMS:
             order_by = "count DESC"
         case _:

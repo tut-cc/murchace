@@ -4,15 +4,15 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
+from . import templates
+from .env import DEBUG
+from .routers import ordered_products, orders, placements
 from .store import (
     PlacedItemTable,
     PlacementTable,
     ProductTable,
     startup_and_shutdown_db,
 )
-from .env import DEBUG
-from .routers import ordered_products, orders, placements
-from .templates import templates
 
 
 # https://stackoverflow.com/a/65270864
@@ -36,7 +36,7 @@ app.include_router(placements.router)
 
 @app.get("/", response_class=HTMLResponse)
 async def get_root(request: Request):
-    return templates.TemplateResponse(request, "index.html")
+    return HTMLResponse(templates.index(request))
 
 
 if DEBUG:

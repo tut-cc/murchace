@@ -1,3 +1,3 @@
 import os
 
-DEBUG = True if os.environ.get("ORDER_SYSTEM_DEBUG") else False
+DEBUG = True if os.environ.get("MURCHACE_DEBUG") else False
