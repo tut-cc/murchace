@@ -1,9 +1,10 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
 // README at: https://github.com/devcontainers/templates/tree/main/src/debian
 {
-    "name": "order-notifier",
+    "name": "murchace",
     // Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
     "image": "ghcr.io/tut-cc/murchace-dev:main",
+    "postCreateCommand": "just dev",
     // Configure tool-specific properties.
     "customizations": {
         "vscode": {
