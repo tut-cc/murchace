@@ -1,5 +1,7 @@
 FROM almalinux:9
 
+ENV TZ=Asia/Tokyo
+
 WORKDIR /usr/local/bin
 
 COPY --from=ghcr.io/astral-sh/uv:0.4.0 /uv /bin/uv
