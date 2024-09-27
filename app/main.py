@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import templates
 from .env import DEBUG
-from .routers import ordered_products, orders, placements
+from .routers import ordered_products, orders, placements, products
 from .store import (
     PlacedItemTable,
     PlacementTable,
@@ -29,6 +29,7 @@ app = FastAPI(debug=DEBUG, lifespan=lifespan)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+app.include_router(products.router)
 app.include_router(ordered_products.router)
 app.include_router(orders.router)
 app.include_router(placements.router)
