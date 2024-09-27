@@ -23,12 +23,12 @@
     <div class="basis-2/4">{{ placement_status }}</div>
     <div class="basis-1/4 text-center">{{ total_price }}</div>
     {% if order_frozen == true %}
-      <button hx-post="/orders" class="basis-1/4 text-xl text-center">新規</button>
+      <button hx-post="/orders" class="basis-1/4 text-xl text-center px-2 rounded bg-gray-300">新規</button>
     {% else %}
       <button
         hx-post="/orders/{{ session_id }}"
         hx-target="#order-session"
-        class="basis-1/4 text-xl text-center"
+        class="basis-1/4 text-xl text-center px-2 rounded bg-gray-300"
       >確定</button>
     {% endif %}
   </div>

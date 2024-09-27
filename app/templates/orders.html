@@ -22,19 +22,18 @@
       <aside class="w-2/6 h-full flex flex-col p-4 justify-between">
         <div class="flex flex-row py-2 items-center">
           <div class="flex-grow flex flex-row justify-around">
-            <div class="text-xl font-bold">注文一覧</div>
+            <button class="text-center text-sm px-2 rounded bg-gray-300" tabindex="0">
+              <a href="/" tabindex="-1">ホームに戻る</a>
+            </button>
             <button class="text-xl text-center" tabindex="0">保留</button>
             <button
               hx-delete="/orders/{{ session_id }}"
               hx-target="#order-session"
-              class="text-xl text-center text-red-600"
+              class="text-xl text-center text-red-600 px-2 rounded bg-gray-300"
               tabindex="0"
             >全消去</button>
           </div>
-          <div class="flex flex-row gap-3">
-            <button class="text-center text-sm" tabindex="0">
-              <a href="/" tabindex="-1">ホームに戻る</a>
-            </button>
+          <div class="text-xl flex flex-row gap-3">
             {{ clock() }}
           </div>
         </div>

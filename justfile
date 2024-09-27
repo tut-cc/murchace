@@ -36,8 +36,8 @@ sync:
     @just dev
 
 # Start the dev server every time Python files change.
-watch:
-    MURCHACE_DEBUG=1 uv run --frozen fastapi dev app/main.py
+watch *args:
+    MURCHACE_DEBUG=1 uv run --frozen fastapi dev app/main.py {{ args }}
 
 # Generate `styles.min.css`.
 tailwind-build:
