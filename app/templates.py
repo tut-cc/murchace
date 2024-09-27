@@ -68,6 +68,10 @@ def macro_template(
 def index(): ...
 
 
+@macro_template("products.html")
+def products(products: list[Product]): ...
+
+
 @macro_template("orders.html")
 def orders(
     session_id: int,
@@ -91,6 +95,10 @@ def placements(
 
 # namespace
 class components:
+    @macro_template("components/product-editor.html")
+    @staticmethod
+    def product_editor(product: Product | None): ...
+
     @macro_template("components/order-session.html")
     @staticmethod
     def order_session(
