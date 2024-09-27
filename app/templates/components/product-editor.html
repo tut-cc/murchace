@@ -1,0 +1,66 @@
+{% macro product_editor(product) %}
+  <div class="h-full flex flex-col">
+    {% if product is none %}
+      <div>エラー</div>
+    {% else %}
+      <div id="product-preview" class="px-16">
+        <figure class="flex flex-col border-4 border-blue-400 rounded-md transition-colors ease-in-out active:bg-blue-300">
+          {# TODO: use placeholder image #}
+          <img class="mx-auto w-full h-auto aspect-square" src={{ url_for('static', path=product.filename) }} alt={{ product.name }} />
+          <figcaption class="text-center truncate">{{ product.name }}</figcaption>
+          <div class="text-center">{{ product.price_str() }}</div>
+        </figure>
+      </div>
+      <form
+        {#
+          hx-post="/products/"
+          hx-include="find #product-name"
+        #}
+        class="flex flex-col"
+      >
+        <fieldset class="flex flex-col">
+          <legend class="float-left">項目を編集</legend>
+          <div>
+            <label for="product-id">商品番号:</label>
+            <input type="number" id="product-id" value={{ product.product_id }}>
+          </div>
+          <div>
+            <label for="product-name">商品名:</label>
+            <input type="text" id="product-name" value={{ product.name }}>
+          </div>
+          <div>
+            <label for="product-filename">ファイル名:</label>
+            <input type="text" id="product-filename" value={{ product.filename }}>
+          </div>
+          <div>
+            <label for="product-price">金額:</label>
+            <input type="number" id="product-price" value={{ product.price }}>
+          </div>
+          {#
+          <div>
+            <label for="product-no-stock">在庫数:</label>
+            <input type="text" id="product-no-stock" value={{ product.no_stock }}>
+          </div>
+          #}
+        </fieldset>
+        <div class="flex flex-row justify-between">
+          <button
+            {#
+            hx-delete="/products/{{ product.product_id }}/editor"
+            hx-target="#product-editor"
+            #}
+            class="px-2 py-1 text-white bg-red-500 rounded-lg"
+          >削除</button>
+          <button
+            hx-get="/products/{{ product.product_id }}/editor"
+            hx-target="#product-editor"
+            class="px-2 py-1 border border-black rounded-lg"
+          >リセット</button>
+          <button type="submit" class="px-2 py-1 text-white bg-blue-500 rounded-lg">
+            更新
+          </button>
+        </div>
+      </form>
+    {% endif %}
+  </div>
+{% endmacro %}
