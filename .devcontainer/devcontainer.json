@@ -1,9 +1,10 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
 // README at: https://github.com/devcontainers/templates/tree/main/src/debian
 {
-    "name": "order-notifier",
+    "name": "murchace",
     // Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
     "image": "ghcr.io/tut-cc/murchace-dev:main",
+    "postCreateCommand": "just dev",
     // Configure tool-specific properties.
     "customizations": {
         "vscode": {
@@ -13,14 +14,14 @@
                 "github.github-vscode-theme",
                 "github.vscode-pull-request-github",
                 "eamodio.gitlens",
+                "charliermarsh.ruff",
+                "ms-pyright.pyright",
+                "ms-python.debugpy",
+                "monosans.djlint",
                 "otovo-oss.htmx-tags",
                 "CraigRBroughton.htmx-attributes",
                 "bradlc.vscode-tailwindcss",
-                "ms-pyright.pyright",
-                "charliermarsh.ruff",
-                "monosans.djlint",
-                "ms-azuretools.vscode-docker",
-                "ms-python.python"
+                "ms-azuretools.vscode-docker"
             ],
             "settings": {
                 "workbench.colorTheme": "GitHub Dark Default"
