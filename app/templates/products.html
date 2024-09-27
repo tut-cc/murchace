@@ -1,0 +1,35 @@
+{% from "layout.html" import layout %}
+{% from "components/order-session.html" import order_session %}
+
+{% macro products(products) %}
+  {% call layout("新規注文 - murchace") %}
+    <div class="h-dvh flex flex-col">
+      <div class="min-h-0 flex flex-row">
+        <main class="w-4/6 grid grid-cols-4 auto-cols-max auto-rows-min gap-2 py-2 pl-10 pr-6 overflow-y-scroll">
+          {% for product in products %}
+            <figure
+              id="product-{{ product.product_id }}"
+              hx-get="/products/{{ product.product_id }}/editor"
+              hx-target="#product-editor"
+              class="flex flex-col border-4 border-blue-400 rounded-md transition-colors ease-in-out active:bg-blue-300"
+            >
+              <img class="mx-auto w-full h-auto aspect-square" src={{ url_for('static', path=product.filename) }} alt={{ product.name }} />
+              <figcaption class="text-center truncate">{{ product.name }}</figcaption>
+              <div class="text-center">{{ product.price_str() }}</div>
+            </figure>
+          {% endfor %}
+        </main>
+        <aside class="w-2/6 flex flex-col p-4">
+          <ul class="text-xl">
+            <li><a href="/" class="cursor-pointer">ホーム</a></li>
+          </ul>
+          <div id="product-editor" class="grow flex flex-col justify-center">
+            <div class="text-center">
+              編集する商品を選択してください
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  {% endcall %}
+{% endmacro %}
