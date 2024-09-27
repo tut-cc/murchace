@@ -1,0 +1,25 @@
+name: CI
+on:
+  pull_request:
+  push:
+
+jobs:
+  murchace:
+    name: murchace
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Install just and uv
+        run: |
+          sudo apt-get install -y just
+          curl -LsSf https://astral.sh/uv/install.sh | sudo env UV_INSTALL_DIR="/usr" sh
+      - name: Create the development environment
+        run: just dev
+      - name: Run test
+        run: just test
