@@ -13,12 +13,12 @@
         <nav class="flex-grow">
           <ul class="flex flex-row gap-3">
             <li><a href="/" class="cursor-pointer px-2 rounded bg-gray-300">ホーム</a></li>
-            <li><a hx-post="/orders" class="cursor-pointer px-2 rounded bg-gray-300">注文</a></li>
+            <li><a hx-post="/orders" class="cursor-pointer px-2 rounded bg-gray-300 hidden md:inline-block">注文</a></li>
           </ul>
         </nav>
         <form id="placements-filter" action="/placements" method="GET" class="mb-0 flex gap-6">
-          <fieldset class="flex gap-3">
-            <legend class="float-left">フィルタ：</legend>
+          <fieldset class="flex gap-3 hidden md:inline-block">
+            <legend class="float-left hidden xl:inline-block">フィルタ：</legend>
             <input
               id="waiting" type="radio" name="placements"
               hx-get="/placements" hx-params="not placements" hx-push-url="true" hx-target="#placements"
@@ -41,7 +41,7 @@
         </form>
         {{ clock() }}
       </header>
-      <main id="placements" class="size-full grid grid-cols-4 gap-x-6 gap-y-3 py-2 px-16 overflow-y-auto">
+      <main id="placements" class="size-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-3 py-2 px-16 overflow-y-auto">
         {{ placements_component(placements, canceled, completed) }}
       </main>
     </div>

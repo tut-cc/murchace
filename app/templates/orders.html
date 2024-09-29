@@ -5,7 +5,7 @@
 {% macro orders(session_id, products, order_items, total_price, placement_status = "", order_frozen = false) %}
   {% call layout("新規注文 - murchace") %}
     <div class="h-dvh flex flex-row">
-      <main class="w-4/6 h-full grid grid-cols-4 auto-cols-max auto-rows-min gap-2 py-2 pl-10 pr-6 overflow-y-auto">
+      <main class="w-1/2 lg:w-4/6 h-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-6 auto-cols-max auto-rows-min gap-2 py-2 pl-10 pr-6 overflow-y-auto">
         {% for product in products %}
           <figure
             hx-post="/orders/{{ session_id }}/item"
@@ -19,21 +19,21 @@
           </figure>
         {% endfor %}
       </main>
-      <aside class="w-2/6 h-full flex flex-col p-4 justify-between">
+      <aside class="w-1/2 lg:w-2/6 h-full flex flex-col p-4 justify-between">
         <div class="flex flex-row py-2 items-center">
           <div class="flex-grow flex flex-row justify-around">
-            <button class="text-center text-sm px-2 rounded bg-gray-300" tabindex="0">
+            <button class="text-center text-sm px-2 rounded bg-gray-300 hidden lg:inline-block" tabindex="0">
               <a href="/" tabindex="-1">ホームに戻る</a>
             </button>
             <button class="text-xl text-center" tabindex="0">保留</button>
             <button
               hx-delete="/orders/{{ session_id }}"
               hx-target="#order-session"
-              class="text-xl text-center text-red-600 px-2 rounded bg-gray-300"
+              class="text-xl text-center text-red-600 px-2 rounded bg-gray-300 hidden sm:inline-block"
               tabindex="0"
             >全消去</button>
           </div>
-          <div class="text-xl flex flex-row gap-3">
+          <div class="text-xl flex flex-row gap-3 hidden md:inline-block">
             {{ clock() }}
           </div>
         </div>
