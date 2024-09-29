@@ -4,11 +4,11 @@
     <ul class="text-lg divide-y-4">
       {% for product in order_items %}
         {% if product is not none %}
-          <div id="item-{{ loop.index0 }}" class="flex justify-between">
-            <li class="overflow-x-auto whitespace-nowrap sm:flex sm:flex-1 sm:justify-between p-4">
+          <li id="item-{{ loop.index0 }}" class="flex justify-between">
+            <div class="overflow-x-auto whitespace-nowrap sm:flex sm:flex-1 sm:justify-between p-4">
                 <p class="sm:flex-1">{{ product.name }}</p>
                 <div>{{ product.price_str() }}</div>
-            </li>
+            </div>
             {% if order_frozen == false %}
               <div class="flex items-center">
                 <button
@@ -18,7 +18,7 @@
                 >X</button>
               </div>
             {% endif %}
-          </div>
+          </li>
         {% endif %}
       {% endfor %}
     </ul>
