@@ -1,12 +1,15 @@
 from datetime import datetime
-from enum import Enum
-from typing import assert_never
+from enum import Enum, auto
+from typing import Any, Awaitable, Callable, Mapping, assert_never
 
 import sqlalchemy
+import sqlmodel
 from databases import Database
-from sqlmodel import SQLModel
+from sqlalchemy import orm as sa_orm
+from sqlmodel import col
 
 from . import placed_item, placement, product
+from ._helper import _colname
 from .placed_item import PlacedItem
 from .placement import Placement
 from .product import Product
@@ -24,70 +27,235 @@ def _to_time(unix_epoch: int) -> str:
     return datetime.fromtimestamp(unix_epoch).strftime("%H:%M:%S")
 
 
-async def select_placements(
-    canceled: bool,
-    completed: bool,
-) -> list[dict[str, int | list[dict[str, int | str]] | str | datetime | None]]:
-    # list of products with each row alongside the number of ordered items
-    query = f"""
-        SELECT
-            {Placement.placement_id},
-            unixepoch({Placement.placed_at}) as placed_at,
-            unixepoch({Placement.completed_at}) as completed_at,
-            {PlacedItem.product_id},
-            COUNT({PlacedItem.product_id}) AS count,
-            {Product.name},
-            {Product.filename},
-            {Product.price}
-        FROM {Placement.__tablename__} as {Placement.__name__}
-        JOIN {PlacedItem.__tablename__} as {PlacedItem.__name__} ON {Placement.placement_id} = {PlacedItem.placement_id}
-        JOIN {Product.__tablename__} as {Product.__name__} ON {PlacedItem.product_id} = {Product.product_id}
-        WHERE {Placement.canceled} = {int(canceled)} AND
-              {Placement.completed} = {int(completed)}
-        GROUP BY {Placement.placement_id}, {PlacedItem.product_id}
-        ORDER BY {Placement.placement_id} ASC, {PlacedItem.product_id} ASC
-    """
-    placements: list[
-        dict[str, int | list[dict[str, int | str]] | str | datetime | None]
-    ] = []
-    prev_placement_id = -1
-    products = []
-    total_price = 0
-    async for map in database.iterate(query):
-        if (placement_id := map["placement_id"]) != prev_placement_id:
-            prev_placement_id = placement_id
-            if len(placements) > 0:
-                placements[-1]["total_price"] = Product.to_price_str(total_price)
-            products = []
-            completed_at = _to_time(field) if (field := map["completed_at"]) else None
-            placements.append(
-                {
-                    "placement_id": placement_id,
-                    "products": products,
-                    "placed_at": _to_time(map["placed_at"]),
-                    "completed_at": completed_at,
-                }
-            )
-            total_price = 0
-        count, price = map["count"], map["price"]
-        products.append(
-            {
-                "product_id": map["product_id"],
-                "count": count,
-                "name": map["name"],
-                "filename": map["filename"],
-                "price": Product.to_price_str(price),
-            }
-        )
-        total_price += count * price
-    if len(placements) > 0:
-        placements[-1]["total_price"] = Product.to_price_str(total_price)
+type products_t = list[dict[str, int | str]]
+type placements_t = list[dict[str, int | products_t | str | datetime | None]]
 
-    return placements
+
+# TODO: there should be a way to use the unixepoch function without this boiler plate
+def unixepoch(attr: sa_orm.Mapped) -> sqlalchemy.Label:
+    colname = _colname(col(attr))
+    alias = getattr(attr, "name")
+    return sqlalchemy.literal_column(f"unixepoch({colname})").label(alias)
+
+
+class SortOrderedProductsBy(Enum):
+    PRODUCT_ID = "product_id"
+    TIME = "time"
+    NO_ITEMS = "no_items"
+
+    def order_by(self) -> sqlalchemy.ColumnElement:
+        match self:
+            case self.PRODUCT_ID:
+                return sqlmodel.asc(col(PlacedItem.product_id))
+            case self.TIME:
+                return sqlmodel.desc(col(Placement.placed_at))
+            case self.NO_ITEMS:
+                return sqlmodel.desc(sqlmodel.literal_column("count"))
+
+
+class PlacementsQuery(Enum):
+    incoming = auto()
+    canceled = auto()
+    completed = auto()
+
+    def by_placement_id(self) -> sqlalchemy.Select:
+        # Query from the placements table
+        query: sqlalchemy.Select[Any] = (
+            sqlmodel.select(Placement.placement_id)
+            .group_by(col(Placement.placement_id))
+            .order_by(col(Placement.placement_id).asc())
+            .add_columns(unixepoch(col(Placement.placed_at)))
+        )
+
+        query = self._extra_timestamps(query)
+
+        query = (
+            # Query the list of placed items
+            query.select_from(sqlmodel.join(Placement, PlacedItem))
+            .add_columns(col(PlacedItem.product_id))
+            .group_by(col(PlacedItem.product_id))
+            .order_by(col(PlacedItem.product_id).asc())
+            .add_columns(sqlmodel.func.count(col(PlacedItem.product_id)).label("count"))
+            # Query product information
+            .join(Product)
+            .add_columns(col(Product.name), col(Product.filename))
+        )
+
+        # Include prices for canceled/completed placements
+        if self != self.incoming:
+            query = query.add_columns(col(Product.price))
+
+        return query
+
+    def by_ordered_products(self, sort_by: SortOrderedProductsBy) -> sqlalchemy.Select:
+        query = (
+            sqlmodel.select(
+                PlacedItem.placement_id,
+                sqlmodel.func.count(col(PlacedItem.product_id)).label("count"),
+                PlacedItem.product_id,
+            )
+            .group_by(col(PlacedItem.placement_id), col(PlacedItem.product_id))
+            .select_from(sqlmodel.join(PlacedItem, Product))
+            .add_columns(col(Product.name), col(Product.filename))
+            .join(Placement)
+        )
+
+        query = self._extra_timestamps(query)
+
+        return query.order_by(sort_by.order_by())
+
+    def _extra_timestamps(self, query: sqlalchemy.Select) -> sqlalchemy.Select:
+        """Conditionally include/exclude extra timestamps."""
+        match self:
+            case self.incoming:
+                return query.where(
+                    col(Placement.canceled_at).is_(None)
+                    & col(Placement.completed_at).is_(None)
+                )
+            case self.canceled:
+                return query.where(col(Placement.canceled_at).isnot(None)).add_columns(
+                    unixepoch(col(Placement.canceled_at))
+                )
+            case self.completed:
+                return query.where(col(Placement.completed_at).isnot(None)).add_columns(
+                    unixepoch(col(Placement.completed_at))
+                )
+
+
+class _PlacementsLoader:
+    def __new__(cls, status: PlacementsQuery) -> Callable[[], Awaitable[placements_t]]:
+        placements: placements_t = []
+
+        match status:
+            case status.incoming:
+
+                def init_cb(placement_id: int, map: Mapping) -> products_t:
+                    products = []
+                    placements.append(
+                        {
+                            "placement_id": placement_id,
+                            "products": products,
+                            "placed_at": _to_time(map["placed_at"]),
+                        }
+                    )
+                    return products
+
+                def update_product_cb(map: Mapping) -> dict[str, int | str]:
+                    return {
+                        "product_id": map["product_id"],
+                        "count": map["count"],
+                        "name": map["name"],
+                        "filename": map["filename"],
+                    }
+
+                def last_cb(): ...
+
+            case status.canceled:
+                total_price = 0
+
+                def init_cb(placement_id: int, map: Mapping) -> products_t:
+                    products = []
+                    placements.append(
+                        {
+                            "placement_id": placement_id,
+                            "products": products,
+                            "placed_at": _to_time(map["placed_at"]),
+                            "canceled_at": _to_time(map["canceled_at"]),
+                        }
+                    )
+                    nonlocal total_price
+                    total_price = 0
+                    return products
+
+                def update_product_cb(map: Mapping) -> dict[str, int | str]:
+                    count, price = map["count"], map["price"]
+                    nonlocal total_price
+                    total_price += count * price
+                    return {
+                        "product_id": map["product_id"],
+                        "count": count,
+                        "name": map["name"],
+                        "filename": map["filename"],
+                        "price": Product.to_price_str(price),
+                    }
+
+                def last_cb() -> None:
+                    if len(placements) > 0:
+                        placements[-1]["total_price"] = Product.to_price_str(
+                            total_price
+                        )
+
+            case status.completed:
+                total_price = 0
+
+                def init_cb(placement_id: int, map: Mapping) -> products_t:
+                    products = []
+                    placements.append(
+                        {
+                            "placement_id": placement_id,
+                            "products": products,
+                            "placed_at": _to_time(map["placed_at"]),
+                            "completed_at": _to_time(map["completed_at"]),
+                        }
+                    )
+                    nonlocal total_price
+                    total_price = 0
+                    return products
+
+                def update_product_cb(map: Mapping) -> dict[str, int | str]:
+                    count, price = map["count"], map["price"]
+                    nonlocal total_price
+                    total_price += count * price
+                    return {
+                        "product_id": map["product_id"],
+                        "count": count,
+                        "name": map["name"],
+                        "filename": map["filename"],
+                        "price": Product.to_price_str(price),
+                    }
+
+                def last_cb() -> None:
+                    if len(placements) > 0:
+                        placements[-1]["total_price"] = Product.to_price_str(
+                            total_price
+                        )
+
+            case _:
+                assert_never()
+
+        query = str(status.by_placement_id().compile())
+
+        async def loader():
+            placements.clear()
+            await cls._execute(query, init_cb, update_product_cb, last_cb)
+            return placements
+
+        return loader
+
+    @staticmethod
+    async def _execute(
+        query: str,
+        init_cb: Callable[[int, Mapping], products_t],
+        update_product_cb: Callable[[Mapping], dict[str, int | str]],
+        last_cb: Callable[[], None],
+    ):
+        products = []
+        prev_placement_id = -1
+        async for map in database.iterate(query):
+            if (placement_id := map["placement_id"]) != prev_placement_id:
+                prev_placement_id = placement_id
+                last_cb()
+                products = init_cb(placement_id, map)
+            products.append(update_product_cb(map))
+        last_cb()
+
+
+load_incoming_placements = _PlacementsLoader(PlacementsQuery.incoming)
+load_canceled_placements = _PlacementsLoader(PlacementsQuery.canceled)
+load_completed_placements = _PlacementsLoader(PlacementsQuery.completed)
 
 
 # NOTE:get placements by incoming order in datetime
-# TODO: add a datetime field to PlacedItem
 #
 # async def select_placements_by_incoming_order() -> dict[int, list[dict]]:
 #     query = f"""
@@ -106,41 +274,10 @@ async def select_placements(
 #     return placements
 
 
-class SortOrderedProductsBy(Enum):
-    PRODUCT_ID = "product_id"
-    TIME = "time"
-    NO_ITEMS = "no_items"
-
-
-async def select_ordered_products(
+async def load_ordered_products(
     sort_by: SortOrderedProductsBy,
-    canceled: bool,
-    completed: bool,
 ) -> list[dict[str, int | str | list[dict[str, int]]]]:
-    match sort_by:
-        case SortOrderedProductsBy.PRODUCT_ID:
-            order_by = f"{PlacedItem.product_id} ASC"
-        case SortOrderedProductsBy.TIME:
-            order_by = f"{Placement.placed_at} DESC"
-        case SortOrderedProductsBy.NO_ITEMS:
-            order_by = "count DESC"
-        case _:
-            assert_never(SortOrderedProductsBy)
-    query = f"""
-        SELECT
-            {PlacedItem.placement_id},
-            COUNT({PlacedItem.product_id}) AS count,
-            {PlacedItem.product_id},
-            {Product.name},
-            {Product.filename}
-        FROM {PlacedItem.__tablename__} as {PlacedItem.__name__}
-        JOIN {Product.__tablename__} as {Product.__name__} ON {PlacedItem.product_id} = {Product.product_id}
-        JOIN {Placement.__tablename__} as {Placement.__name__} ON {PlacedItem.placement_id} = {Placement.placement_id}
-        WHERE {Placement.canceled} = {int(canceled)} AND
-              {Placement.completed} = {int(completed)}
-        GROUP BY {PlacedItem.placement_id}, {PlacedItem.product_id}
-        ORDER BY {order_by}
-    """
+    query = PlacementsQuery.incoming.by_ordered_products(sort_by)
     ret: dict[int, dict[str, int | str | list[dict[str, int]]]] = {}
     async for map in database.iterate(query):
         product_id = map["product_id"]
@@ -167,7 +304,7 @@ async def _startup_db() -> None:
 
     # TODO: we should use a database schema migration tool like Alembic as explained in:
     # https://www.encode.io/databases/database_queries/#creating-tables
-    for table in SQLModel.metadata.tables.values():
+    for table in sqlmodel.SQLModel.metadata.tables.values():
         schema = sqlalchemy.schema.CreateTable(table, if_not_exists=True)
         query = str(schema.compile())
         await database.execute(query)

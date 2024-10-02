@@ -1,5 +1,4 @@
 import os
-from datetime import datetime
 from functools import wraps
 from pathlib import Path
 from typing import Any, Callable, Protocol
@@ -10,7 +9,7 @@ from fastapi.datastructures import URL
 from jinja2.ext import debug as debug_ext
 
 from .env import DEBUG
-from .store import Product
+from .store import Product, placements_t
 
 TEMPLATES_DIR = Path("app/templates")
 
@@ -69,6 +68,12 @@ def macro_template[**P](
     return type_signature
 
 
+@macro_template("layout.html")
+def layout(
+    title: str = "murchace", head: str = "", caller: Callable[[], str] = lambda: ""
+): ...
+
+
 @macro_template("index.html")
 def index(): ...
 
@@ -88,14 +93,16 @@ def orders(
 ): ...
 
 
-@macro_template("placements.html")
-def placements(
-    placements: list[
-        dict[str, int | list[dict[str, int | str]] | str | datetime | None]
-    ],
-    canceled: bool = False,
-    completed: bool = False,
-): ...
+@macro_template("incoming-placements.html")
+def incoming_placements(placements: placements_t): ...
+
+
+@macro_template("canceled-placements.html")
+def canceled_placements(placements: placements_t): ...
+
+
+@macro_template("completed-placements.html")
+def completed_placements(placements: placements_t): ...
 
 
 # namespace
@@ -114,12 +121,6 @@ class components:
         order_frozen: bool = False,
     ): ...
 
-    @macro_template("components/placements.html")
-    @staticmethod
-    def placements(
-        placements: list[
-            dict[str, int | list[dict[str, int | str]] | str | datetime | None]
-        ],
-        canceled: bool = False,
-        completed: bool = False,
-    ): ...
+    # @macro_template("components/incoming-placements.html")
+    # @staticmethod
+    # def incoming_placements(placements: placements_t): ...
