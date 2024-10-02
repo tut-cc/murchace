@@ -1,4 +1,4 @@
-export TAILWINDCSS_VERSION := 'v3.4.11'
+export TAILWINDCSS_VERSION := 'v3.4.13'
 
 alias r := run
 alias w := watch
