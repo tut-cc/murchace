@@ -21,9 +21,13 @@
       {% endfor %}
     </ul>
   </div>
+  {% if placement_status != "" %}
+  <div>{{ placement_status }}</div>
+  {% endif %}
   <div class="flex flex-row p-2 items-center">
-    <div class="basis-2/4">{{ placement_status }}</div>
-    <div class="basis-1/4 text-center text-xl">{{ total_price }}</div>
+    <!--  <div class="basis-1/4">{{ placement_status }}</div> -->
+    <div class="basis-1/4 text-right text-xl">{{ order_items|length }} 点</div>
+    <div class="basis-2/4 text-center text-xl">合計: {{ total_price }}</div>
     {% if order_frozen == true %}
       <button hx-post="/orders" class="basis-1/4 text-xl text-center px-2 rounded bg-gray-300">新規</button>
     {% else %}

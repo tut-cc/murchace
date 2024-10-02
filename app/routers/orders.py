@@ -76,6 +76,7 @@ async def get_order_session_to_confirm(request: Request, session_id: int):
             request,
             session_id,
             products,
+            len(order_items),
             Product.to_price_str(total_price),
             placement_status,
         )

@@ -131,12 +131,13 @@ class components:
     # @macro_template("components/incoming-placements.html")
     # @staticmethod
     # def incoming_placements(placements: placements_t): ...
-    
+
     @macro_template("components/order-confirm.html")
     @staticmethod
     def order_confirm(
         session_id: int,
         products: dict[int, ProductCompact],
+        count: int,
         total_price: str,
         placement_status: str = "",
     ): ...
