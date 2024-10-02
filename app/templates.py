@@ -128,6 +128,10 @@ class components:
         order_frozen: bool = False,
     ): ...
 
+    # @macro_template("components/incoming-placements.html")
+    # @staticmethod
+    # def incoming_placements(placements: placements_t): ...
+    
     @macro_template("components/order-confirm.html")
     @staticmethod
     def order_confirm(
