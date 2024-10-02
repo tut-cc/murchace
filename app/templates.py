@@ -1,6 +1,7 @@
-from datetime import datetime
+import os
+from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Concatenate, ParamSpec
+from typing import Any, Callable, Protocol
 
 import jinja2
 from fastapi import Request
@@ -8,7 +9,7 @@ from fastapi.datastructures import URL
 from jinja2.ext import debug as debug_ext
 
 from .env import DEBUG
-from .store import Product
+from .store import Product, placements_t
 
 from uuid import UUID
 
@@ -38,37 +39,46 @@ def _url_for(context: dict[str, Any], name: str, /, **path_params: Any) -> URL:
 env.globals.setdefault("url_for", _url_for)
 
 
-def load_macro(
-    request: Request, name: str, macro_name: str | None = None
-) -> jinja2.runtime.Macro:
-    """If the `macro_name` is not specified, this method assumes that the input
-    template defines the macro named the same as the stem of `name`. Note that
-    `name` with hyphen characters will be converted to underscores to follow the
-    convetion of common HTML file names.
-    """
-    template = env.get_template(name, globals={"request": request, **globals})
-    if macro_name is None:
-        macro_name = Path(name).stem.replace("-", "_")
+def load_macro(template: jinja2.Template, macro_name: str) -> jinja2.runtime.Macro:
     macro = getattr(template.module, macro_name)
     if not isinstance(macro, jinja2.runtime.Macro):
         raise Exception(f"{macro} is not a jinja2.runtime.Macro instance")
     return macro
 
 
-P = ParamSpec("P")
+def hyphen_path_to_underscore_stem(path: str | os.PathLike[str]) -> str:
+    return Path(path).stem.replace("-", "_")
 
 
-def macro_template(
-    name: str,
-    macro_name: str | None = None,
-) -> Callable[[Callable[P, None]], Callable[Concatenate[Request, P], str]]:
-    def type_signature(_: Callable[P, None]) -> Callable[Concatenate[Request, P], str]:
-        def with_request(request: Request, *args: P.args, **kwargs: P.kwargs) -> str:
-            return load_macro(request, name, macro_name)(*args, **kwargs)
+class _MacroArgHints[**P](Protocol):
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> None: ...
+
+
+class _RenderMacroWithRequest[**P](Protocol):
+    def __call__(self, request: Request, *args: P.args, **kwargs: P.kwargs) -> str: ...
+
+
+def macro_template[**P](
+    name: str, macro_name: str | None = None
+) -> Callable[[_MacroArgHints[P]], _RenderMacroWithRequest[P]]:
+    if macro_name is None:
+        macro_name = hyphen_path_to_underscore_stem(name)
+
+    def type_signature(fn: _MacroArgHints[P]) -> _RenderMacroWithRequest[P]:
+        @wraps(fn)
+        def with_request(request, *args: P.args, **kwargs: P.kwargs) -> str:
+            template = env.get_template(name, globals={"request": request, **globals})
+            return load_macro(template, macro_name)(*args, **kwargs)
 
         return with_request
 
     return type_signature
+
+
+@macro_template("layout.html")
+def layout(
+    title: str = "murchace", head: str = "", caller: Callable[[], str] = lambda: ""
+): ...
 
 
 @macro_template("index.html")
@@ -90,14 +100,16 @@ def orders(
 ): ...
 
 
-@macro_template("placements.html")
-def placements(
-    placements: list[
-        dict[str, int | list[dict[str, int | str]] | str | datetime | None]
-    ],
-    canceled: bool = False,
-    completed: bool = False,
-): ...
+@macro_template("incoming-placements.html")
+def incoming_placements(placements: placements_t): ...
+
+
+@macro_template("canceled-placements.html")
+def canceled_placements(placements: placements_t): ...
+
+
+@macro_template("completed-placements.html")
+def completed_placements(placements: placements_t): ...
 
 
 # namespace
@@ -114,16 +126,6 @@ class components:
         total_price: str,
         placement_status: str = "",
         order_frozen: bool = False,
-    ): ...
-
-    @macro_template("components/placements.html")
-    @staticmethod
-    def placements(
-        placements: list[
-            dict[str, int | list[dict[str, int | str]] | str | datetime | None]
-        ],
-        canceled: bool = False,
-        completed: bool = False,
     ): ...
 
     @macro_template("components/order-confirm.html")

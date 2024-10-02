@@ -3,15 +3,19 @@
   <div class="flex flex-col-reverse overflow-y-auto">
     <ul class="text-lg divide-y-4">
       {% for uuid, product in order_items.items() %}
-        <li id="item-{{ uuid }}" class="flex p-4 gap-3">
-          <p class="flex-1">{{ product.name }}</p>
-          <div>{{ product.price_str() }}</div>
+        <li id="item-{{ uuid }}" class="flex justify-between">
+          <div class="overflow-x-auto whitespace-nowrap sm:flex sm:flex-1 sm:justify-between p-4">
+              <p class="sm:flex-1">{{ product.name }}</p>
+              <div>{{ product.price_str() }}</div>
+          </div>
           {% if order_frozen == false %}
-            <button
-              hx-delete="/orders/{{ session_id }}/item/{{ uuid }}"
-              hx-target="#order-session"
-              class="font-bold text-red-600 bg-gray-200 px-2 rounded"
-            >X</button>
+            <div class="flex items-center">
+              <button
+                hx-delete="/orders/{{ session_id }}/item/{{ uuid }}"
+                hx-target="#order-session"
+                class="font-bold text-red-600 bg-gray-200 px-2 rounded"
+              >X</button>
+            </div>
           {% endif %}
         </li>
       {% endfor %}
