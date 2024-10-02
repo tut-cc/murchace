@@ -1,42 +1,48 @@
-from typing import Annotated
+# from typing import Annotated
 
-from fastapi import APIRouter, Header, Request
+# from fastapi import APIRouter, Header, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
 from .. import templates
-from ..store import PlacementTable, select_placements
+from ..store import (
+    PlacementTable,
+    load_canceled_placements,
+    load_completed_placements,
+    load_incoming_placements,
+)
 
 router = APIRouter()
 
 
-@router.get("/placements", response_class=HTMLResponse)
-async def get_placements(
-    request: Request,
-    canceled: bool = False,
-    completed: bool = False,
-    hx_request: Annotated[str | None, Header()] = None,
-):
-    placements = await select_placements(canceled, completed)
-    macro = (
-        templates.components.placements
-        if hx_request == "true"
-        else templates.placements
-    )
-    return HTMLResponse(macro(request, placements, canceled, completed))
+@router.get("/incoming-placements", response_class=HTMLResponse)
+async def get_incoming_placements(request: Request):
+    placements = await load_incoming_placements()
+    return HTMLResponse(templates.incoming_placements(request, placements))
 
 
-# @router.get("/placements/{placement_id}")
-# async def get_placement(request: Request, placement_id: int):
-#     if (placement := await PlacementTable.by_placement_id(placement_id)) is None:
-#         raise HTTPException(404, f"Placement {placement_id} not found")
-#     return templates.components.placement(request, placement)
+@router.get("/canceled-placements", response_class=HTMLResponse)
+async def get_canceled_placements(request: Request):
+    placements = await load_canceled_placements()
+    return HTMLResponse(templates.canceled_placements(request, placements))
 
 
-@router.post("/placements/{placement_id}")
+@router.get("/completed-placements", response_class=HTMLResponse)
+async def get_completed_placements(request: Request):
+    placements = await load_completed_placements()
+    return HTMLResponse(templates.completed_placements(request, placements))
+
+
+@router.post("/incoming-placements/{placement_id}")
+async def reset_placement(placement_id: int):
+    await PlacementTable.reset(placement_id)
+
+
+@router.post("/completed-placements/{placement_id}")
 async def complete_placement(placement_id: int):
     await PlacementTable.complete(placement_id)
 
 
-@router.delete("/placements/{placement_id}")
+@router.post("/canceled-placements/{placement_id}")
 async def cancel_placement(placement_id: int):
     await PlacementTable.cancel(placement_id)
