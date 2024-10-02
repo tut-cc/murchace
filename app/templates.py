@@ -10,8 +10,15 @@ from jinja2.ext import debug as debug_ext
 from .env import DEBUG
 from .store import Product
 
+from uuid import UUID
+
 TEMPLATES_DIR = Path("app/templates")
 
+class ProductCompact:
+    def __init__(self, name: str, price: int):
+        self.name = name
+        self.price = Product.to_price_str(price)
+        self.count = 1
 
 env = jinja2.Environment(
     extensions=[debug_ext] if DEBUG else [],
@@ -76,7 +83,7 @@ def products(products: list[Product]): ...
 def orders(
     session_id: int,
     products: list[Product],
-    order_items: list[Product | None],
+    order_items: dict[UUID, Product],
     total_price: str,
     placement_status: str = "",
     order_frozen: bool = False,
@@ -103,7 +110,7 @@ class components:
     @staticmethod
     def order_session(
         session_id: int,
-        order_items: list[Product | None],
+        order_items: dict[UUID, Product],
         total_price: str,
         placement_status: str = "",
         order_frozen: bool = False,
@@ -117,4 +124,13 @@ class components:
         ],
         canceled: bool = False,
         completed: bool = False,
+    ): ...
+
+    @macro_template("components/order-confirm.html")
+    @staticmethod
+    def order_confirm(
+        session_id: int,
+        products: dict[int, ProductCompact],
+        total_price: str,
+        placement_status: str = "",
     ): ...
