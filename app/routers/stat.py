@@ -121,7 +121,7 @@ async def compute_total_sales() -> Tuple[int, int, List[Dict[str, Any]]]:
     return total_sales_all_time, total_sales_today, sales_summary_list
 
 
-async def compute_average_service_time() -> float:
+async def compute_average_service_time() -> str:
     placement_table = await PlacementTable.select_all()
 
     service_times = []
@@ -135,11 +135,12 @@ async def compute_average_service_time() -> float:
             service_times.append(time_diff)
 
     if service_times:
-        average_service_time = statistics.mean(service_times) / 60
+        average_service_time_seconds = statistics.mean(service_times)
+        average_minutes = int(average_service_time_seconds // 60)
+        average_seconds = int(average_service_time_seconds % 60)
+        return f"{average_minutes} 分 {average_seconds} 秒"
     else:
-        average_service_time = 0
-
-    return round(average_service_time, 4)
+        return "0 分 0 秒"
 
 
 @router.get("/stat", response_class=HTMLResponse)
