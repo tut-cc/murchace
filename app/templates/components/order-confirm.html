@@ -1,0 +1,56 @@
+{% macro order_confirm(session_id, products, count, total_price, placement_status) %}
+  <div class="relative z-10" aria-labelledby="confirm-dialog" role="dialog" aria-modal="true">
+    <!-- background -->
+    <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+    <div class="fixed inset-0 z-10 w-screen">
+      <div class="flex h-full items-end justify-center py-4 px-10 text-center">
+        <!-- dialog -->
+        <div class="flex flex-col overflow-y-auto transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all max-h-full">
+          <!-- text area wrapper -->
+          <div class="flex flex-col overflow-y-auto bg-white px-4 pb-4 pt-5">
+            <!-- text area -->
+            {% if placement_status == "" %}
+              <div class="flex flex-col overflow-y-auto mt-1 text-center">
+                <h3 class=" font-semibold leading-6 text-gray-900 text-lg">注文の確定</h3>
+                <div class="flex flex-col overflow-y-auto mt-5">
+                  <ul class="flex flex-col overflow-y-auto mx-1 px-3">
+                    {% for product in products.values() %}
+                      <li class="flex flex-row justify-between items-start gap-x-6 text-lg">
+                        <span class="break-words">{{ product.name }}</span>
+                        <span class="whitespace-nowrap">{{ product.price }} x {{ product.count }}</span>
+                      </li>
+                    {% endfor %}
+                  </ul>
+                  <p class="flex flex-row mx-1 px-3 mt-5 justify-between text-lg">
+                    <span class="break-words">計</span>
+                    <span class="whitespace-nowrap">{{ count }} 点</span>
+                  </p>
+                  <p class="flex flex-row mx-1 px-3 justify-between text-lg">
+                    <span class="break-words">合計金額</span>
+                    <span class="whitespace-nowrap">{{ total_price }}</span>
+                  </p>
+                </div>
+              </div>
+            {% else %}
+              {{ placement_status }}
+            {% endif %}
+          </div>
+          <!-- control -->
+          <div class="flex-none bg-gray-50 px-4 py-3">
+            <button 
+              type="button" 
+              hx-post="/orders/{{ session_id }}"
+              hx-target="#order-session"
+              class="inline-flex w-full justify-center rounded bg-blue-600 px-8 py-4 text-xl font-semibold text-white shadow-sm"
+            >確認</button>
+            <button 
+              type="button"
+              onclick="htmx.swap('#order-confirm', '', {swapStyle: 'innerHTML'})"
+              class="mt-3 inline-flex w-full justify-center rounded bg-white px-5 py-4 text-xl font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300"
+            >キャンセル</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endmacro %}

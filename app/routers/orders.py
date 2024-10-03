@@ -1,16 +1,18 @@
 from typing import Annotated
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Form, Header, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse
 
 from .. import templates
 from ..store import PlacedItemTable, PlacementTable, Product, ProductTable
+from ..store.product import ProductCompact
 
 router = APIRouter()
 
 # NOTE: Do NOT store this data in database (the data is transient and should be kept in memory)
 # NOTE: Or should this be optionally stored in database?
-order_sessions: dict[int, list[Product | None]] = {}
+order_sessions: dict[int, dict[UUID, Product]] = {}
 last_session_id = 0
 
 
@@ -18,15 +20,14 @@ def create_new_session() -> int:
     global last_session_id
     last_session_id += 1
     new_session_id = last_session_id
-    order_sessions[new_session_id] = []
+    order_sessions[new_session_id] = {}
     return new_session_id
 
 
-def compute_total_price(order_items: list[Product | None]) -> str:
+def compute_total_price(order_items: dict[UUID, Product]) -> str:
     total_price = 0
-    for item in order_items:
-        if item is not None:
-            total_price += item.price
+    for item in order_items.values():
+        total_price += item.price
     return Product.to_price_str(total_price)
 
 
@@ -42,8 +43,7 @@ async def create_new_order():
 
 @router.get("/orders/{session_id}", response_class=HTMLResponse)
 async def get_order_session(request: Request, session_id: int):
-    order_items = order_sessions.get(session_id)
-    if order_items is None:
+    if (order_items := order_sessions.get(session_id)) is None:
         raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
 
     total_price = compute_total_price(order_items)
@@ -53,12 +53,41 @@ async def get_order_session(request: Request, session_id: int):
     )
 
 
+@router.get("/orders/{session_id}/confirm", response_class=HTMLResponse)
+async def get_order_session_to_confirm(request: Request, session_id: int):
+    if (order_items := order_sessions.get(session_id)) is None:
+        raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+    if len(order_items) == 0:
+        total_price = Product.to_price_str(0)
+        placement_status = "エラー：商品が選択されていません"
+    else:
+        placement_status = ""
+    total_price = 0
+    products: dict[int, ProductCompact] = {}
+    for item in order_items.values():
+        total_price += item.price
+        if item.product_id in products:
+            products[item.product_id].count += 1
+        else:
+            products[item.product_id] = ProductCompact(item.name, item.price)
+    return HTMLResponse(
+        templates.components.order_confirm(
+            request,
+            session_id,
+            products,
+            len(order_items),
+            Product.to_price_str(total_price),
+            placement_status,
+        )
+    )
+
+
 @router.post("/orders/{session_id}", response_class=HTMLResponse)
 async def place_order(request: Request, session_id: int):
     if (order_items := order_sessions.get(session_id)) is None:
         raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
 
-    if len(list(filter(lambda x: x is not None, order_items))) == 0:
+    if len(order_items) == 0:
         total_price = Product.to_price_str(0)
         placement_status = "エラー：商品が選択されていません"
         order_frozen = False
@@ -66,7 +95,7 @@ async def place_order(request: Request, session_id: int):
         order_sessions.pop(session_id)
 
         total_price = compute_total_price(order_items)
-        product_ids = [item.product_id for item in order_items if item is not None]
+        product_ids = [item.product_id for item in order_items.values()]
         placement_id = await PlacedItemTable.issue(product_ids)
         # TODO: add a branch for out of stock error
         await PlacementTable.insert(placement_id)
@@ -111,7 +140,7 @@ async def add_order_item(
                 status_code=404, detail=f"Session {session_id} not found"
             )
 
-    order_items.append(product)
+    order_items[uuid4()] = product
     return HTMLResponse(
         templates.components.order_session(
             request, session_id, order_items, compute_total_price(order_items)
@@ -120,13 +149,11 @@ async def add_order_item(
 
 
 @router.delete("/orders/{session_id}/item/{index}", response_class=HTMLResponse)
-async def delete_order_item(request: Request, session_id: int, index: int):
+async def delete_order_item(request: Request, session_id: int, index: UUID):
     if (order_items := order_sessions.get(session_id)) is None:
         raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
-    if order_items[index] is None:
-        raise HTTPException(status_code=404, detail=f"Order item {index} not found")
 
-    order_items[index] = None
+    order_items.pop(index)
     return HTMLResponse(
         templates.components.order_session(
             request, session_id, order_items, compute_total_price(order_items)
@@ -160,7 +187,7 @@ async def clear_order_items(
 
     return HTMLResponse(
         templates.components.order_session(
-            request, session_id, [], Product.to_price_str(0)
+            request, session_id, {}, Product.to_price_str(0)
         )
     )
 
