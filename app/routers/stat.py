@@ -12,6 +12,7 @@ router = APIRouter()
 DATABASE_URL = os.path.abspath("./db/app.db")
 CSV_OUTPUT_PATH = os.path.abspath("./static/stat.csv")
 
+
 def write_csv():
     conn = sqlite3.connect(DATABASE_URL)
     cursor = conn.cursor()
