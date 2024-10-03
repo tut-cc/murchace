@@ -103,8 +103,11 @@ def completed_placements(placements: placements_t): ...
 def stat(
     total_sales_all_time: int,
     total_sales_today: int,
+    total_items_all_time: int,
+    total_items_today: int,
     sales_summary_list: list[dict[str, Any]],
-    average_service_time: float,
+    average_service_time_all: str,
+    average_service_time_recent: str,
 ): ...
 
 

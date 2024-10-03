@@ -1,7 +1,7 @@
 {% from "layout.html" import layout %}
 {% from "components/clock.html" import clock %}
 
-{% macro stat(total_sales_all_time, total_sales_today, sales_summary_list, average_service_time) %}
+{% macro stat(total_sales_all_time, total_sales_today, total_items_all_time, total_items_today, sales_summary_list, average_service_time_all, average_service_time_recent) %}
   {% call layout("統計 - murchace") %}
     <header class="w-full px-16 py-3 flex gap-3 border-b border-gray-500 text-2xl">
         <nav class="flex-grow">
@@ -33,7 +33,21 @@
         </div>
         <div class="flex-1 gap-y-2 border-2 border-gray-300 rounded-lg p-2">
           <h2 class="text-2xl">平均提供時間</h2>
-          <p class="text-4xl text-center">{{ average_service_time }}</p>
+          <p class="text-4xl text-center">{{ average_service_time_all }}</p>
+        </div>
+      </div>
+      <div class="lg:flex lg:flex-row gap-x-2 border-2 border-gray-300 rounded-lg p-2">
+        <div class="flex-1 gap-y-2 border-2 border-gray-300 rounded-lg p-2">
+          <h2 class="text-2xl">売上点数</h2>
+          <p class="text-4xl text-center">{{ total_items_all_time }}</p>
+        </div>
+        <div class="flex-1 gap-y-2 border-2 border-gray-300 rounded-lg p-2">
+          <h2 class="text-2xl">本日の売上点数</h2>
+          <p class="text-4xl text-center">{{ total_items_today }}</p>
+        </div>
+        <div class="flex-1 gap-y-2 border-2 border-gray-300 rounded-lg p-2">
+          <h2 class="text-2xl">予測待ち時間</h2>
+          <p class="text-4xl text-center">{{ average_service_time_recent }}</p>
         </div>
       </div>
       <div class="flex flex-col gap-y-2 border-2 border-gray-300 rounded-lg p-2">
