@@ -104,6 +104,9 @@ def canceled_placements(placements: placements_t): ...
 @macro_template("completed-placements.html")
 def completed_placements(placements: placements_t): ...
 
+@macro_template("stat.html")
+def stat(): ...
+
 
 # namespace
 class components:
