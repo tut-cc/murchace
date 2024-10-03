@@ -27,7 +27,7 @@
             <div class="width-full flex flex-row mx-1 items-start">
               <div class="grow flex flex-row items-end">
                 <h2 class="text-2xl">#{{ placement.placement_id }}</h2>
-                <span class="ml-1">@{{ placement.placed_at }}</span>
+                <span class="ml-1">@{{ placement.placed_at }}/{{ placement.canceled_at }}</span>
               </div>
               <button
                 hx-post="/completed-placements/{{ placement.placement_id }}"
@@ -54,7 +54,7 @@
               hx-target="#placement-{{ placement.placement_id }}"
               hx-confirm="一度取り消した注文 #{{ placement.placement_id }} を受け取り待ちに戻しますか？"
               hx-swap="delete"
-              class="mx-8 py-1 text-white bg-blue-600 rounded-lg"
+              class="mx-8 py-1 border-2 border-gray-600 rounded-lg"
             >受け取り待ちに戻す</button>
           </div>
         {% endfor %}

@@ -1,6 +1,7 @@
 from datetime import datetime
 from enum import Enum, auto
-from typing import Any, Awaitable, Callable, Mapping, assert_never
+from functools import partial
+from typing import Awaitable, Callable, Mapping, assert_never
 
 import sqlalchemy
 import sqlmodel
@@ -60,7 +61,7 @@ class PlacementsQuery(Enum):
 
     def by_placement_id(self) -> sqlalchemy.Select:
         # Query from the placements table
-        query: sqlalchemy.Select[Any] = (
+        query: sqlalchemy.Select = (
             sqlmodel.select(Placement.placement_id)
             .group_by(col(Placement.placement_id))
             .order_by(col(Placement.placement_id).asc())
@@ -123,7 +124,9 @@ class PlacementsQuery(Enum):
 
 
 class _PlacementsLoader:
-    def __new__(cls, status: PlacementsQuery) -> Callable[[], Awaitable[placements_t]]:
+    def __new__(
+        cls, db: Database, status: PlacementsQuery
+    ) -> Callable[[], Awaitable[placements_t]]:
         placements: placements_t = []
 
         match status:
@@ -224,16 +227,20 @@ class _PlacementsLoader:
                 assert_never()
 
         query = str(status.by_placement_id().compile())
+        load_placements = partial(
+            cls._execute, db, query, init_cb, update_product_cb, last_cb
+        )
 
         async def loader():
             placements.clear()
-            await cls._execute(query, init_cb, update_product_cb, last_cb)
+            await load_placements()
             return placements
 
         return loader
 
     @staticmethod
     async def _execute(
+        db: Database,
         query: str,
         init_cb: Callable[[int, Mapping], products_t],
         update_product_cb: Callable[[Mapping], dict[str, int | str]],
@@ -241,7 +248,7 @@ class _PlacementsLoader:
     ):
         products = []
         prev_placement_id = -1
-        async for map in database.iterate(query):
+        async for map in db.iterate(query):
             if (placement_id := map["placement_id"]) != prev_placement_id:
                 prev_placement_id = placement_id
                 last_cb()
@@ -250,9 +257,9 @@ class _PlacementsLoader:
         last_cb()
 
 
-load_incoming_placements = _PlacementsLoader(PlacementsQuery.incoming)
-load_canceled_placements = _PlacementsLoader(PlacementsQuery.canceled)
-load_completed_placements = _PlacementsLoader(PlacementsQuery.completed)
+load_incoming_placements = _PlacementsLoader(database, PlacementsQuery.incoming)
+load_canceled_placements = _PlacementsLoader(database, PlacementsQuery.canceled)
+load_completed_placements = _PlacementsLoader(database, PlacementsQuery.completed)
 
 
 # NOTE:get placements by incoming order in datetime

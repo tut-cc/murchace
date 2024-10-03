@@ -1,0 +1,36 @@
+{% macro incoming_placements(placements) %}
+  {% for placement in placements %}
+    <div
+      id="placement-{{ placement.placement_id }}"
+      class="size-full h-60 flex flex-col gap-y-2 border-2 border-gray-300 rounded-lg p-2"
+    >
+      <div class="width-full flex flex-row mx-1 items-start">
+        <div class="grow flex flex-row items-end">
+          <h2 class="text-2xl">#{{ placement.placement_id }}</h2>
+          <span class="ml-1">@{{ placement.placed_at }}</span>
+        </div>
+        <button
+          hx-post="/canceled-placements/{{ placement.placement_id }}"
+          hx-confirm="確定注文 #{{ placement.placement_id }} を取り消しますか？"
+          hx-target="#placement-{{ placement.placement_id }}"
+          hx-swap="delete"
+          class="px-2 py-1 text-white bg-red-600 rounded-lg"
+        >取消</button>
+      </div>
+      <ul class="flex-grow overflow-y-auto">
+        {% for product in placement.products %}
+          <li class="flex flex-row justify-between items-start gap-x-2">
+            <span class="break-words">{{ product.name }}</span>
+            <span class="whitespace-nowrap">x {{ product.count }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+      <button
+        hx-post="/completed-placements/{{ placement.placement_id }}"
+        hx-target="#placement-{{ placement.placement_id }}"
+        hx-swap="delete"
+        class="mx-8 py-1 text-white bg-blue-600 rounded-lg"
+      >完了</button>
+    </div>
+  {% endfor %}
+{% endmacro %}
