@@ -1,0 +1,27 @@
+{% from "layout.html" import layout %}
+{% from "components/clock.html" import clock %}
+
+{% macro stat(stat) %}
+  {% call layout("統計 - murchace") %}
+    <header class="w-full px-16 py-3 flex gap-3 border-b border-gray-500 text-2xl">
+        <nav class="flex-grow">
+            <ul class="flex flex-row gap-3">
+                <li><a href="/" class="cursor-pointer px-2 rounded bg-gray-300">ホーム</a></li>
+                <li><a hx-post="/orders" class="cursor-pointer px-2 rounded bg-gray-300 hidden md:inline-block">注文</a></li>
+            </ul>
+        </nav>
+        <div class="mb-0 hidden md:flex md:flex-row gap-3 rounded">
+            CSV: 
+            <button 
+              hx-post="/stat/generate-csv"
+              hx-confirm="CSVファイルを出力しますか？ 新たに注文が追加された場合は再度出力してください。"
+              class="px-2 text-white bg-blue-600 rounded-lg"
+              >出力</button>
+            <a href="/static/stat.csv" class="px-2 text-white bg-blue-600 rounded-lg">ダウンロード</a>
+        </div>
+        {{ clock() }}
+    </header>
+    <main>
+    </main>
+  {% endcall %}
+{% endmacro %}

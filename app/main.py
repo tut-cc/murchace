@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import templates
 from .env import DEBUG
-from .routers import ordered_products, order, placements, products
+from .routers import ordered_products, order, placements, products, stat
 from .store import (
     PlacedItemTable,
     PlacementTable,
@@ -33,6 +33,7 @@ app.include_router(products.router)
 app.include_router(ordered_products.router)
 app.include_router(order.router)
 app.include_router(placements.router)
+app.include_router(stat.router)
 
 
 @app.get("/", response_class=HTMLResponse)
