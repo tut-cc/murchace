@@ -1,7 +1,7 @@
 import os
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Protocol
+from typing import Any, Callable, Protocol, Optional
 from uuid import UUID
 
 import jinja2
@@ -90,8 +90,6 @@ def orders(
     products: list[Product],
     order_items: dict[UUID, Product],
     total_price: str,
-    placement_status: str = "",
-    order_frozen: bool = False,
 ): ...
 
 
@@ -119,8 +117,6 @@ class components:
         session_id: int,
         order_items: dict[UUID, Product],
         total_price: str,
-        placement_status: str = "",
-        order_frozen: bool = False,
     ): ...
 
     # @macro_template("components/incoming-placements.html")
@@ -134,5 +130,16 @@ class components:
         products: dict[int, ProductCompact],
         count: int,
         total_price: str,
-        placement_status: str = "",
+        error_status: Optional[str],
+    ): ...
+
+    @macro_template("components/order-published.html")
+    @staticmethod
+    def order_published(
+        session_id: int,
+        placement_id: Optional[int],
+        products: dict[int, ProductCompact],
+        count: int,
+        total_price: str,
+        error_status: Optional[str],
     ): ...
