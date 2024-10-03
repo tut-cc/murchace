@@ -98,8 +98,14 @@ def canceled_placements(placements: placements_t): ...
 @macro_template("completed-placements.html")
 def completed_placements(placements: placements_t): ...
 
+
 @macro_template("stat.html")
-def stat(): ...
+def stat(
+    total_sales_all_time: int,
+    total_sales_today: int,
+    sales_summary_list: list[dict[str, Any]],
+    average_service_time: float,
+): ...
 
 
 @macro_template("hx-post.html")

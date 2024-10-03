@@ -1,7 +1,7 @@
 {% from "layout.html" import layout %}
 {% from "components/clock.html" import clock %}
 
-{% macro stat(stat) %}
+{% macro stat(total_sales_all_time, total_sales_today, sales_summary_list, average_service_time) %}
   {% call layout("統計 - murchace") %}
     <header class="w-full px-16 py-3 flex gap-3 border-b border-gray-500 text-2xl">
         <nav class="flex-grow">
@@ -21,7 +21,48 @@
         </div>
         {{ clock() }}
     </header>
-    <main>
+    <main class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-min gap-3 py-2 px-16 overflow-y-auto"></main>
+      <div class="lg:flex lg:flex-row gap-x-2 border-2 border-gray-300 rounded-lg p-2">
+        <div class="flex-1 gap-y-2 border-2 border-gray-300 rounded-lg p-2">
+          <h2 class="text-2xl">売上</h2>
+          <p class="text-4xl text-center">¥{{ total_sales_all_time }}</p>
+        </div>
+        <div class="flex-1 gap-y-2 border-2 border-gray-300 rounded-lg p-2">
+          <h2 class="text-2xl">本日の売上</h2>
+          <p class="text-4xl text-center">¥{{ total_sales_today }}</p>
+        </div>
+        <div class="flex-1 gap-y-2 border-2 border-gray-300 rounded-lg p-2">
+          <h2 class="text-2xl">平均提供時間</h2>
+          <p class="text-4xl text-center">{{ average_service_time }} 分 / 注文</p>
+        </div>
+      </div>
+      <div class="flex flex-col gap-y-2 border-2 border-gray-300 rounded-lg p-2">
+        <h2 class="text-2xl">商品毎売上情報</h2>
+        <table>
+          <thead>
+            <tr>
+              <th class="border border-gray-300">商品画像</th>
+              <th class="border border-gray-300">商品名</th>
+              <th class="border border-gray-300">個数</th>
+              <th class="border border-gray-300">売上</th>
+              <th class="border border-gray-300">在庫(未実装)</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for sale in sales_summary_list %}
+            <tr>
+              <td class="border border-gray-300 flex items-center justify-center">
+                <img src="/static/{{ sale.filename }}" alt="{{ sale.name }}" class="w-16 h-16 object-cover"/>
+              </td>
+              <td class="border border-gray-300">{{ sale.name }}</td>
+              <td class="border border-gray-300 text-center">{{ sale.count }}</td>
+              <td class="border border-gray-300 text-center">¥{{ sale.total_sales }}</td>
+              <td class="border border-gray-300 text-center">{{ sale.no_stock }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </main>
   {% endcall %}
 {% endmacro %}
