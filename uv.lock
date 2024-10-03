@@ -456,12 +456,12 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "djlint" },
+    { name = "djlint", specifier = ">=1.35.2" },
     { name = "inline-snapshot", specifier = ">=0.13.1" },
     { name = "pyright", specifier = ">=1.1.381" },
     { name = "pytailwindcss", specifier = ">=0.2.0" },
     { name = "pytest", specifier = ">=8.3.3" },
-    { name = "ruff" },
+    { name = "ruff", specifier = ">=0.6.7" },
 ]
 
 [[package]]

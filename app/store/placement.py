@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timezone
 from typing import Annotated
 
@@ -28,12 +29,16 @@ class Placement(sqlmodel.SQLModel, table=True):
 
 
 class Table:
+    modified: asyncio.Condition = asyncio.Condition()
+
     def __init__(self, database: Database):
         self._db = database
 
     async def insert(self, placement_id: int) -> None:
         query = sqlmodel.insert(Placement)
         await self._db.execute(query, {"placement_id": placement_id})
+        async with self.modified:
+            self.modified.notify_all()
 
     @staticmethod
     def _update(placement_id: int) -> sqlalchemy.Update:
@@ -43,14 +48,20 @@ class Table:
     async def cancel(self, placement_id: int) -> None:
         values = {"canceled_at": datetime.now(timezone.utc), "completed_at": None}
         await self._db.execute(self._update(placement_id), values)
+        async with self.modified:
+            self.modified.notify_all()
 
     async def complete(self, placement_id: int) -> None:
         values = {"canceled_at": None, "completed_at": datetime.now(timezone.utc)}
         await self._db.execute(self._update(placement_id), values)
+        async with self.modified:
+            self.modified.notify_all()
 
     async def reset(self, placement_id: int) -> None:
         values = {"canceled_at": None, "completed_at": None}
         await self._db.execute(self._update(placement_id), values)
+        async with self.modified:
+            self.modified.notify_all()
 
     async def by_placement_id(self, placement_id: int) -> Placement | None:
         query = sqlmodel.select(Placement).where(Placement.placement_id == placement_id)
