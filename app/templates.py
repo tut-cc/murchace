@@ -15,11 +15,13 @@ from uuid import UUID
 
 TEMPLATES_DIR = Path("app/templates")
 
+
 class ProductCompact:
     def __init__(self, name: str, price: int):
         self.name = name
         self.price = Product.to_price_str(price)
         self.count = 1
+
 
 env = jinja2.Environment(
     extensions=[debug_ext] if DEBUG else [],

@@ -52,6 +52,7 @@ async def get_order_session(request: Request, session_id: int):
         templates.orders(request, session_id, products, order_items, total_price)
     )
 
+
 @router.get("/orders/{session_id}/confirm", response_class=HTMLResponse)
 async def get_order_session_to_confirm(request: Request, session_id: int):
     if (order_items := order_sessions.get(session_id)) is None:
@@ -69,8 +70,6 @@ async def get_order_session_to_confirm(request: Request, session_id: int):
             products[item.product_id].count += 1
         else:
             products[item.product_id] = templates.ProductCompact(item.name, item.price)
-    
-    
     return HTMLResponse(
         templates.components.order_confirm(
             request,
@@ -81,6 +80,7 @@ async def get_order_session_to_confirm(request: Request, session_id: int):
             placement_status,
         )
     )
+
 
 @router.post("/orders/{session_id}", response_class=HTMLResponse)
 async def place_order(request: Request, session_id: int):
@@ -139,7 +139,7 @@ async def add_order_item(
             raise HTTPException(
                 status_code=404, detail=f"Session {session_id} not found"
             )
-    
+
     order_items[uuid4()] = product
     return HTMLResponse(
         templates.components.order_session(
