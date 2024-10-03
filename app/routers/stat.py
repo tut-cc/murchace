@@ -12,7 +12,7 @@ import sqlite3
 import csv
 import os
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Tuple, List, Dict, Any
 import statistics
 
@@ -73,6 +73,8 @@ async def compute_total_sales() -> Tuple[int, int, List[Dict[str, Any]]]:
     product_price_map = {product.product_id: product for product in product_table}
     total_sales_all_time = 0
     total_sales_today = 0
+    total_items_all_time = 0
+    total_items_today = 0
     sales_summary = []
 
     today = datetime.utcnow().date()
@@ -102,10 +104,12 @@ async def compute_total_sales() -> Tuple[int, int, List[Dict[str, Any]]]:
             )
 
             total_sales_all_time += product_info.price
+            total_items_all_time += 1
 
             placed_date = placement.placed_at.date()
             if placed_date == today:
                 total_sales_today += product_info.price
+                total_items_today += 1
 
     sales_summary_aggregated = {}
     for sale in sales_summary:
@@ -118,13 +122,15 @@ async def compute_total_sales() -> Tuple[int, int, List[Dict[str, Any]]]:
 
     sales_summary_list = list(sales_summary_aggregated.values())
 
-    return total_sales_all_time, total_sales_today, sales_summary_list
+    return total_sales_all_time, total_sales_today, total_items_all_time, total_items_today, sales_summary_list
 
 
-async def compute_average_service_time() -> str:
+async def compute_average_service_time() -> Tuple[str, str]:
     placement_table = await PlacementTable.select_all()
 
-    service_times = []
+    all_service_times = []
+    recent_service_times = []
+    thirty_minutes_ago = datetime.now() - timedelta(minutes=30)
 
     for placement in placement_table:
         if placement.completed_at is not None:
@@ -132,15 +138,32 @@ async def compute_average_service_time() -> str:
             completed_at = datetime.fromisoformat(str(placement.completed_at))
 
             time_diff = (completed_at - placed_at).total_seconds()
-            service_times.append(time_diff)
+            all_service_times.append(time_diff)
 
-    if service_times:
-        average_service_time_seconds = statistics.mean(service_times)
-        average_minutes = int(average_service_time_seconds // 60)
-        average_seconds = int(average_service_time_seconds % 60)
-        return f"{average_minutes} 分 {average_seconds} 秒"
+            if completed_at >= thirty_minutes_ago:
+                recent_service_times.append(time_diff)
+
+
+    if all_service_times:
+        average_service_time_all_seconds = statistics.mean(all_service_times)
+        average_all_minutes = int(average_service_time_all_seconds // 60)
+        average_all_seconds = int(average_service_time_all_seconds % 60)
+        average_service_time_all = f"{average_all_minutes} 分 {average_all_seconds} 秒"
     else:
-        return "0 分 0 秒"
+        average_service_time_all = "0 分 0 秒"
+
+
+    if recent_service_times:
+        average_service_time_recent_seconds = statistics.mean(recent_service_times)
+        average_recent_minutes = int(average_service_time_recent_seconds // 60)
+        average_recent_seconds = int(average_service_time_recent_seconds % 60)
+        average_service_time_recent = (
+            f"{average_recent_minutes} 分 {average_recent_seconds} 秒"
+        )
+    else:
+        average_service_time_recent = "0 分 0 秒"
+
+    return average_service_time_all, average_service_time_recent
 
 
 @router.get("/stat", response_class=HTMLResponse)
@@ -148,16 +171,24 @@ async def get_stat(request: Request):
     (
         total_sales_all_time,
         total_sales_today,
+        total_items_all_time,
+        total_items_today,
         sales_summary_list,
     ) = await compute_total_sales()
-    average_service_time = await compute_average_service_time()
+    (
+        average_service_time_all,
+        average_service_time_recent,
+    ) = await compute_average_service_time()
     return HTMLResponse(
         templates.stat(
             request,
             total_sales_all_time,
             total_sales_today,
+            total_items_all_time,
+            total_items_today,
             sales_summary_list,
-            average_service_time,
+            average_service_time_all,
+            average_service_time_recent,
         )
     )
 
