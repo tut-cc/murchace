@@ -10,18 +10,17 @@
                 <li><a hx-post="/orders" class="cursor-pointer px-2 rounded bg-gray-300 hidden md:inline-block">注文</a></li>
             </ul>
         </nav>
-        <div class="mb-0 hidden md:flex md:flex-row gap-3 rounded">
-            CSV: 
+        <div class="mb-0 hidden md:flex md:flex-row gap-3 rounded"> 
             <button 
               hx-post="/stat/generate-csv"
-              hx-confirm="CSVファイルを出力しますか？ 新たに注文が追加された場合は再度出力してください。"
+              hx-confirm="CSVファイルとグラフを出力します。新たに注文が追加された場合は再度出力してください。"
               class="px-2 text-white bg-blue-600 rounded-lg"
-              >出力</button>
-            <a href="/static/stat.csv" class="px-2 text-white bg-blue-600 rounded-lg">ダウンロード</a>
+              >CSV/グラフ出力</button>
+            <a href="/static/stat.csv" class="px-2 text-white bg-blue-600 rounded-lg">CSVダウンロード</a>
         </div>
         {{ clock() }}
     </header>
-    <main class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-min gap-3 py-2 px-16 overflow-y-auto"></main>
+    <main class="auto-rows-min gap-3 py-2 px-16 overflow-y-auto">
       <div class="lg:flex lg:flex-row gap-x-2 border-2 border-gray-300 rounded-lg p-2">
         <div class="flex-1 gap-y-2 border-2 border-gray-300 rounded-lg p-2">
           <h2 class="text-2xl">売上</h2>
@@ -50,6 +49,9 @@
           <p class="text-4xl text-center">{{ average_service_time_recent }}</p>
         </div>
       </div>
+      <div class="border-2 border-gray-300 rounded-lg p-2 flex items-center justify-center">
+        <img src="/static/sales.png" alt="売上グラフ" class="w-2/3 xl:w-1/2" width="400" height="300"/>
+      </div>
       <div class="flex flex-col gap-y-2 border-2 border-gray-300 rounded-lg p-2">
         <h2 class="text-2xl">商品毎売上情報</h2>
         <table>
@@ -66,7 +68,7 @@
           {% for sale in sales_summary_list %}
             <tr>
               <td class="border border-gray-300 flex items-center justify-center">
-                <img src="/static/{{ sale.filename }}" alt="{{ sale.name }}" class="w-16 h-16 object-cover"/>
+                <img src="/static/{{ sale.filename }}" alt="{{ sale.name }}" class="w-16 h-16 object-cover" width="64" height="64"/>
               </td>
               <td class="border border-gray-300">{{ sale.name }}</td>
               <td class="border border-gray-300 text-center">{{ sale.count }}</td>
@@ -79,4 +81,4 @@
       </div>
     </main>
   {% endcall %}
-{% endmacro %}
+  {% endmacro %}
