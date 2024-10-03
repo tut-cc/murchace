@@ -2,6 +2,7 @@ import os
 from functools import wraps
 from pathlib import Path
 from typing import Any, Callable, Protocol
+from uuid import UUID
 
 import jinja2
 from fastapi import Request
@@ -10,17 +11,9 @@ from jinja2.ext import debug as debug_ext
 
 from .env import DEBUG
 from .store import Product, placements_t
-
-from uuid import UUID
+from .store.product import ProductCompact
 
 TEMPLATES_DIR = Path("app/templates")
-
-
-class ProductCompact:
-    def __init__(self, name: str, price: int):
-        self.name = name
-        self.price = Product.to_price_str(price)
-        self.count = 1
 
 
 env = jinja2.Environment(

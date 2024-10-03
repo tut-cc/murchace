@@ -1,12 +1,12 @@
 from typing import Annotated
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Form, Header, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse
 
 from .. import templates
 from ..store import PlacedItemTable, PlacementTable, Product, ProductTable
-
-from uuid import UUID, uuid4
+from ..store.product import ProductCompact
 
 router = APIRouter()
 
@@ -63,13 +63,13 @@ async def get_order_session_to_confirm(request: Request, session_id: int):
     else:
         placement_status = ""
     total_price = 0
-    products: dict[int, templates.ProductCompact] = {}
+    products: dict[int, ProductCompact] = {}
     for item in order_items.values():
         total_price += item.price
         if item.product_id in products:
             products[item.product_id].count += 1
         else:
-            products[item.product_id] = templates.ProductCompact(item.name, item.price)
+            products[item.product_id] = ProductCompact(item.name, item.price)
     return HTMLResponse(
         templates.components.order_confirm(
             request,

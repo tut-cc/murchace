@@ -25,6 +25,13 @@ class Product(sqlmodel.SQLModel, table=True):
         return f"¥{price:,}"
 
 
+class ProductCompact:
+    def __init__(self, name: str, price: int):
+        self.name = name
+        self.price = Product.to_price_str(price)
+        self.count = 1
+
+
 class Table:
     def __init__(self, database: Database):
         self._db = database
