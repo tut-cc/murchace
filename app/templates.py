@@ -2,7 +2,6 @@ import os
 from functools import wraps
 from pathlib import Path
 from typing import Any, Callable, Protocol, Optional
-from uuid import UUID
 
 import jinja2
 from fastapi import Request
@@ -11,7 +10,7 @@ from jinja2.ext import debug as debug_ext
 
 from .env import DEBUG
 from .store import Product, placements_t
-from .store.product import ProductCompact
+from .store.product import OrderSession
 
 TEMPLATES_DIR = Path("app/templates")
 
@@ -88,8 +87,7 @@ def products(products: list[Product]): ...
 def orders(
     session_id: int,
     products: list[Product],
-    order_items: dict[UUID, Product],
-    total_price: str,
+    session: OrderSession,
 ): ...
 
 
@@ -115,8 +113,7 @@ class components:
     @staticmethod
     def order_session(
         session_id: int,
-        order_items: dict[UUID, Product],
-        total_price: str,
+        session: OrderSession,
     ): ...
 
     # @macro_template("components/incoming-placements.html")
@@ -127,9 +124,7 @@ class components:
     @staticmethod
     def order_confirm(
         session_id: int,
-        products: dict[int, ProductCompact],
-        count: int,
-        total_price: str,
+        session: OrderSession,
         error_status: Optional[str],
     ): ...
 
@@ -138,8 +133,6 @@ class components:
     def order_published(
         session_id: int,
         placement_id: Optional[int],
-        products: dict[int, ProductCompact],
-        count: int,
-        total_price: str,
+        session: OrderSession,
         error_status: Optional[str],
     ): ...

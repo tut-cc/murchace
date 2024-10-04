@@ -6,47 +6,6 @@ import sqlmodel
 from databases import Database
 from sqlmodel import col
 
-from .product import Product, ProductCompact
-from uuid import UUID, uuid4
-
-
-class PlacementCompact:
-    def __init__(self):
-        self.product_list: dict[UUID, Product] = {}
-        self.product_set: dict[int, ProductCompact] = {}
-        self.count: int = 0
-        self.price: int = 0
-
-    def clear(self):
-        self.count = 0
-        self.price = 0
-        self.product_list = {}
-        self.product_set = {}
-
-    def get_str_price(self) -> str:
-        return Product.to_price_str(self.price)
-
-    def add(self, product: Product):
-        self.count += 1
-        self.price += product.price
-        self.product_list[uuid4()] = product
-        if product.product_id in self.product_set:
-            self.product_set[product.product_id].count += 1
-        else:
-            self.product_set[product.product_id] = ProductCompact(
-                product.name, product.price
-            )
-
-    def delete(self, id: UUID):
-        if id in self.product_list:
-            self.count -= 1
-            product = self.product_list.pop(id)
-            self.price -= product.price
-            if self.product_set[product.product_id].count == 1:
-                self.product_set.pop(product.product_id)
-            else:
-                self.product_set[product.product_id].count -= 1
-
 
 class Placement(sqlmodel.SQLModel, table=True):
     # NOTE: there are no Pydantic ways to set the generated table's name, as per https://github.com/fastapi/sqlmodel/issues/159
