@@ -30,8 +30,8 @@ class OrderSession:
     def __init__(self):
         self.products: dict[UUID, Product] = {}
         self.counted_products: dict[int, OrderSession.CountedProduct] = {}
-        self.total_count: int = 1
-        self.total_price: int = 1
+        self.total_count: int = 0
+        self.total_price: int = 0
 
     def clear(self):
         self.total_count = 0
