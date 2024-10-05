@@ -1,42 +1,33 @@
-{% macro order_session(session_id, order_items, total_price, placement_status = "", order_frozen = false) %}
+{% macro order_session(session_id, session) %}
   {# `flex-col-reverse` lets the browser to pin scroll to bottom #}
   <div class="flex flex-col-reverse overflow-y-auto">
     <ul class="text-lg divide-y-4">
-      {% for uuid, product in order_items.items() %}
+      {% for uuid, product in session.products.items() %}
         <li id="item-{{ uuid }}" class="flex justify-between">
           <div class="overflow-x-auto whitespace-nowrap sm:flex sm:flex-1 sm:justify-between p-4">
             <p class="sm:flex-1">{{ product.name }}</p>
             <div>{{ product.price_str() }}</div>
           </div>
-          {% if order_frozen == false %}
-            <div class="flex items-center">
-              <button
-                hx-delete="/orders/{{ session_id }}/item/{{ uuid }}"
-                hx-target="#order-session"
-                class="font-bold text-white bg-red-600 px-2 rounded"
-              >X</button>
-            </div>
-          {% endif %}
+          <div class="flex items-center">
+            <button
+              hx-delete="/orders/{{ session_id }}/item/{{ uuid }}"
+              hx-target="#order-session"
+              class="font-bold text-white bg-red-600 px-2 rounded"
+            >X</button>
+          </div>
         </li>
       {% endfor %}
     </ul>
   </div>
-  {% if placement_status != "" %}
-    <div class="text-center text-2xl">{{ placement_status }}</div>
-  {% endif %}
   <div class="flex flex-row p-2 items-center">
-    <div class="basis-1/4 text-right lg:text-2xl">{{ order_items | length }} 点</div>
-    <div class="basis-2/4 text-center lg:text-2xl">合計: {{ total_price }}</div>
-    {% if order_frozen == true %}
-      <button hx-post="/orders" class="basis-1/4 lg:text-xl text-center px-2 rounded bg-gray-300">新規</button>
-    {% else %}
-      <button
-        hx-get="/orders/{{ session_id }}/confirm"
-        hx-target="#order-confirm"
-        class="basis-1/4 lg:text-xl text-center text-white px-2 py-1 rounded bg-blue-600 disabled:cursor-not-allowed disabled:text-gray-700 disabled:bg-gray-100"
-        {{ 'disabled' if order_items | length == 0 else '' }}
-      >確定</button>
-      <div id="order-confirm"></div>
-    {% endif %}
+    <div class="basis-1/4 text-right lg:text-2xl">{{ session.total_count }} 点</div>
+    <div class="basis-2/4 text-center lg:text-2xl">合計: {{ session.total_price }}</div>
+    <button
+      hx-get="/orders/{{ session_id }}/confirm"
+      hx-target="#order-confirm"
+      class="basis-1/4 lg:text-xl text-center text-white px-2 py-1 rounded bg-blue-600 disabled:cursor-not-allowed disabled:text-gray-700 disabled:bg-gray-100"
+      {{ 'disabled' if session.total_count == 0 else '' }}
+    >確定</button>
+    <div id="order-confirm"></div>
   </div>
 {% endmacro %}

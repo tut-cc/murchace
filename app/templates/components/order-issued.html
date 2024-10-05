@@ -1,4 +1,4 @@
-{% macro order_confirm(session_id, session, error_status) %}
+{% macro order_issued(session_id, placement_id, session, error_status) %}
   <div class="relative z-10" aria-labelledby="confirm-dialog" role="dialog" aria-modal="true">
     <!-- background -->
     <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
@@ -11,13 +11,13 @@
             <!-- text area -->
             {% if error_status == None %}
               <div class="flex flex-col overflow-y-auto mt-1 text-center">
-                <h3 class=" font-semibold leading-6 text-gray-900 text-lg">注文の確定</h3>
+                <h3 class=" font-semibold leading-6 text-gray-900 text-lg">注文番号 # {{placement_id}}</h3>
                 <div class="flex flex-col overflow-y-auto mt-5">
                   <ul class="flex flex-col overflow-y-auto mx-1 px-3">
-                    {% for counted_product in session.counted_products.values() %}
+                    {% for product in session.counted_products.values() %}
                       <li class="flex flex-row justify-between items-start gap-x-6 text-lg">
-                        <span class="break-words">{{ counted_product.name }}</span>
-                        <span class="whitespace-nowrap">{{ counted_product.price }} x {{ counted_product.count }}</span>
+                        <span class="break-words">{{ product.name }}</span>
+                        <span class="whitespace-nowrap">{{ product.price }} x {{ product.count }}</span>
                       </li>
                     {% endfor %}
                   </ul>
@@ -40,16 +40,16 @@
             {% if error_status == None %}
               <button 
                 type="button" 
-                hx-post="/orders/{{ session_id }}"
-                hx-target="#order-confirm"
-                class="inline-flex w-full justify-center rounded bg-blue-600 px-8 py-4 text-xl font-semibold text-white shadow-sm"
-              >確認</button>
+                hx-post="/orders"
+                class="inline-flex w-full justify-center rounded bg-green-600 px-8 py-4 text-xl font-semibold text-white shadow-sm"
+              >新規</button>
+            {% else %}
+              <button 
+                type="button"
+                onclick="htmx.swap('#order-confirm', '', {swapStyle: 'innerHTML'})"
+                class="mt-3 inline-flex w-full justify-center rounded bg-white px-5 py-4 text-xl font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300"
+              >キャンセル</button>
             {% endif %}
-            <button 
-              type="button"
-              onclick="htmx.swap('#order-confirm', '', {swapStyle: 'innerHTML'})"
-              class="mt-3 inline-flex w-full justify-center rounded bg-white px-5 py-4 text-xl font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300"
-            >キャンセル</button>
           </div>
         </div>
       </div>

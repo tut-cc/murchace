@@ -3,6 +3,8 @@ from typing import Annotated
 from databases import Database
 import sqlmodel
 
+from uuid import UUID, uuid4
+
 
 class Product(sqlmodel.SQLModel, table=True):
     # NOTE: there are no Pydantic ways to set the generated table's name, as per https://github.com/fastapi/sqlmodel/issues/159
@@ -25,11 +27,46 @@ class Product(sqlmodel.SQLModel, table=True):
         return f"¥{price:,}"
 
 
-class ProductCompact:
-    def __init__(self, name: str, price: int):
-        self.name = name
-        self.price = Product.to_price_str(price)
-        self.count = 1
+class OrderSession:
+    def __init__(self):
+        self.products: dict[UUID, Product] = {}
+        self.counted_products: dict[int, OrderSession.CountedProduct] = {}
+        self.total_count: int = 0
+        self.total_price: int = 0
+
+    def clear(self):
+        self.total_count = 0
+        self.total_price = 0
+        self.products = {}
+        self.counted_products = {}
+
+    def get_str_price(self) -> str:
+        return Product.to_price_str(self.total_price)
+
+    def add(self, p: Product):
+        self.total_count += 1
+        self.total_price += p.price
+        self.products[uuid4()] = p
+        if p.product_id in self.counted_products:
+            self.counted_products[p.product_id].count += 1
+        else:
+            self.counted_products[p.product_id] = self.CountedProduct(p.name, p.price)
+
+    def delete(self, id: UUID):
+        if id in self.products:
+            self.total_count -= 1
+            product = self.products.pop(id)
+            self.total_price -= product.price
+            if self.counted_products[product.product_id].count == 1:
+                self.counted_products.pop(product.product_id)
+            else:
+                self.counted_products[product.product_id].count -= 1
+
+    class CountedProduct:
+        def __init__(self, name: str, price: int):
+            self.name = name
+            self.price = Product.to_price_str(price)
+            self.count = 1
 
 
 class Table:
