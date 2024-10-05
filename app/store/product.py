@@ -1,9 +1,8 @@
 from typing import Annotated
-
-from databases import Database
-import sqlmodel
-
 from uuid import UUID, uuid4
+
+import sqlmodel
+from databases import Database
 
 
 class Product(sqlmodel.SQLModel, table=True):
@@ -31,8 +30,8 @@ class OrderSession:
     def __init__(self):
         self.products: dict[UUID, Product] = {}
         self.counted_products: dict[int, OrderSession.CountedProduct] = {}
-        self.total_count: int = 0
-        self.total_price: int = 0
+        self.total_count: int = 1
+        self.total_price: int = 1
 
     def clear(self):
         self.total_count = 0
@@ -64,9 +63,9 @@ class OrderSession:
 
     class CountedProduct:
         def __init__(self, name: str, price: int):
-            self.name = name
-            self.price = Product.to_price_str(price)
-            self.count = 1
+            self.name: str = name
+            self.price: str = Product.to_price_str(price)
+            self.count: int = 1
 
 
 class Table:
