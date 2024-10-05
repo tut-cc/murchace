@@ -128,9 +128,9 @@ class components:
         error_status: Optional[str],
     ): ...
 
-    @macro_template("components/order-published.html")
+    @macro_template("components/order-issued.html")
     @staticmethod
-    def order_published(
+    def order_issued(
         session_id: int,
         placement_id: Optional[int],
         session: OrderSession,

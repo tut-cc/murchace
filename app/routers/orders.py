@@ -78,7 +78,7 @@ async def place_order(request: Request, session_id: int):
         await PlacementTable.insert(placement_id)
 
     return HTMLResponse(
-        templates.components.order_published(
+        templates.components.order_issued(
             request,
             session_id,
             placement_id,
