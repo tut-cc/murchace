@@ -1,0 +1,8 @@
+{% from "layout.html" import layout %}
+
+{% macro hx_post(path) %}
+  {% call layout("") %}
+    <div hx-post={{ path }} hx-trigger="load" style="display: none">
+    </div>
+  {% endcall %}
+{% endmacro %}

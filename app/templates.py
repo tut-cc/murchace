@@ -83,12 +83,8 @@ def index(): ...
 def products(products: list[Product]): ...
 
 
-@macro_template("orders.html")
-def orders(
-    session_id: int,
-    products: list[Product],
-    session: OrderSession,
-): ...
+@macro_template("order.html")
+def order(products: list[Product], session: OrderSession): ...
 
 
 @macro_template("incoming-placements.html")
@@ -103,6 +99,11 @@ def canceled_placements(placements: placements_t): ...
 def completed_placements(placements: placements_t): ...
 
 
+@macro_template("hx-post.html")
+@staticmethod
+def hx_post(path: str): ...
+
+
 # namespace
 class components:
     @macro_template("components/product-editor.html")
@@ -111,10 +112,7 @@ class components:
 
     @macro_template("components/order-session.html")
     @staticmethod
-    def order_session(
-        session_id: int,
-        session: OrderSession,
-    ): ...
+    def order_session(session: OrderSession): ...
 
     @macro_template("components/incoming-placements.html")
     @staticmethod
@@ -122,17 +120,10 @@ class components:
 
     @macro_template("components/order-confirm.html")
     @staticmethod
-    def order_confirm(
-        session_id: int,
-        session: OrderSession,
-        error_status: Optional[str],
-    ): ...
+    def order_confirm(session: OrderSession, error_status: Optional[str]): ...
 
     @macro_template("components/order-issued.html")
     @staticmethod
     def order_issued(
-        session_id: int,
-        placement_id: Optional[int],
-        session: OrderSession,
-        error_status: Optional[str],
+        placement_id: Optional[int], session: OrderSession, error_status: Optional[str]
     ): ...
