@@ -53,10 +53,7 @@ async def get_order_session_to_confirm(request: Request, session_id: int):
         error_status = None
     return HTMLResponse(
         templates.components.order_confirm(
-            request,
-            session_id,
-            order_session,
-            error_status,
+            request, session_id, order_session, error_status
         )
     )
 
@@ -79,11 +76,7 @@ async def place_order(request: Request, session_id: int):
 
     return HTMLResponse(
         templates.components.order_issued(
-            request,
-            session_id,
-            placement_id,
-            order_session,
-            error_status,
+            request, session_id, placement_id, order_session, error_status
         )
     )
 
@@ -101,11 +94,7 @@ async def add_order_item(
 
     order_session.add(product)
     return HTMLResponse(
-        templates.components.order_session(
-            request,
-            session_id,
-            order_session,
-        )
+        templates.components.order_session(request, session_id, order_session)
     )
 
 
@@ -116,11 +105,7 @@ async def delete_order_item(request: Request, session_id: int, index: UUID):
 
     order_session.delete(index)
     return HTMLResponse(
-        templates.components.order_session(
-            request,
-            session_id,
-            order_session,
-        )
+        templates.components.order_session(request, session_id, order_session)
     )
 
 
@@ -134,11 +119,7 @@ async def clear_order_items(
 
     order_session.clear()
     return HTMLResponse(
-        templates.components.order_session(
-            request,
-            session_id,
-            order_session,
-        )
+        templates.components.order_session(request, session_id, order_session)
     )
 
 
