@@ -1,4 +1,4 @@
-{% macro order_issued(session_id, placement_id, session, error_status) %}
+{% macro order_issued(placement_id, session, error_status) %}
   <div class="relative z-10" aria-labelledby="confirm-dialog" role="dialog" aria-modal="true">
     <!-- background -->
     <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
@@ -38,9 +38,9 @@
           <!-- control -->
           <div class="flex-none bg-gray-50 px-4 py-3">
             {% if error_status == None %}
-              <button 
-                type="button" 
-                hx-post="/orders"
+              <button
+                type="button"
+                hx-post="/order"
                 class="inline-flex w-full justify-center rounded bg-green-600 px-8 py-4 text-xl font-semibold text-white shadow-sm"
               >新規</button>
             {% else %}

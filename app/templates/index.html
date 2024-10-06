@@ -3,7 +3,7 @@
 {% macro index() %}
   {% call layout("ホーム - murchace") %}
     <div class="w-full h-dvh px-16 py-8 grid grid-cols-2 gap-12">
-      <a hx-post="/orders" class="flex items-center justify-center pt-4 text-4xl border-2 border-gray-500 rounded-2xl cursor-pointer">
+      <a href="/order" class="flex items-center justify-center pt-4 text-4xl border-2 border-gray-500 rounded-2xl cursor-pointer">
         <p>新しい注文</p>
       </a>
       <a href="/incoming-placements" class="flex items-center justify-center pt-4 text-4xl border-2 border-gray-500 rounded-2xl cursor-pointer">

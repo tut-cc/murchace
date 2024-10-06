@@ -2,13 +2,13 @@
 {% from "components/clock.html" import clock %}
 {% from "components/order-session.html" import order_session %}
 
-{% macro orders(session_id, products, session) %}
+{% macro order(products, session) %}
   {% call layout("新規注文 - murchace") %}
     <div class="h-dvh flex flex-row">
       <main class="w-1/2 lg:w-4/6 h-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-6 auto-cols-max auto-rows-min gap-2 py-2 pl-10 pr-6 overflow-y-auto">
         {% for product in products %}
           <figure
-            hx-post="/orders/{{ session_id }}/item"
+            hx-post="/order/items"
             hx-vals='{"product_id": {{ product.product_id }}}'
             hx-target="#order-session"
             class="flex flex-col border-4 rounded-md transition-colors ease-in-out active:bg-gray-100"
@@ -26,7 +26,7 @@
               <a href="/" tabindex="-1">ホームに戻る</a>
             </button>
             <button
-              hx-delete="/orders/{{ session_id }}"
+              hx-delete="/order/items"
               hx-target="#order-session"
               class="text-xl text-center text-white px-2 rounded bg-red-600 hidden sm:inline-block"
               tabindex="0"
@@ -37,7 +37,7 @@
           </div>
         </div>
         <div id="order-session" class="min-h-0 pt-2 flex flex-col">
-          {{ order_session(session_id, session) }}
+          {{ order_session(session) }}
         </div>
       </aside>
     </div>

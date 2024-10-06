@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import templates
 from .env import DEBUG
-from .routers import ordered_products, orders, placements, products
+from .routers import ordered_products, order, placements, products
 from .store import (
     PlacedItemTable,
     PlacementTable,
@@ -31,7 +31,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.include_router(products.router)
 app.include_router(ordered_products.router)
-app.include_router(orders.router)
+app.include_router(order.router)
 app.include_router(placements.router)
 
 
@@ -46,7 +46,7 @@ if DEBUG:
     async def test():
         return {
             "product_table": await ProductTable.select_all(),
-            "order_sessions": orders.order_sessions,
+            "order_sessions": order.order_sessions,
             "placed_item_table": await PlacedItemTable.select_all(),
             "placement_table": await PlacementTable.select_all(),
         }
