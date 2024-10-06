@@ -12,10 +12,9 @@ import sqlite3
 import csv
 import os
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Tuple, List, Dict, Any
 import statistics
-import matplotlib.pyplot as plt
 
 router = APIRouter()
 
