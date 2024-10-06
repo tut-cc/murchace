@@ -24,14 +24,19 @@ CSV_OUTPUT_PATH = os.path.abspath("./static/stat.csv")
 GRAPH_OUTPUT_PATH = os.path.abspath("./static/sales.png")
 
 
-def write_csv():
+def convert_unixepoch_to_localtime(unixepoch_time):
+    local_time = datetime.fromtimestamp(unixepoch_time).astimezone()
+    return local_time.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def export_placements():
     conn = sqlite3.connect(DATABASE_URL)
     cursor = conn.cursor()
     query = """
     SELECT 
         placements.placement_id, 
-        placements.placed_at, 
-        placements.completed_at, 
+        unixepoch(placements.placed_at) AS placed_at,
+        unixepoch(placements.completed_at) AS completed_at, 
         placements.canceled_at, 
         placed_items.product_id, 
         products.product_id, 
@@ -58,66 +63,15 @@ def write_csv():
         ]
         csv_writer.writerow(headers)
         for row in cursor.fetchall():
-            filtered_row = [
-                value
-                for index, value in enumerate(row)
-                if cursor.description[index][0] not in ("product_id", "canceled_at")
-            ]
+            filtered_row = []
+            for index, value in enumerate(row):
+                column_name = cursor.description[index][0]
+                if column_name in ("placed_at", "completed_at") and value is not None:
+                    value = convert_unixepoch_to_localtime(value)
+                if column_name not in ("product_id", "canceled_at"):
+                    filtered_row.append(value)
             csv_writer.writerow(filtered_row)
     conn.close()
-
-
-async def compute_sales_last_12_hours():
-    now = datetime.now()
-    last_12_hours = now - timedelta(hours=12)
-    print(last_12_hours)
-
-    placement_table = await PlacementTable.select_all()
-
-    hourly_sales = [0] * 12
-
-    for placement in placement_table:
-        if placement.completed_at is not None:
-            offset = (
-                datetime.fromisoformat(str(placement.completed_at))
-                .astimezone()
-                .utcoffset()
-            )
-            completed_at = (
-                datetime.fromisoformat(str(placement.completed_at))
-                .astimezone()
-                .replace(tzinfo=None)
-            )
-            if offset is not None:
-                completed_at = completed_at + offset
-
-            if completed_at >= last_12_hours:
-                hours_diff = int((now - completed_at).total_seconds() // 3600)
-                if 0 <= hours_diff < 12:
-                    hourly_sales[11 - hours_diff] += 1
-
-    return hourly_sales
-
-
-async def plot_sales_last_12_hours(filename: str = GRAPH_OUTPUT_PATH):
-    hourly_sales = await compute_sales_last_12_hours()
-
-    now = datetime.now()
-    labels = [(now - timedelta(hours=i)).strftime("%H:%M") for i in range(11, -1, -1)]
-
-    plt.figure(figsize=(10, 5))
-    plt.bar(labels, hourly_sales, color="skyblue")
-
-    plt.title("Last 12 Hours Sales")
-    plt.xlabel("Time")
-    plt.ylabel("Sales Count")
-
-    plt.xticks(rotation=45)
-
-    plt.tight_layout()
-    plt.savefig(filename)
-
-    plt.close()
 
 
 async def compute_total_sales() -> Tuple[int, int, int, int, List[Dict[str, Any]]]:
@@ -130,7 +84,7 @@ async def compute_total_sales() -> Tuple[int, int, int, int, List[Dict[str, Any]
     total_sales_today = 0
     total_items_all_time = 0
     total_items_today = 0
-    sales_summary = []
+    sales_summary_aggregated = {}
 
     today = datetime.today().date()
 
@@ -147,46 +101,29 @@ async def compute_total_sales() -> Tuple[int, int, int, int, List[Dict[str, Any]
         ):
             product_info = product_price_map[product_id]
 
-            sales_summary.append(
-                {
+            if product_info.name not in sales_summary_aggregated:
+                sales_summary_aggregated[product_info.name] = {
                     "name": product_info.name,
                     "filename": product_info.filename,
                     "count": 1,
                     "total_sales": product_info.price,
                     "no_stock": product_info.no_stock,
                 }
-            )
+            else:
+                sales_summary_aggregated[product_info.name]["count"] += 1
+                sales_summary_aggregated[product_info.name]["total_sales"] += (
+                    product_info.price
+                )
 
             total_sales_all_time += product_info.price
             total_items_all_time += 1
 
-            placed_date = placement.placed_at
             if placement.completed_at is not None:
-                offset = (
-                    datetime.fromisoformat(str(placement.completed_at))
-                    .astimezone()
-                    .utcoffset()
-                )
-                placed_date = (
-                    datetime.fromisoformat(str(placement.completed_at))
-                    .astimezone()
-                    .replace(tzinfo=None)
-                )
-                if offset is not None:
-                    placed_date = (placed_date + offset).date()
+                placed_date = datetime.fromisoformat(str(placement.placed_at)).date()
 
-            if placed_date == today:
-                total_sales_today += product_info.price
-                total_items_today += 1
-
-    sales_summary_aggregated = {}
-    for sale in sales_summary:
-        product_name = sale["name"]
-        if product_name not in sales_summary_aggregated:
-            sales_summary_aggregated[product_name] = sale
-        else:
-            sales_summary_aggregated[product_name]["count"] += 1
-            sales_summary_aggregated[product_name]["total_sales"] += sale["total_sales"]
+                if placed_date == today:
+                    total_sales_today += product_info.price
+                    total_items_today += 1
 
     sales_summary_list = list(sales_summary_aggregated.values())
 
@@ -204,16 +141,16 @@ async def compute_average_service_time() -> Tuple[str, str]:
 
     all_service_times = []
     recent_service_times = []
-    thirty_minutes_ago = datetime.now(timezone.utc) - timedelta(minutes=30)
+    now = datetime.now().astimezone()
+    offset = now.utcoffset() or timedelta(0)
+    thirty_minutes_ago = now - timedelta(minutes=30) - offset
 
     for placement in placement_table:
         if placement.completed_at is not None:
-            placed_at = datetime.fromisoformat(str(placement.placed_at)).replace(
-                tzinfo=timezone.utc
-            )
-            completed_at = datetime.fromisoformat(str(placement.completed_at)).replace(
-                tzinfo=timezone.utc
-            )
+            placed_at = datetime.fromisoformat(str(placement.placed_at)).astimezone()
+            completed_at = datetime.fromisoformat(
+                str(placement.completed_at)
+            ).astimezone()
 
             time_diff = (completed_at - placed_at).total_seconds()
             all_service_times.append(time_diff)
@@ -223,16 +160,18 @@ async def compute_average_service_time() -> Tuple[str, str]:
 
     if all_service_times:
         average_service_time_all_seconds = statistics.mean(all_service_times)
-        average_all_minutes = int(average_service_time_all_seconds // 60)
-        average_all_seconds = int(average_service_time_all_seconds % 60)
+        average_all_minutes, average_all_seconds = divmod(
+            int(average_service_time_all_seconds), 60
+        )
         average_service_time_all = f"{average_all_minutes} 分 {average_all_seconds} 秒"
     else:
         average_service_time_all = "0 分 0 秒"
 
     if recent_service_times:
         average_service_time_recent_seconds = statistics.mean(recent_service_times)
-        average_recent_minutes = int(average_service_time_recent_seconds // 60)
-        average_recent_seconds = int(average_service_time_recent_seconds % 60)
+        average_recent_minutes, average_recent_seconds = divmod(
+            int(average_service_time_recent_seconds), 60
+        )
         average_service_time_recent = (
             f"{average_recent_minutes} 分 {average_recent_seconds} 秒"
         )
@@ -244,6 +183,7 @@ async def compute_average_service_time() -> Tuple[str, str]:
 
 @router.get("/stat", response_class=HTMLResponse)
 async def get_stat(request: Request):
+    export_placements()
     (
         total_sales_all_time,
         total_sales_today,
@@ -267,10 +207,3 @@ async def get_stat(request: Request):
             average_service_time_recent,
         )
     )
-
-
-@router.post("/stat/generate-csv", response_class=HTMLResponse)
-async def generate_csv():
-    write_csv()
-    await plot_sales_last_12_hours()
-    return "出力完了"
