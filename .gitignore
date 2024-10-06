@@ -12,4 +12,3 @@ wheels/
 /db/app.db
 /tailwindcss*
 /static/stat.csv
-/static/sales.png
