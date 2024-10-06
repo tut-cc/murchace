@@ -99,6 +99,10 @@ def canceled_placements(placements: placements_t): ...
 def completed_placements(placements: placements_t): ...
 
 
+@macro_template("hx-post.html")
+def hx_post(path: str): ...
+
+
 @macro_template("stat.html")
 def stat(
     total_sales_all_time: int,
@@ -111,9 +115,11 @@ def stat(
 ): ...
 
 
-@macro_template("hx-post.html")
-@staticmethod
-def hx_post(path: str): ...
+@macro_template("wait-estimates.html")
+def wait_estimates(
+    average_service_time_recent: str,
+    waiting_orders: str,
+): ...
 
 
 # namespace
