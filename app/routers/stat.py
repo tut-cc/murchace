@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
+from numpy import average
 
 from .. import templates
 from ..store import (
@@ -179,6 +180,13 @@ async def compute_average_service_time() -> Tuple[str, str]:
 
     return average_service_time_all, average_service_time_recent
 
+async def compute_waiting_orders() -> int:
+    placement_table = await PlacementTable.select_all()
+    waiting_orders = 0
+    for placement in placement_table:
+        if placement.completed_at is None and placement.canceled_at is None:
+            waiting_orders += 1
+    return waiting_orders
 
 @router.get("/stat", response_class=HTMLResponse)
 async def get_stat(request: Request):
@@ -206,3 +214,35 @@ async def get_stat(request: Request):
             average_service_time_recent,
         )
     )
+
+
+@router.get("/wait-estimates", response_class=HTMLResponse)
+async def get_estimates(request: Request):
+    (
+        average_service_time_all,
+        average_service_time_recent,
+    ) = await compute_average_service_time()
+    waiting_orders= await compute_waiting_orders()
+    waiting_orders = str(waiting_orders) + "人"
+    if average_service_time_recent == "0 分 0 秒":
+        average_service_time_recent = "待ち時間なし"
+    return HTMLResponse(
+        templates.wait_estimates(
+            request,
+            average_service_time_recent,
+            waiting_orders,
+        )
+    )
+
+@router.post("/wait-estimates/update-time")
+async def post_estimates():
+    (average_service_time_all, average_service_time_recent) = await compute_average_service_time()
+    if average_service_time_recent == "0 分 0 秒":
+        average_service_time_recent = "待ち時間なし"
+    return average_service_time_recent
+
+@router.post("/wait-estimates/update-orders")
+async def post_orders():
+    waiting_orders = await compute_waiting_orders()
+    waiting_orders = str(waiting_orders) + "人"
+    return waiting_orders
