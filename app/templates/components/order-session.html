@@ -21,7 +21,7 @@
   </div>
   <div class="flex flex-row p-2 items-center">
     <div class="basis-1/4 text-right lg:text-2xl">{{ session.total_count }} 点</div>
-    <div class="basis-2/4 text-center lg:text-2xl">合計: {{ session.total_price }}</div>
+    <div class="basis-2/4 text-center lg:text-2xl">合計: {{ session.total_price_str() }}</div>
     <button
       hx-get="/order/confirm"
       hx-target="#order-confirm"
