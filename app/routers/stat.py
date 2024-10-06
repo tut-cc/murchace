@@ -13,7 +13,7 @@ import csv
 import os
 
 from datetime import datetime, timedelta
-from typing import Tuple, List, Dict, Any
+from typing import Any
 import statistics
 
 router = APIRouter()
@@ -73,7 +73,7 @@ def export_placements():
     conn.close()
 
 
-async def compute_total_sales() -> Tuple[int, int, int, int, List[Dict[str, Any]]]:
+async def compute_total_sales() -> tuple[int, int, int, int, list[dict[str, Any]]]:
     product_table = await ProductTable.select_all()
     placed_item_table = await PlacedItemTable.select_all()
     placement_table = await PlacementTable.select_all()
@@ -135,7 +135,7 @@ async def compute_total_sales() -> Tuple[int, int, int, int, List[Dict[str, Any]
     )
 
 
-async def compute_average_service_time() -> Tuple[str, str]:
+async def compute_average_service_time() -> tuple[str, str]:
     placement_table = await PlacementTable.select_all()
 
     all_service_times = []
