@@ -7,17 +7,9 @@
         <nav class="flex-grow">
             <ul class="flex flex-row gap-3">
                 <li><a href="/" class="cursor-pointer px-2 rounded bg-gray-300">ホーム</a></li>
-                <li><a hx-post="/orders" class="cursor-pointer px-2 rounded bg-gray-300 hidden md:inline-block">注文</a></li>
             </ul>
         </nav>
-        <div class="mb-0 hidden md:flex md:flex-row gap-3 rounded"> 
-            <button 
-              hx-post="/stat/generate-csv"
-              hx-confirm="CSVファイルとグラフを出力します。新たに注文が追加された場合は再度出力してください。"
-              class="px-2 text-white bg-blue-600 rounded-lg"
-              >CSV/グラフ出力</button>
-            <a href="/static/stat.csv" class="px-2 text-white bg-blue-600 rounded-lg">CSVダウンロード</a>
-        </div>
+            <a href="/static/stat.csv" class="px-2 text-white bg-blue-600 rounded-lg">売上データの取得</a>
         {{ clock() }}
     </header>
     <main class="auto-rows-min gap-3 py-2 px-16 overflow-y-auto">
