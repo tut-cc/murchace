@@ -12,7 +12,7 @@
           </ul>
         </nav>
         <form id="placements-filter" action="/placements" method="GET" class="mb-0 hidden md:flex md:flex-row gap-3">
-          <a href="/incoming-placements" class="cursor-pointer px-2 rounded bg-gray-300">受け取り待ち</a>
+          <a href="/incoming-placements" class="cursor-pointer px-2 rounded bg-gray-300">未受取</a>
           <a href="/canceled-placements" class="cursor-pointer px-2 rounded bg-gray-300">取消</a>
           <a href="/completed-placements" class="cursor-pointer px-2 rounded bg-gray-900 text-white">完了</a>
         </form>
@@ -55,7 +55,7 @@
               hx-confirm="一度取り消した注文 #{{ placement.placement_id }} を受け取り待ちに戻しますか？"
               hx-swap="delete"
               class="mx-8 py-1 border-2 border-gray-600 rounded-lg"
-            >受け取り待ちに戻す</button>
+            >未受取に戻す</button>
           </div>
         {% endfor %}
       </main>
