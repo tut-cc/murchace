@@ -44,7 +44,7 @@ class OrderSession(pydantic.BaseModel):
         self.items = {}
         self.counted_products = {}
 
-    def get_str_price(self) -> str:
+    def total_price_str(self) -> str:
         return Product.to_price_str(self.total_price)
 
     def add(self, p: Product):
