@@ -1,7 +1,7 @@
 {% from "layout.html" import layout %}
 {% from "components/clock.html" import clock %}
 
-{% macro wait_estimates(average_service_time_recent, waiting_orders) %}
+{% macro wait_estimates() %}
   {% call layout("予測待ち時間 - murchace") %}
     <header class="w-full px-16 py-3 flex gap-3 border-b border-gray-500 text-2xl">
         <nav class="flex-grow">
@@ -17,38 +17,20 @@
         <div class="items-center justify-center p-2">
             <div class="flex-1 gap-y-2 border-2 border-gray-300 rounded-lg p-4">
                 <h2 class="text-4xl">予測待ち時間</h2>
-                <p id="averageServiceTime" class="text-9xl text-center">{{ average_service_time_recent }}</p>
+                <p 
+                hx-post="/wait-estimates/service-time"
+                hx-trigger="load, every 30s"
+                class="text-9xl text-center"></p>
                 <p class="text-center">#直近30分の提供時間から算出しています</p>
             </div>
             <div class="flex-1 gap-y-2 border-2 border-gray-300 rounded-lg p-4">
                 <h2 class="text-4xl">待ち人数</h2>
-                <p id="waitingOrders" class="text-9xl text-center">{{ waiting_orders }}</p>
+                <p
+                hx-post="/wait-estimates/waiting-orders"
+                hx-trigger="load, every 30s"
+                class="text-9xl text-center"></p>
             </div>
         </div>
-    </main>    
-    <script>
-        setInterval(function() {
-            htmx.ajax('POST', '/wait-estimates/service-time', {
-                target: '#averageServiceTime',
-                swap: 'innerHTML',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                onSuccess: function (response) {
-                    const data = JSON.parse(response);
-                }
-            });
-            htmx.ajax('POST', '/wait-estimates/waiting-orders', {
-                target: '#waitingOrders',
-                swap: 'innerHTML',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                onSuccess: function (response) {
-                    const data = JSON.parse(response);
-                }
-            });
-        }, 30000);
-    </script>
+    </main>
   {% endcall %}
 {% endmacro %}

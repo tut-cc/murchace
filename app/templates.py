@@ -116,10 +116,7 @@ def stat(
 
 
 @macro_template("wait-estimates.html")
-def wait_estimates(
-    average_service_time_recent: str,
-    waiting_orders: str,
-): ...
+def wait_estimates(): ...
 
 
 # namespace
