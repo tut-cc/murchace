@@ -221,21 +221,7 @@ async def get_stat(request: Request):
 
 @router.get("/wait-estimates", response_class=HTMLResponse)
 async def get_estimates(request: Request):
-    (
-        average_service_time_all,
-        average_service_time_recent,
-    ) = await compute_average_service_time()
-    waiting_orders = await compute_waiting_orders()
-    waiting_orders = str(waiting_orders) + "人"
-    if average_service_time_recent == "0 分 0 秒":
-        average_service_time_recent = "待ち時間なし"
-    return HTMLResponse(
-        templates.wait_estimates(
-            request,
-            average_service_time_recent,
-            waiting_orders,
-        )
-    )
+    return HTMLResponse(templates.wait_estimates(request))
 
 
 @router.post("/wait-estimates/service-time", response_class=Response)
