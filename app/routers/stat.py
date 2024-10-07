@@ -9,7 +9,6 @@ from ..store import (
     database,
 )
 
-import sqlite3
 import csv
 import os
 
@@ -30,8 +29,6 @@ def convert_unixepoch_to_localtime(unixepoch_time):
 
 
 async def export_placements():
-    conn = sqlite3.connect(DATABASE_URL)
-    cursor = conn.cursor()
     query = """
     SELECT 
         placements.placement_id, 
@@ -61,24 +58,25 @@ async def export_placements():
             return
 
         headers = [
-             key for key in dict(row).keys() if key not in ("product_id", "canceled_at")
+            key for key in dict(row).keys() if key not in ("product_id", "canceled_at")
         ]
         csv_writer.writerow(headers)
-        
+
         csv_writer.writerow(_filtered_row(row))
- 
+
         async for row in async_gen:
-             csv_writer.writerow(_filtered_row(row))
+            csv_writer.writerow(_filtered_row(row))
 
 
 def _filtered_row(row: Mapping) -> list:
-     filtered_row = []
-     for column_name, value in dict(row).items():
-         if column_name in ("placed_at", "completed_at") and value is not None:
-             value = convert_unixepoch_to_localtime(value)
-         if column_name not in ("product_id", "canceled_at"):
-             filtered_row.append(value)
-     return filtered_row
+    filtered_row = []
+    for column_name, value in dict(row).items():
+        if column_name in ("placed_at", "completed_at") and value is not None:
+            value = convert_unixepoch_to_localtime(value)
+        if column_name not in ("product_id", "canceled_at"):
+            filtered_row.append(value)
+    return filtered_row
+
 
 async def compute_total_sales() -> tuple[int, int, int, int, list[dict[str, Any]]]:
     product_table = await ProductTable.select_all()
