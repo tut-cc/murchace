@@ -28,7 +28,7 @@
     </main>    
     <script>
         setInterval(function() {
-            htmx.ajax('POST', '/wait-estimates/update-time', {
+            htmx.ajax('POST', '/wait-estimates/service-time', {
                 target: '#averageServiceTime',
                 swap: 'innerHTML',
                 headers: {
@@ -38,7 +38,7 @@
                     const data = JSON.parse(response);
                 }
             });
-            htmx.ajax('POST', '/wait-estimates/update-orders', {
+            htmx.ajax('POST', '/wait-estimates/waiting-orders', {
                 target: '#waitingOrders',
                 swap: 'innerHTML',
                 headers: {

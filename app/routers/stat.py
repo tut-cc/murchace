@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Response
 from fastapi.responses import HTMLResponse
 
 from .. import templates
@@ -238,7 +238,7 @@ async def get_estimates(request: Request):
     )
 
 
-@router.post("/wait-estimates/update-time")
+@router.post("/wait-estimates/service-time", response_class=Response)
 async def post_estimates():
     (
         average_service_time_all,
@@ -249,7 +249,7 @@ async def post_estimates():
     return average_service_time_recent
 
 
-@router.post("/wait-estimates/update-orders")
+@router.post("/wait-estimates/waiting-orders", response_class=Response)
 async def post_orders():
     waiting_orders = await compute_waiting_orders()
     waiting_orders = str(waiting_orders) + "人"
