@@ -198,7 +198,7 @@ async def compute_waiting_orders() -> int:
 
 @router.get("/stat", response_class=HTMLResponse)
 async def get_stat(request: Request):
-    export_placements()
+    await export_placements()
     (
         total_sales_all_time,
         total_sales_today,
