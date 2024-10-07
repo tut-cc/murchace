@@ -6,6 +6,7 @@ from ..store import (
     PlacedItemTable,
     ProductTable,
     PlacementTable,
+    database,
 )
 
 import sqlite3
@@ -13,7 +14,7 @@ import csv
 import os
 
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Mapping
 import statistics
 
 router = APIRouter()
@@ -28,7 +29,7 @@ def convert_unixepoch_to_localtime(unixepoch_time):
     return local_time.strftime("%Y-%m-%d %H:%M:%S")
 
 
-def export_placements():
+async def export_placements():
     conn = sqlite3.connect(DATABASE_URL)
     cursor = conn.cursor()
     query = """
@@ -51,27 +52,33 @@ def export_placements():
         placements.canceled_at IS NULL;
     """
 
-    cursor.execute(query)
     csv_file_path = os.path.abspath(CSV_OUTPUT_PATH)
     with open(csv_file_path, "w", newline="") as csv_file:
         csv_writer = csv.writer(csv_file)
+
+        async_gen = database.iterate(query)
+        if (row := await anext(async_gen, None)) is None:
+            return
+
         headers = [
-            i[0]
-            for i in cursor.description
-            if i[0] not in ("product_id", "canceled_at")
+             key for key in dict(row).keys() if key not in ("product_id", "canceled_at")
         ]
         csv_writer.writerow(headers)
-        for row in cursor.fetchall():
-            filtered_row = []
-            for index, value in enumerate(row):
-                column_name = cursor.description[index][0]
-                if column_name in ("placed_at", "completed_at") and value is not None:
-                    value = convert_unixepoch_to_localtime(value)
-                if column_name not in ("product_id", "canceled_at"):
-                    filtered_row.append(value)
-            csv_writer.writerow(filtered_row)
-    conn.close()
+        
+        csv_writer.writerow(_filtered_row(row))
+ 
+        async for row in async_gen:
+             csv_writer.writerow(_filtered_row(row))
 
+
+def _filtered_row(row: Mapping) -> list:
+     filtered_row = []
+     for column_name, value in dict(row).items():
+         if column_name in ("placed_at", "completed_at") and value is not None:
+             value = convert_unixepoch_to_localtime(value)
+         if column_name not in ("product_id", "canceled_at"):
+             filtered_row.append(value)
+     return filtered_row
 
 async def compute_total_sales() -> tuple[int, int, int, int, list[dict[str, Any]]]:
     product_table = await ProductTable.select_all()
