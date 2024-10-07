@@ -118,8 +118,10 @@ async def compute_total_sales() -> tuple[int, int, int, int, list[dict[str, Any]
             total_items_all_time += 1
 
             if placement.completed_at is not None:
-                placed_date = datetime.fromisoformat(str(placement.placed_at)).date()
-
+                placed_date = (
+                    datetime.fromisoformat(str(placement.placed_at))
+                    + (datetime.now().astimezone().utcoffset() or timedelta(0))
+                ).date()
                 if placed_date == today:
                     total_sales_today += product_info.price
                     total_items_today += 1
