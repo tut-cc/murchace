@@ -56,7 +56,7 @@ test:
     JUST_UNSTABLE=1 just --fmt --check
 
     # Test Python files
-    uv run --frozen ruff check --ignore F821
+    uv run --frozen ruff check
     uv run --frozen ruff format --diff
     uv run --frozen pyright --stats
     uv run --frozen pytest
