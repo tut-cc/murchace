@@ -592,11 +592,6 @@ video {
   margin-right: 2.5rem;
 }
 
-.mx-8 {
-  margin-left: 2rem;
-  margin-right: 2rem;
-}
-
 .mx-auto {
   margin-left: auto;
   margin-right: auto;
@@ -823,6 +818,12 @@ video {
 
 .gap-y-2 {
   row-gap: 0.5rem;
+}
+
+.divide-y-2 > :not([hidden]) ~ :not([hidden]) {
+  --tw-divide-y-reverse: 0;
+  border-top-width: calc(2px * calc(1 - var(--tw-divide-y-reverse)));
+  border-bottom-width: calc(2px * var(--tw-divide-y-reverse));
 }
 
 .divide-y-4 > :not([hidden]) ~ :not([hidden]) {
