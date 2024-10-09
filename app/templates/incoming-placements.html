@@ -6,7 +6,7 @@
 {% endmacro %}
 
 {% macro incoming_placements(placements) %}
-  {% call layout("確定注文 - murchace", _head()) %}
+  {% call layout("未受取注文 - murchace", _head()) %}
     <div class="h-dvh flex flex-col">
       <header class="w-full px-16 py-3 flex gap-3 border-b border-gray-500 text-2xl">
         <nav class="flex-grow">
@@ -15,16 +15,15 @@
           </ul>
         </nav>
         <form id="placements-filter" action="/placements" method="GET" class="mb-0 hidden md:flex md:flex-row gap-3">
-          <a href="/incoming-placements" class="cursor-pointer px-2 rounded bg-gray-900 text-white">未受取</a>
-          <a href="/canceled-placements" class="cursor-pointer px-2 rounded bg-gray-300">取消</a>
-          <a href="/completed-placements" class="cursor-pointer px-2 rounded bg-gray-300">完了</a>
+          <a href="/placements/incoming" class="cursor-pointer px-2 rounded bg-gray-900 text-white">未受取</a>
+          <a href="/placements/resolved" class="cursor-pointer px-2 rounded bg-gray-300">処理済</a>
         </form>
         {{ clock() }}
       </header>
       <main
         id="placements"
         hx-ext="sse"
-        sse-connect="/incoming-placements/stream"
+        sse-connect="/placements/incoming-stream"
         sse-swap="message"
         hx-swap="innerHTML"
         sse-close="shutdown"

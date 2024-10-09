@@ -28,8 +28,8 @@ def _to_time(unix_epoch: int) -> str:
     return datetime.fromtimestamp(unix_epoch).strftime("%H:%M:%S")
 
 
-type products_t = list[dict[str, int | str]]
-type placements_t = list[dict[str, int | products_t | str | datetime | None]]
+type items_t = list[dict[str, int | str]]
+type placements_t = list[dict[str, int | items_t | str | datetime | None]]
 
 
 # TODO: there should be a way to use the unixepoch function without this boiler plate
@@ -56,10 +56,9 @@ class SortOrderedProductsBy(Enum):
 
 class PlacementsQuery(Enum):
     incoming = auto()
-    canceled = auto()
-    completed = auto()
+    resolved = auto()
 
-    def by_placement_id(self) -> sqlalchemy.Select:
+    def placements(self) -> sqlalchemy.Select:
         # Query from the placements table
         query: sqlalchemy.Select = (
             sqlmodel.select(Placement.placement_id)
@@ -113,13 +112,13 @@ class PlacementsQuery(Enum):
                     col(Placement.canceled_at).is_(None)
                     & col(Placement.completed_at).is_(None)
                 )
-            case self.canceled:
-                return query.where(col(Placement.canceled_at).isnot(None)).add_columns(
-                    unixepoch(col(Placement.canceled_at))
-                )
-            case self.completed:
-                return query.where(col(Placement.completed_at).isnot(None)).add_columns(
-                    unixepoch(col(Placement.completed_at))
+            case self.resolved:
+                return query.where(
+                    col(Placement.canceled_at).isnot(None)
+                    | col(Placement.completed_at).isnot(None)
+                ).add_columns(
+                    unixepoch(col(Placement.canceled_at)),
+                    unixepoch(col(Placement.completed_at)),
                 )
 
 
@@ -132,18 +131,18 @@ class _PlacementsLoader:
         match status:
             case status.incoming:
 
-                def init_cb(placement_id: int, map: Mapping) -> products_t:
-                    products = []
+                def init_cb(placement_id: int, map: Mapping) -> items_t:
+                    items = []
                     placements.append(
                         {
                             "placement_id": placement_id,
-                            "products": products,
+                            "items_": items,
                             "placed_at": _to_time(map["placed_at"]),
                         }
                     )
-                    return products
+                    return items
 
-                def update_product_cb(map: Mapping) -> dict[str, int | str]:
+                def update_item_cb(map: Mapping) -> dict[str, int | str]:
                     return {
                         "product_id": map["product_id"],
                         "count": map["count"],
@@ -153,24 +152,30 @@ class _PlacementsLoader:
 
                 def last_cb(): ...
 
-            case status.canceled:
+            case status.resolved:
                 total_price = 0
 
-                def init_cb(placement_id: int, map: Mapping) -> products_t:
-                    products = []
+                def init_cb(placement_id: int, map: Mapping) -> items_t:
+                    items = []
+                    canceled_at, completed_at = map["canceled_at"], map["completed_at"]
                     placements.append(
                         {
                             "placement_id": placement_id,
-                            "products": products,
+                            "items_": items,
                             "placed_at": _to_time(map["placed_at"]),
-                            "canceled_at": _to_time(map["canceled_at"]),
+                            "canceled_at": _to_time(canceled_at)
+                            if canceled_at
+                            else None,
+                            "completed_at": _to_time(completed_at)
+                            if completed_at
+                            else None,
                         }
                     )
                     nonlocal total_price
                     total_price = 0
-                    return products
+                    return items
 
-                def update_product_cb(map: Mapping) -> dict[str, int | str]:
+                def update_item_cb(map: Mapping) -> dict[str, int | str]:
                     count, price = map["count"], map["price"]
                     nonlocal total_price
                     total_price += count * price
@@ -187,48 +192,12 @@ class _PlacementsLoader:
                         placements[-1]["total_price"] = Product.to_price_str(
                             total_price
                         )
-
-            case status.completed:
-                total_price = 0
-
-                def init_cb(placement_id: int, map: Mapping) -> products_t:
-                    products = []
-                    placements.append(
-                        {
-                            "placement_id": placement_id,
-                            "products": products,
-                            "placed_at": _to_time(map["placed_at"]),
-                            "completed_at": _to_time(map["completed_at"]),
-                        }
-                    )
-                    nonlocal total_price
-                    total_price = 0
-                    return products
-
-                def update_product_cb(map: Mapping) -> dict[str, int | str]:
-                    count, price = map["count"], map["price"]
-                    nonlocal total_price
-                    total_price += count * price
-                    return {
-                        "product_id": map["product_id"],
-                        "count": count,
-                        "name": map["name"],
-                        "filename": map["filename"],
-                        "price": Product.to_price_str(price),
-                    }
-
-                def last_cb() -> None:
-                    if len(placements) > 0:
-                        placements[-1]["total_price"] = Product.to_price_str(
-                            total_price
-                        )
-
             case _:
                 assert_never()
 
-        query = str(status.by_placement_id().compile())
+        query = str(status.placements().compile())
         load_placements = partial(
-            cls._execute, db, query, init_cb, update_product_cb, last_cb
+            cls._execute, db, query, init_cb, update_item_cb, last_cb
         )
 
         async def loader():
@@ -242,24 +211,23 @@ class _PlacementsLoader:
     async def _execute(
         db: Database,
         query: str,
-        init_cb: Callable[[int, Mapping], products_t],
-        update_product_cb: Callable[[Mapping], dict[str, int | str]],
+        init_cb: Callable[[int, Mapping], items_t],
+        update_item_cb: Callable[[Mapping], dict[str, int | str]],
         last_cb: Callable[[], None],
     ):
-        products = []
+        items = []
         prev_placement_id = -1
         async for map in db.iterate(query):
             if (placement_id := map["placement_id"]) != prev_placement_id:
                 prev_placement_id = placement_id
                 last_cb()
-                products = init_cb(placement_id, map)
-            products.append(update_product_cb(map))
+                items = init_cb(placement_id, map)
+            items.append(update_item_cb(map))
         last_cb()
 
 
 load_incoming_placements = _PlacementsLoader(database, PlacementsQuery.incoming)
-load_canceled_placements = _PlacementsLoader(database, PlacementsQuery.canceled)
-load_completed_placements = _PlacementsLoader(database, PlacementsQuery.completed)
+load_resolved_placements = _PlacementsLoader(database, PlacementsQuery.resolved)
 
 
 # NOTE:get placements by incoming order in datetime
