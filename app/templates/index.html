@@ -1,32 +1,26 @@
 {% from "layout.html" import layout %}
 
 {% macro index() %}
-{% call layout("ホーム - murchace") %}
-<div class="w-full h-dvh px-16 py-8 grid grid-cols-1 lg:grid-cols-2 gap-12">
-
-  <a href="/order"
-    class="flex items-center justify-center pt-4 text-4xl border-2 border-gray-500 rounded-2xl cursor-pointer">
-    <p>新しい注文</p>
-  </a>
-  <a href="/incoming-placements"
-    class="flex items-center justify-center pt-4 text-4xl border-2 border-gray-500 rounded-2xl cursor-pointer">
-    <p>確定注文一覧</p>
-  </a>
-  <a href="/wait-estimates"
-    class="flex items-center justify-center pt-4 text-4xl border-2 border-gray-500 rounded-2xl cursor-pointer">
-    <p>予測待ち時間</p>
-  </a>
-  <a href="/stat"
-    class="flex items-center justify-center pt-4 text-4xl border-2 border-gray-500 rounded-2xl cursor-pointer">
-    <p>統計情報</p>
-  </a>
-  <a href="/products"
-    class="flex items-center justify-center pt-4 text-4xl border-2 border-gray-500 rounded-2xl cursor-pointer">
-    <p>商品編集（実装中）</p>
-  </a>
-  <a class="flex items-center justify-center pt-4 text-4xl border-2 border-gray-500 rounded-2xl">
-    <p class="cursor-not-allowed">設定（未実装）</p>
-  </a>
-</div>
-{% endcall %}
+  {% call layout("ホーム - murchace") %}
+    <div class="w-full h-dvh px-16 py-8 grid grid-cols-1 lg:grid-cols-2 gap-12 text-4xl">
+      <a href="/order" class="flex items-center justify-center pt-2 border-2 border-gray-500 rounded-2xl cursor-pointer">
+        <p>新しい注文</p>
+      </a>
+      <a href="/placements/incoming" class="flex items-center justify-center pt-2 border-2 border-gray-500 rounded-2xl cursor-pointer">
+        <p>確定注文一覧</p>
+      </a>
+      <a href="/wait-estimates" class="flex items-center justify-center pt-2 border-2 border-gray-500 rounded-2xl cursor-pointer">
+        <p>予測待ち時間</p>
+      </a>
+      <a href="/stat" class="flex items-center justify-center pt-2 border-2 border-gray-500 rounded-2xl cursor-pointer">
+        <p>統計情報</p>
+      </a>
+      <a href="/products" class="flex items-center justify-center pt-2 border-2 border-gray-500 rounded-2xl cursor-pointer">
+        <p>商品編集（実装中）</p>
+      </a>
+      <a class="flex items-center justify-center pt-2 border-2 border-gray-500 rounded-2xl cursor-not-allowed">
+        <p>設定（未実装）</p>
+      </a>
+    </div>
+  {% endcall %}
 {% endmacro %}

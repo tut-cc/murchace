@@ -1,0 +1,111 @@
+{% from "layout.html" import layout %}
+{% from "components/clock.html" import clock %}
+
+{% macro resolved_placements(placements) %}
+  {% call layout("処理済注文 - murchace") %}
+    <div class="h-dvh flex flex-col">
+      <header class="w-full px-16 py-3 flex gap-3 border-b border-gray-500 text-2xl">
+        <nav class="flex-grow">
+          <ul class="flex flex-row gap-3">
+            <li><a href="/" class="cursor-pointer px-2 rounded bg-gray-300">ホーム</a></li>
+            <li><a hx-post="/order" class="cursor-pointer px-2 rounded bg-gray-300 hidden md:inline-block">注文</a></li>
+          </ul>
+        </nav>
+        <form id="placements-filter" action="/placements" method="GET" class="mb-0 hidden md:flex md:flex-row gap-3">
+          <a href="/placements/incoming" class="cursor-pointer px-2 rounded bg-gray-300">未受取</a>
+          <a href="/placements/resolved" class="cursor-pointer px-2 rounded bg-gray-900 text-white">処理済</a>
+        </form>
+        {{ clock() }}
+      </header>
+      <main id="placements" class="size-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-min gap-3 py-2 px-16 overflow-y-auto">
+        {% for placement in placements | reverse %}
+          {% if placement.completed_at %}
+            {{ _completed(placement) }}
+          {% else %}
+            {{ _canceled(placement) }}
+          {% endif %}
+        {% endfor %}
+      </main>
+    </div>
+  {% endcall %}
+{% endmacro %}
+
+{% macro _completed(placement) %}
+  <div
+    id="placement-{{ placement.placement_id }}"
+    class="w-full h-64 flex flex-col gap-y-2 border-2 border-gray-300 rounded-lg pb-2"
+  >
+    <div class="width-full flex flex-row items-start p-2 bg-cyan-100 rounded-t-lg">
+      <div class="grow flex flex-row items-end">
+        <h2 class="text-2xl">#{{ placement.placement_id }}</h2>
+        <span class="ml-1">@{{ placement.placed_at }}/{{ placement.completed_at }}</span>
+      </div>
+      <button
+        hx-post="/placements/{{ placement.placement_id }}/canceled-at"
+        hx-confirm="完了した注文 #{{ placement.placement_id }} を取り消しますか？"
+        hx-target="#placement-{{ placement.placement_id }}"
+        hx-swap="delete"
+        class="px-2 py-1 text-white bg-red-600 rounded-lg"
+      >取消</button>
+    </div>
+    <ul class="flex-grow overflow-y-auto px-2">
+      {% for item in placement.items_ %}
+        <li class="flex flex-row justify-between items-start gap-x-2">
+          <span class="break-words">{{ item.name }}</span>
+          <span class="whitespace-nowrap">{{ item.price }} x {{ item.count }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+    <p class="flex flex-row mx-1 justify-between px-2">
+      <span class="break-words">合計金額</span>
+      <span class="whitespace-nowrap">{{ placement.total_price }}</span>
+    </p>
+    <button
+      hx-delete="/placements/{{ placement.placement_id }}/resolved-at"
+      hx-target="#placement-{{ placement.placement_id }}"
+      hx-confirm="一度取り消した注文 #{{ placement.placement_id }} を受け取り待ちに戻しますか？"
+      hx-swap="delete"
+      class="mx-10 py-1 border border-gray-600 rounded-lg"
+    >未受取に戻す</button>
+  </div>
+{% endmacro %}
+
+{% macro _canceled(placement) %}
+  <div
+    id="placement-{{ placement.placement_id }}"
+    class="w-full h-64 flex flex-col gap-y-1 border-2 border-gray-300 rounded-lg pb-2"
+  >
+    <div class="width-full flex flex-row items-start p-2 bg-orange-200 rounded-t-md">
+      <div class="grow flex flex-row items-end">
+        <h2 class="text-2xl line-through">#{{ placement.placement_id }}</h2>
+        <span class="ml-1">@{{ placement.placed_at }}/{{ placement.canceled_at }}</span>
+      </div>
+      <button
+        hx-post="/placements/{{ placement.placement_id }}/completed-at"
+        hx-confirm="一度取り消した注文 #{{ placement.placement_id }} を完了しますか？"
+        hx-target="#placement-{{ placement.placement_id }}"
+        hx-swap="delete"
+        class="px-2 py-1 text-white bg-red-600 rounded-lg"
+      >完了</button>
+    </div>
+    <ul class="flex-grow overflow-y-auto px-2">
+      {% for item in placement.items_ %}
+        <li class="flex flex-row justify-between items-start gap-x-2">
+          <span class="break-words">{{ item.name }}</span>
+          <span class="whitespace-nowrap">{{ item.price }} x {{ item.count }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+    <p class="flex flex-row mx-1 justify-between px-2">
+      <span class="break-words">合計金額</span>
+      <span class="whitespace-nowrap">{{ placement.total_price }}</span>
+    </p>
+    <button
+      hx-delete="/placements/{{ placement.placement_id }}/resolved-at"
+      hx-target="#placement-{{ placement.placement_id }}"
+      hx-confirm="一度取り消した注文 #{{ placement.placement_id }} を受け取り待ちに戻しますか？"
+      hx-swap="delete"
+      class="mx-10 py-1 border border-gray-600 rounded-lg"
+    >未受取に戻す</button>
+  </div>
+{% endmacro %}
