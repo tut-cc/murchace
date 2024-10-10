@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum, auto
 from functools import partial
-from typing import Awaitable, Callable, Mapping, assert_never
+from typing import Any, Awaitable, Callable, Literal, Mapping
 
 import sqlalchemy
 import sqlmodel
@@ -18,18 +18,27 @@ from .product import Product
 DATABASE_URL = "sqlite:///db/app.db"
 database = Database(DATABASE_URL)
 
-
 ProductTable = product.Table(database)
 PlacedItemTable = placed_item.Table(database)
 PlacementTable = placement.Table(database)
+
+
+async def delete_product(product_id: int):
+    async with database.transaction():
+        query = sqlmodel.delete(Product).where(col(Product.product_id) == product_id)
+        await database.execute(query)
+
+        clause = col(PlacedItem.product_id) == product_id
+        query = sqlmodel.delete(PlacedItem).where(clause)
+        await database.execute(query)
 
 
 def _to_time(unix_epoch: int) -> str:
     return datetime.fromtimestamp(unix_epoch).strftime("%H:%M:%S")
 
 
-type items_t = list[dict[str, int | str]]
-type placements_t = list[dict[str, int | items_t | str | datetime | None]]
+type item_t = dict[str, int | str | None]
+type placement_t = dict[str, int | list[item_t] | str | datetime | None]
 
 
 # TODO: there should be a way to use the unixepoch function without this boiler plate
@@ -37,21 +46,6 @@ def unixepoch(attr: sa_orm.Mapped) -> sqlalchemy.Label:
     colname = _colname(col(attr))
     alias = getattr(attr, "name")
     return sqlalchemy.literal_column(f"unixepoch({colname})").label(alias)
-
-
-class SortOrderedProductsBy(Enum):
-    PRODUCT_ID = "product_id"
-    TIME = "time"
-    NO_ITEMS = "no_items"
-
-    def order_by(self) -> sqlalchemy.ColumnElement:
-        match self:
-            case self.PRODUCT_ID:
-                return sqlmodel.asc(col(PlacedItem.product_id))
-            case self.TIME:
-                return sqlmodel.desc(col(Placement.placed_at))
-            case self.NO_ITEMS:
-                return sqlmodel.desc(sqlmodel.literal_column("count"))
 
 
 class PlacementsQuery(Enum):
@@ -73,36 +67,20 @@ class PlacementsQuery(Enum):
             # Query the list of placed items
             query.select_from(sqlmodel.join(Placement, PlacedItem))
             .add_columns(col(PlacedItem.product_id))
+            .add_columns(unixepoch(col(PlacedItem.supplied_at)))
             .group_by(col(PlacedItem.product_id))
             .order_by(col(PlacedItem.product_id).asc())
             .add_columns(sqlmodel.func.count(col(PlacedItem.product_id)).label("count"))
             # Query product information
             .join(Product)
-            .add_columns(col(Product.name), col(Product.filename))
+            .add_columns(col(Product.name))
         )
 
-        # Include prices for canceled/completed placements
-        if self != self.incoming:
+        # Include prices for resolved placements
+        if self == self.resolved:
             query = query.add_columns(col(Product.price))
 
         return query
-
-    def by_ordered_products(self, sort_by: SortOrderedProductsBy) -> sqlalchemy.Select:
-        query = (
-            sqlmodel.select(
-                PlacedItem.placement_id,
-                sqlmodel.func.count(col(PlacedItem.product_id)).label("count"),
-                PlacedItem.product_id,
-            )
-            .group_by(col(PlacedItem.placement_id), col(PlacedItem.product_id))
-            .select_from(sqlmodel.join(PlacedItem, Product))
-            .add_columns(col(Product.name), col(Product.filename))
-            .join(Placement)
-        )
-
-        query = self._extra_timestamps(query)
-
-        return query.order_by(sort_by.order_by())
 
     def _extra_timestamps(self, query: sqlalchemy.Select) -> sqlalchemy.Select:
         """Conditionally include/exclude extra timestamps."""
@@ -121,47 +99,47 @@ class PlacementsQuery(Enum):
                     unixepoch(col(Placement.completed_at)),
                 )
 
+    def placements_callbacks(
+        self, placements: list[placement_t]
+    ) -> tuple[
+        Callable[[int, Mapping], None],
+        Callable[[Mapping], item_t],
+        Callable[[list[item_t]], None],
+    ]:
+        match self:
+            case self.incoming:
 
-class _PlacementsLoader:
-    def __new__(
-        cls, db: Database, status: PlacementsQuery
-    ) -> Callable[[], Awaitable[placements_t]]:
-        placements: placements_t = []
-
-        match status:
-            case status.incoming:
-
-                def init_cb(placement_id: int, map: Mapping) -> items_t:
-                    items = []
+                def init_cb(placement_id: int, map: Mapping) -> None:
                     placements.append(
                         {
                             "placement_id": placement_id,
-                            "items_": items,
                             "placed_at": _to_time(map["placed_at"]),
                         }
                     )
-                    return items
 
-                def update_item_cb(map: Mapping) -> dict[str, int | str]:
+                def elem_cb(map: Mapping) -> item_t:
+                    supplied_at = map["supplied_at"]
                     return {
                         "product_id": map["product_id"],
                         "count": map["count"],
                         "name": map["name"],
-                        "filename": map["filename"],
+                        "supplied_at": _to_time(supplied_at) if supplied_at else None,
                     }
 
-                def last_cb(): ...
+                def list_cb(items: list[item_t]) -> None:
+                    if len(placements) > 0:
+                        placements[-1]["items_"] = items
 
-            case status.resolved:
+                return init_cb, elem_cb, list_cb
+
+            case self.resolved:
                 total_price = 0
 
-                def init_cb(placement_id: int, map: Mapping) -> items_t:
-                    items = []
+                def init_cb(placement_id: int, map: Mapping) -> None:
                     canceled_at, completed_at = map["canceled_at"], map["completed_at"]
                     placements.append(
                         {
                             "placement_id": placement_id,
-                            "items_": items,
                             "placed_at": _to_time(map["placed_at"]),
                             "canceled_at": _to_time(canceled_at)
                             if canceled_at
@@ -173,61 +151,112 @@ class _PlacementsLoader:
                     )
                     nonlocal total_price
                     total_price = 0
-                    return items
 
-                def update_item_cb(map: Mapping) -> dict[str, int | str]:
+                def elem_cb(map: Mapping) -> item_t:
                     count, price = map["count"], map["price"]
                     nonlocal total_price
                     total_price += count * price
+                    supplied_at = map["supplied_at"]
                     return {
                         "product_id": map["product_id"],
                         "count": count,
                         "name": map["name"],
-                        "filename": map["filename"],
                         "price": Product.to_price_str(price),
+                        "supplied_at": _to_time(supplied_at) if supplied_at else None,
                     }
 
-                def last_cb() -> None:
+                def list_cb(items: list[item_t]) -> None:
                     if len(placements) > 0:
+                        placements[-1]["items_"] = items
                         placements[-1]["total_price"] = Product.to_price_str(
                             total_price
                         )
-            case _:
-                assert_never()
 
-        query = str(status.placements().compile())
-        load_placements = partial(
-            cls._execute, db, query, init_cb, update_item_cb, last_cb
-        )
-
-        async def loader():
-            placements.clear()
-            await load_placements()
-            return placements
-
-        return loader
-
-    @staticmethod
-    async def _execute(
-        db: Database,
-        query: str,
-        init_cb: Callable[[int, Mapping], items_t],
-        update_item_cb: Callable[[Mapping], dict[str, int | str]],
-        last_cb: Callable[[], None],
-    ):
-        items = []
-        prev_placement_id = -1
-        async for map in db.iterate(query):
-            if (placement_id := map["placement_id"]) != prev_placement_id:
-                prev_placement_id = placement_id
-                last_cb()
-                items = init_cb(placement_id, map)
-            items.append(update_item_cb(map))
-        last_cb()
+                return init_cb, elem_cb, list_cb
 
 
-load_incoming_placements = _PlacementsLoader(database, PlacementsQuery.incoming)
-load_resolved_placements = _PlacementsLoader(database, PlacementsQuery.resolved)
+async def _agen_query_executor[T](
+    db: Database,
+    query: str,
+    unique_key: Literal["placement_id"] | Literal["product_id"],
+    init_cb: Callable[[Any, Mapping], None],
+    elem_cb: Callable[[Mapping], T],
+    list_cb: Callable[[list[T]], None],
+):
+    prev_unique_id = -1
+    lst: list[T] = list()
+    async for map in db.iterate(query):
+        if (unique_id := map[unique_key]) != prev_unique_id:
+            prev_unique_id = unique_id
+            list_cb(lst)
+            init_cb(unique_id, map)
+            lst: list[T] = list()
+        lst.append(elem_cb(map))
+    list_cb(lst)
+
+
+def _placements_loader(
+    db: Database, status: PlacementsQuery
+) -> Callable[[], Awaitable[list[placement_t]]]:
+    placements: list[placement_t] = []
+
+    query = str(status.placements().compile())
+    init_cb, elem_cb, list_cb = status.placements_callbacks(placements)
+    load_placements = partial(
+        _agen_query_executor, db, query, "placement_id", init_cb, elem_cb, list_cb
+    )
+
+    async def load():
+        placements.clear()
+        await load_placements()
+        return placements
+
+    return load
+
+
+load_incoming_placements = _placements_loader(database, PlacementsQuery.incoming)
+load_resolved_placements = _placements_loader(database, PlacementsQuery.resolved)
+
+
+async def load_one_resolved_placement(placement_id: int) -> placement_t | None:
+    query = PlacementsQuery.resolved.placements().where(
+        col(Placement.placement_id) == placement_id
+    )
+
+    rows_agen = database.iterate(query)
+    if (row := await anext(rows_agen, None)) is None:
+        return None
+
+    canceled_at, completed_at = row["canceled_at"], row["completed_at"]
+    placement: placement_t = {
+        "placement_id": placement_id,
+        "placed_at": _to_time(row["placed_at"]),
+        "canceled_at": _to_time(canceled_at) if canceled_at else None,
+        "completed_at": _to_time(completed_at) if completed_at else None,
+    }
+
+    total_price = 0
+
+    def to_item(row: Mapping) -> item_t:
+        count, price = row["count"], row["price"]
+        nonlocal total_price
+        total_price += count * price
+        supplied_at = row["supplied_at"]
+        return {
+            "product_id": row["product_id"],
+            "count": count,
+            "name": row["name"],
+            "price": Product.to_price_str(price),
+            "supplied_at": _to_time(supplied_at) if supplied_at else None,
+        }
+
+    items = [to_item(row)]
+    async for row in rows_agen:
+        items.append(to_item(row))
+    placement["items_"] = items
+    placement["total_price"] = Product.to_price_str(total_price)
+
+    return placement
 
 
 # NOTE:get placements by incoming order in datetime
@@ -249,29 +278,91 @@ load_resolved_placements = _PlacementsLoader(database, PlacementsQuery.resolved)
 #     return placements
 
 
-async def load_ordered_products(
-    sort_by: SortOrderedProductsBy,
-) -> list[dict[str, int | str | list[dict[str, int]]]]:
-    query = PlacementsQuery.incoming.by_ordered_products(sort_by)
-    ret: dict[int, dict[str, int | str | list[dict[str, int]]]] = {}
-    async for map in database.iterate(query):
-        product_id = map["product_id"]
-        if (product_dict := ret.get(product_id)) is None:
-            ret[product_id] = {
-                "name": map["name"],
-                "filename": map["filename"],
-                "placements": [],
-            }
-            lst: ... = ret[product_id]["placements"]
-        else:
-            lst: ... = product_dict["placements"]
-        lst.append(
-            {
-                "placement_id": map["placement_id"],
-                "count": map["count"],
-            }
+type placed_item_t = dict[str, int | str | list[dict[str, int | str]]]
+
+
+def _placed_items_loader(db: Database) -> Callable[[], Awaitable[list[placed_item_t]]]:
+    query = (
+        sqlmodel.select(
+            PlacedItem.placement_id,
+            sqlmodel.func.count(col(PlacedItem.product_id)).label("count"),
+            PlacedItem.product_id,
         )
-    return list(ret.values())
+        .where(col(PlacedItem.supplied_at).is_(None))  # Filter out supplied items
+        .group_by(col(PlacedItem.placement_id), col(PlacedItem.product_id))
+        .select_from(sqlmodel.join(PlacedItem, Product))
+        .add_columns(col(Product.name), col(Product.filename))
+        .join(Placement)
+        .add_columns(unixepoch(col(Placement.placed_at)))
+    )
+
+    query = (
+        PlacementsQuery.incoming._extra_timestamps(query)
+        .order_by(col(PlacedItem.product_id).asc())
+        .order_by(col(PlacedItem.placement_id).asc())
+    )
+
+    query_str = str(query.compile())
+
+    placed_items: list[placed_item_t] = []
+
+    def init_cb(product_id: int, map: Mapping):
+        placed_items.append(
+            {"product_id": product_id, "name": map["name"], "filename": map["filename"]}
+        )
+
+    def elem_cb(map: Mapping) -> dict[str, int | str]:
+        return {
+            "placement_id": map["placement_id"],
+            "count": map["count"],
+            "placed_at": _to_time(map["placed_at"]),
+        }
+
+    def list_cb(placements: list[dict[str, int | str]]):
+        if len(placed_items) > 0:
+            placed_items[-1]["placements"] = placements
+
+    load_placed_products = partial(
+        _agen_query_executor, db, query_str, "product_id", init_cb, elem_cb, list_cb
+    )
+
+    async def load():
+        placed_items.clear()
+        await load_placed_products()
+        return placed_items
+
+    return load
+
+
+load_placed_items_incoming = _placed_items_loader(database)
+
+
+async def supply_all_and_complete(placement_id: int):
+    async with database.transaction():
+        await PlacedItemTable._supply_all(placement_id)
+        await PlacementTable._complete(placement_id)
+    async with PlacementTable.modified:
+        PlacementTable.modified.notify_all()
+
+
+async def supply_and_complete_placement_if_done(placement_id: int, product_id: int):
+    async with database.transaction():
+        await PlacedItemTable._supply(placement_id, product_id)
+
+        update_query = sqlmodel.update(Placement).where(
+            (col(Placement.placement_id) == placement_id)
+            & sqlmodel.select(
+                sqlmodel.func.count(col(PlacedItem.item_no))
+                == sqlmodel.func.count(col(PlacedItem.supplied_at))
+            )
+            .where(col(PlacedItem.placement_id) == placement_id)
+            .scalar_subquery()
+        )
+        values = {"completed_at": datetime.now(timezone.utc)}
+        await database.execute(update_query, values)
+
+    async with PlacementTable.modified:
+        PlacementTable.modified.notify_all()
 
 
 async def _startup_db() -> None:

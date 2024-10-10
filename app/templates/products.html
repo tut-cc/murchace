@@ -1,8 +1,7 @@
 {% from "layout.html" import layout %}
-{% from "components/order-session.html" import order_session %}
 
 {% macro products(products) %}
-  {% call layout("新規注文 - murchace") %}
+  {% call layout("商品編集 - murchace") %}
     <div class="h-dvh flex flex-col">
       <div class="min-h-0 flex flex-row">
         <main class="w-4/6 grid grid-cols-4 auto-cols-max auto-rows-min gap-2 py-2 pl-10 pr-6 overflow-y-scroll">
@@ -13,15 +12,25 @@
               hx-target="#product-editor"
               class="flex flex-col border-4 border-blue-400 rounded-md transition-colors ease-in-out active:bg-blue-300"
             >
-              <img class="mx-auto w-full h-auto aspect-square" src={{ url_for('static', path=product.filename) }} alt={{ product.name }} />
+              <img class="mx-auto w-full h-auto aspect-square" src="{{ url_for('static', path=product.filename) }}" alt="{{ product.name }}"/>
               <figcaption class="text-center truncate">{{ product.name }}</figcaption>
               <div class="text-center">{{ product.price_str() }}</div>
             </figure>
           {% endfor %}
+          <figure
+            id="product-placeholder"
+            hx-get="/product-editor"
+            hx-target="#product-editor"
+            class="flex flex-col border-4 border-blue-400 rounded-md transition-colors ease-in-out active:bg-blue-300"
+          >
+            <img class="mx-auto w-full h-auto aspect-square" src="{{ url_for('static', path='no-image.png') }}" alt="新しい商品を追加" />
+            <figcaption class="text-center truncate">新しい商品を追加する</figcaption>
+            <div class="text-center"> </div>
+          </figure>
         </main>
         <aside class="w-2/6 flex flex-col p-4">
-          <ul class="text-xl">
-            <li><a href="/" class="cursor-pointer">ホーム</a></li>
+          <ul class="flex flex-row py-2 justify-around items-center text-xl">
+            <li class="flex-grow"><a href="/" class="px-2 py-1 rounded bg-gray-300 hidden lg:inline-block">ホーム</a></li>
           </ul>
           <div id="product-editor" class="grow flex flex-col justify-center">
             <div class="text-center">
@@ -32,4 +41,91 @@
       </div>
     </div>
   {% endcall %}
+{% endmacro %}
+
+{% macro editor(product) %}
+  <div class="h-full flex flex-col">
+    <div id="product-preview" class="flex-grow">
+      <figure class="w-2/3 mx-auto flex flex-col border-4 border-blue-400 rounded-md transition-colors ease-in-out active:bg-blue-300">
+        <img class="mx-auto w-full h-auto aspect-square" src="{{ url_for('static', path=product.filename) }}" alt="{{ product.name }}"/>
+        <figcaption class="text-center truncate">{{ product.name }}</figcaption>
+        <div class="text-center">{{ product.price_str() }}</div>
+      </figure>
+    </div>
+    <form
+      hx-post="/products/{{ product.product_id }}"
+      class="flex flex-col"
+    >
+      <fieldset class="grid grid-cols-3 auto-rows-min justify-items-end gap-2 py-4 text-lg">
+        <label for="product-id" class="w-full text-right">商品番号:</label>
+        <input type="number" id="product-id" name="new_product_id" value="{{ product.product_id }}" class="col-span-2 w-full"/>
+        <label for="product-name" class="w-full text-right">商品名:</label>
+        <input type="text" id="product-name" name="name" value="{{ product.name }}" class="col-span-2 w-full"/>
+        <label for="product-filename" class="w-full text-right">ファイル名:</label>
+        <input type="text" id="product-filename" name="filename" value="{{ product.filename }}" class="col-span-2 w-full"/>
+        <label for="product-price" class="w-full text-right">金額:</label>
+        <input type="number" id="product-price" name="price" value="{{ product.price }}" class="col-span-2 w-full"/>
+        <label for="product-no-stock" class="w-full text-right truncate">在庫数（未実装）:</label>
+        <input type="text" id="product-no-stock" name="no_stock" value="{{ product.no_stock or '' }}" class="col-span-2 w-full"/>
+      </fieldset>
+      <div class="flex flex-row justify-between">
+        <button
+          hx-delete="/products/{{ product.product_id }}"
+          hx-swap="none"
+          hx-confirm="本当に「{{ product.name }}（{{ product.product_id }}）」を削除しますか？"
+          type="button"
+          class="px-2 py-1 text-white bg-red-500 rounded-lg"
+        >削除</button>
+        <button
+          hx-get="/products/{{ product.product_id }}/editor"
+          hx-target="#product-editor"
+          type="reset"
+          class="px-2 py-1 border border-black rounded-lg"
+        >リセット</button>
+        <button
+          type="submit"
+          class="px-2 py-1 text-white bg-blue-500 rounded-lg"
+        >更新</button>
+      </div>
+    </form>
+  </div>
+{% endmacro %}
+
+{% macro empty_editor() %}
+  <div class="h-full flex flex-col">
+    <div id="product-preview" class="flex-grow">
+      <figure class="w-2/3 mx-auto flex flex-col border-4 border-blue-400 rounded-md transition-colors ease-in-out active:bg-blue-300">
+        <img class="mx-auto w-full h-auto aspect-square" src="{{ url_for('static', path='no-image.png') }}" alt="仮画像"/>
+      </figure>
+    </div>
+    <form
+      hx-post="/products"
+      class="flex flex-col"
+    >
+      <fieldset class="grid grid-cols-3 auto-rows-min justify-items-end gap-2 py-4 text-lg">
+        <label for="product-id" class="w-full text-right">商品番号:</label>
+        <input type="number" id="product-id" name="product_id" class="col-span-2 w-full"/>
+        <label for="product-name" class="w-full text-right">商品名:</label>
+        <input type="text" id="product-name" name="name" class="col-span-2 w-full"/>
+        <label for="product-filename" class="w-full text-right">ファイル名:</label>
+        <input type="text" id="product-filename" name="filename" value="no-image.png" class="col-span-2 w-full"/>
+        <label for="product-price" class="w-full text-right">金額:</label>
+        <input type="number" id="product-price" name="price" value="0" class="col-span-2 w-full"/>
+        <label for="product-no-stock" class="w-full text-right truncate">在庫数（未実装）:</label>
+        <input type="text" id="product-no-stock" name="no_stock" class="col-span-2 w-full"/>
+      </fieldset>
+      <div class="flex flex-row justify-between">
+        <button
+          hx-get="/product-editor"
+          hx-target="#product-editor"
+          type="reset"
+          class="px-2 py-1 border border-black rounded-lg"
+        >リセット</button>
+        <button
+          type="submit"
+          class="px-2 py-1 text-white bg-blue-500 rounded-lg"
+        >追加</button>
+      </div>
+    </form>
+  </div>
 {% endmacro %}

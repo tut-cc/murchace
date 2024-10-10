@@ -1,0 +1,67 @@
+{% from "layout.html" import layout %}
+{% from "components/clock.html" import clock %}
+
+{% macro _head() %}
+  <script src="{{ url_for('static', path='/sse.js') }}"></script>
+{% endmacro %}
+
+{% macro placed_items_incoming(placed_items) %}
+  {% call layout("未受取商品 - murchace", _head()) %}
+    <div class="h-dvh flex flex-col">
+      <header class="w-full px-16 py-3 flex gap-3 border-b border-gray-500 text-2xl">
+        <ul class="flex-grow hidden md:flex md:flex-row gap-3">
+          <li class="flex-grow"><a href="/" class="cursor-pointer px-2 py-1 rounded bg-gray-300">ホーム</a></li>
+          <li><a href="/placements/incoming" class="cursor-pointer px-2 py-1 rounded bg-gray-300">未受取：注文</a></li>
+          <li><a href="/placed-items/incoming" class="cursor-pointer px-2 py-1 rounded bg-gray-900 text-white">未受取：商品</a></li>
+          <li><a href="/placements/resolved" class="cursor-pointer px-2 py-1 rounded bg-gray-300">処理済</a></li>
+        </ul>
+        {{ clock() }}
+      </header>
+      <main
+        id="placed-items"
+        hx-ext="sse"
+        sse-connect="/placed-items/incoming-stream"
+        sse-swap="message"
+        hx-swap="innerHTML"
+        sse-close="shutdown"
+        class="size-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-min gap-3 py-2 px-16 overflow-y-auto"
+      >
+        {{ component(placed_items) }}
+      </main>
+    </div>
+  {% endcall %}
+{% endmacro %}
+
+{% macro component(placed_items) %}
+  {% for placed_item in placed_items %}
+    <div
+      id="product-{{ placed_item.product_id }}"
+      class="h-80 flex flex-col border-2 border-gray-300 rounded-lg pb-2"
+    >
+      <div class="width-full flex flex-row mx-1 items-start pb-2">
+        <h3 class="text-lg ml-1">{{ placed_item.name }}</h3>
+      </div>
+      <div class="w-1/3 mx-auto">
+        <img class="mx-auto w-full h-auto aspect-square" src="{{ url_for('static', path=placed_item.filename) }}" alt="{{ placed_item.name }}"/>
+      </div>
+      <ul class="flex-grow overflow-y-auto px-2 divide-y-2">
+        {% for placement in placed_item.placements %}
+          <li
+            id="placed-item-{{ placement.placement_id }}-{{ placed_item.product_id }}"
+            class="flex flex-row items-center"
+          >
+            <span class="text-xl">#{{ placement.placement_id }}</span>
+            <span class="ml-1">@{{ placement.placed_at }}</span>
+            <span class="whitespace-nowrap ml-auto">x {{ placement.count }}</span>
+            <button
+              hx-post="/placements/{{ placement.placement_id }}/products/{{ placed_item.product_id }}/supplied-at"
+              hx-target="#placed-item-{{ placement.placement_id }}-{{ placed_item.product_id }}"
+              hx-swap="delete"
+              class="w-1/3 py-1 m-1 text-white bg-green-600 rounded"
+            >✓</button>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endfor %}
+{% endmacro %}

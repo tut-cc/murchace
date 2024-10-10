@@ -72,14 +72,22 @@ def test_macro_argument_names_and_function_parameter_names_match():
                     assert isinstance(dec.args[0].value, str)
                     name = dec.args[0].value
                     module = env.get_template(name, globals=debug_global.copy()).module
-                    macro_name = templates.hyphen_path_to_underscore_stem(name)
+
+                    match len(dec.args):
+                        case 1:  # Implicitly inferered macro name
+                            macro_name = templates.hyphen_path_to_underscore_stem(name)
+                        case 2:  # Explicitly specified macro name
+                            assert isinstance(dec.args[1], ast.Constant)
+                            assert isinstance(dec.args[1].value, str)
+                            macro_name = dec.args[1].value
+                        case _:
+                            assert False
+
                     macro: jinja2.runtime.Macro = getattr(module, macro_name)
                     yield macro.arguments, func_def
 
     tree = ast.parse(Path(templates.__file__).read_bytes())
     for macro_args, func_def in macro_template_decorated_func_defs(tree):
-        # print(f"\n[{func_def.name}(...)]")
         for i, (macro_arg, func_arg) in enumerate(zip(macro_args, func_def.args.args)):
-            # print(i, (macro_arg, func_arg.arg))
-            err_msg = f"The macro argument and function parameter do not match at {i}: {macro_arg} != {func_arg.arg}"
+            err_msg = f"The macro argument and function parameter do not match at {i} in function signature `{func_def.name}`: {macro_arg} != {func_arg.arg}"
             assert macro_arg == func_arg.arg, err_msg
