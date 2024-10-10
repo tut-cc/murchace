@@ -45,7 +45,7 @@ async def instruct_creation_of_new_session_or_get_existing_session(
         )
 
     products = await ProductTable.select_all()
-    return HTMLResponse(templates.order(request, products, session))
+    return HTMLResponse(templates.order.page(request, products, session))
 
 
 @router.get("/order/confirm", response_class=HTMLResponse)
@@ -109,19 +109,19 @@ async def add_order_item(
         raise HTTPException(status_code=404, detail=f"Product {product_id} not found")
 
     session.add(product)
-    return HTMLResponse(templates.components.order_session(request, session))
+    return HTMLResponse(templates.order.session(request, session))
 
 
 @router.delete("/order/items/{item_id}", response_class=HTMLResponse)
 async def delete_order_item(request: Request, session: SessionDeps, item_id: UUID):
     session.delete(item_id)
-    return HTMLResponse(templates.components.order_session(request, session))
+    return HTMLResponse(templates.order.session(request, session))
 
 
 @router.delete("/order/items")
 async def clear_order_items(request: Request, session: SessionDeps) -> Response:
     session.clear()
-    return HTMLResponse(templates.components.order_session(request, session))
+    return HTMLResponse(templates.order.session(request, session))
 
 
 # TODO: add proper path operation for order deferral
@@ -141,7 +141,7 @@ async def clear_order_items(request: Request, session: SessionDeps) -> Response:
 #     # TODO: respond with a message about the success of the deferral action
 #     # message = "注文を保留しました"
 #     # res = HTMLResponse(
-#     #     templates.components.order_session(request, OrderSession(), message=message)
+#     #     templates.order.session(request, OrderSession(), message=message)
 #     # )
 #     # res.delete_cookie(SESSION_COOKIE_KEY)
 #     # return res

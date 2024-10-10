@@ -9,7 +9,7 @@ from fastapi.datastructures import URL
 from jinja2.ext import debug as debug_ext
 
 from .env import DEBUG
-from .store import Product, placements_t
+from .store import Product, placed_item_t, placement_t
 from .store.product import OrderSession
 
 TEMPLATES_DIR = Path("app/templates")
@@ -79,20 +79,62 @@ def layout(
 def index(): ...
 
 
-@macro_template("products.html")
-def products(products: list[Product]): ...
+class products:  # namespace
+    @macro_template("products.html")
+    @staticmethod
+    def page(products: list[Product]): ...
+
+    @macro_template("products.html", "editor")
+    @staticmethod
+    def editor(product: Product): ...
+
+    @macro_template("products.html", "empty_editor")
+    @staticmethod
+    def empty_editor(): ...
 
 
-@macro_template("order.html")
-def order(products: list[Product], session: OrderSession): ...
+class order:  # namespace
+    @macro_template("order.html")
+    @staticmethod
+    def page(products: list[Product], session: OrderSession): ...
+
+    @macro_template("order.html", "order_session")
+    @staticmethod
+    def session(session: OrderSession): ...
 
 
-@macro_template("incoming-placements.html")
-def incoming_placements(placements: placements_t): ...
+class placed_items_incoming:  # namespace
+    @macro_template("placed-items-incoming.html")
+    @staticmethod
+    def page(placed_items: list[placed_item_t]): ...
+
+    @macro_template("placed-items-incoming.html", "component")
+    @staticmethod
+    def component(placed_items: list[placed_item_t]): ...
 
 
-@macro_template("resolved-placements.html")
-def resolved_placements(placements: placements_t): ...
+class incoming_placements:  # namespace
+    @macro_template("incoming-placements.html")
+    @staticmethod
+    def page(placements: list[placement_t]): ...
+
+    @macro_template("incoming-placements.html", "component")
+    @staticmethod
+    def component(placements: list[placement_t]): ...
+
+
+class resolved_placements:  # namespace
+    @macro_template("resolved-placements.html")
+    @staticmethod
+    def page(placements: list[placement_t]): ...
+
+    @macro_template("resolved-placements.html", "completed")
+    @staticmethod
+    def completed(placement: placement_t): ...
+
+    @macro_template("resolved-placements.html", "canceled")
+    @staticmethod
+    def canceled(placement: placement_t): ...
 
 
 @macro_template("hx-post.html")
@@ -115,20 +157,7 @@ def stat(
 def wait_estimates(): ...
 
 
-# namespace
-class components:
-    @macro_template("components/product-editor.html")
-    @staticmethod
-    def product_editor(product: Product | None): ...
-
-    @macro_template("components/order-session.html")
-    @staticmethod
-    def order_session(session: OrderSession): ...
-
-    @macro_template("components/incoming-placements.html")
-    @staticmethod
-    def incoming_placements(placements: placements_t): ...
-
+class components:  # namespace
     @macro_template("components/order-confirm.html")
     @staticmethod
     def order_confirm(session: OrderSession, error_status: Optional[str]): ...

@@ -1,5 +1,5 @@
-{% macro clock(class_attributes = "") %}
-  <div id="clock" class={{ class_attributes }}>XX:XX:XX</div>
+{% macro clock() %}
+  <div id="clock" class="font-mono">XX:XX:XX</div>
   <script>
     document.addEventListener("htmx:load", () => {
       const clock = document.getElementById("clock")

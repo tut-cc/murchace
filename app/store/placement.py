@@ -51,11 +51,13 @@ class Table:
         async with self.modified:
             self.modified.notify_all()
 
-    async def complete(self, placement_id: int) -> None:
+    async def _complete(self, placement_id: int) -> None:
+        """
+        Use `store.supply_all_and_complete` when the `supplied_at` fields of
+        `placed_items` table should be updated as well.
+        """
         values = {"canceled_at": None, "completed_at": datetime.now(timezone.utc)}
         await self._db.execute(self._update(placement_id), values)
-        async with self.modified:
-            self.modified.notify_all()
 
     async def reset(self, placement_id: int) -> None:
         values = {"canceled_at": None, "completed_at": None}
