@@ -1,7 +1,9 @@
+from datetime import datetime, timezone
 from typing import Annotated
 
 import sqlmodel
 from databases import Database
+from sqlmodel import col
 
 from ._helper import _colname
 from .placement import Placement
@@ -20,6 +22,9 @@ class PlacedItem(sqlmodel.SQLModel, table=True):
     product_id: Annotated[
         int, sqlmodel.Field(foreign_key=_colname(sqlmodel.col(Product.product_id)))
     ]
+    supplied_at: datetime | None = sqlmodel.Field(
+        default=None, sa_column=sqlmodel.Column(sqlmodel.DateTime(timezone=True))
+    )
 
 
 class Table:
@@ -51,7 +56,23 @@ class Table:
         self._last_placement_id = placement_id
         return placement_id
 
+    async def _supply(self, placement_id: int, product_id: int):
+        query = sqlmodel.update(PlacedItem).where(
+            (col(PlacedItem.placement_id) == placement_id)
+            & (col(PlacedItem.product_id) == product_id)
+        )
+        await self._db.execute(query, {"supplied_at": datetime.now(timezone.utc)})
+
+    async def _supply_all(self, placement_id: int):
+        """
+        Use `store.supply_all_and_complete` when the `completed_at` fields of
+        `placements` table should be updated as well.
+        """
+        clause = col(PlacedItem.placement_id) == placement_id
+        query = sqlmodel.update(PlacedItem).where(clause)
+        await self._db.execute(query, {"supplied_at": datetime.now(timezone.utc)})
+
     # NOTE: this function needs authorization since it destroys all receipts
-    async def clear(self) -> None:
-        await self._db.execute(sqlmodel.delete(PlacedItem))
-        self._last_placement_id = None
+    # async def clear(self) -> None:
+    #     await self._db.execute(sqlmodel.delete(PlacedItem))
+    #     self._last_placement_id = None

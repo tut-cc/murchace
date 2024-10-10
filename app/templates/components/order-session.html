@@ -25,7 +25,7 @@
     <button
       hx-get="/order/confirm"
       hx-target="#order-confirm"
-      class="basis-1/4 lg:text-xl text-center text-white px-2 py-1 rounded bg-blue-600 disabled:cursor-not-allowed disabled:text-gray-700 disabled:bg-gray-100"
+      class="basis-1/4 lg:text-xl text-center text-white p-2 rounded bg-blue-600 disabled:cursor-not-allowed disabled:text-gray-700 disabled:bg-gray-100"
       {{ 'disabled' if session.total_count == 0 else '' }}
     >確定</button>
     <div id="order-confirm"></div>
