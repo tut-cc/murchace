@@ -83,8 +83,14 @@ def index(): ...
 def products(products: list[Product]): ...
 
 
-@macro_template("order.html")
-def order(products: list[Product], session: OrderSession): ...
+class order:  # namespace
+    @macro_template("order.html")
+    @staticmethod
+    def page(products: list[Product], session: OrderSession): ...
+
+    @macro_template("order.html", "order_session")
+    @staticmethod
+    def session(session: OrderSession): ...
 
 
 class placed_items_incoming:  # namespace
@@ -145,10 +151,6 @@ class components:  # namespace
     @macro_template("components/product-editor.html")
     @staticmethod
     def product_editor(product: Product | None): ...
-
-    @macro_template("components/order-session.html")
-    @staticmethod
-    def order_session(session: OrderSession): ...
 
     @macro_template("components/order-confirm.html")
     @staticmethod
