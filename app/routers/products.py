@@ -30,11 +30,21 @@ async def new_product(
         price=price,
         no_stock=no_stock,
     )
-    await ProductTable.insert(new_product)
+    maybe_product = await ProductTable.insert(new_product)
+
+    # TODO: report back that the operation has been completed successfully or
+    # failed in the process depending on the value of `maybe_product`
+    _ = maybe_product
+    # if (product := maybe_product) is None:
+    #     detail = f"Product {product_id} not updated"
+    #     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
+    #
+    # # return HTMLResponse(templates.products.card(product))
+
     return Response(headers={"hx-refresh": "true"})
 
 
-@router.post("/products/{product_id}", response_class=Response)
+@router.post("/products/{product_id}", response_class=HTMLResponse)
 async def update_product(
     product_id: int,
     new_product_id: Annotated[int, Form()],
@@ -51,8 +61,17 @@ async def update_product(
         no_stock=no_stock,
     )
 
-    # TODO: Test whether the returning SQL clause in update function is working or not
-    await ProductTable.update(product_id, new_product)
+    maybe_product = await ProductTable.update(product_id, new_product)
+
+    # TODO: report back that the operation has been completed successfully or
+    # failed in the process depending on the value of `maybe_product`
+    _ = maybe_product
+    # if (product := maybe_product) is None:
+    #     detail = f"Product {product_id} not updated"
+    #     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
+    #
+    # # return HTMLResponse(templates.products.card(product))
+
     return Response(headers={"hx-refresh": "true"})
 
 

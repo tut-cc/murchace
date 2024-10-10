@@ -218,11 +218,14 @@ class Table:
         row = await self._db.fetch_one(query)
         return Product.model_validate(row) if row else None
 
-    async def insert(self, product: Product) -> None:
-        query = sqlmodel.insert(Product)
-        await self._db.execute(query, product.model_dump())
+    async def insert(self, product: Product) -> Product | None:
+        query = sqlmodel.insert(Product).returning(sqlmodel.literal_column("*"))
+        maybe_record = await self._db.fetch_one(query, product.model_dump())
+        if (record := maybe_record) is None:
+            return None
+        return Product.model_validate(record._mapping)
 
-    async def update(self, product_id: int, new_product: Product) -> int | None:
+    async def update(self, product_id: int, new_product: Product) -> Product | None:
         dump = new_product.model_dump()
         dump.pop("id")
 
@@ -230,17 +233,17 @@ class Table:
             sqlmodel.update(Product)
             .where(col(Product.product_id) == product_id)
             .values(**dump)
-            .returning(col(Product.product_id))
+            .returning(sqlmodel.literal_column("*"))
         )
         if product_id != new_product.product_id:
-            query = query.where(
-                sqlmodel.not_(
-                    sqlmodel.exists(
-                        sqlmodel.select(col(Product.product_id)).where(
-                            col(Product.product_id) == new_product.product_id
-                        )
-                    )
-                )
+            dest_product_id_occupied = (
+                sqlmodel.select(col(Product.product_id))
+                .where(col(Product.product_id) == new_product.product_id)
+                .exists()
             )
+            query = query.where(sqlmodel.not_(dest_product_id_occupied))
 
-        return await self._db.execute(query)
+        maybe_record = await self._db.fetch_one(query)
+        if (record := maybe_record) is None:
+            return None
+        return Product.model_validate(record._mapping)
