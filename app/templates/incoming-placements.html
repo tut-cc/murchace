@@ -2,7 +2,7 @@
 {% from "components/clock.html" import clock %}
 
 {% macro _head() %}
-  <script src={{ url_for('static', path='/sse.js') }}></script>
+  <script src="{{ url_for('static', path='/sse.js') }}"></script>
 {% endmacro %}
 
 {% macro incoming_placements(placements) %}

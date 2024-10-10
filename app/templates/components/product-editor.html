@@ -6,7 +6,7 @@
       <div id="product-preview" class="px-16">
         <figure class="flex flex-col border-4 border-blue-400 rounded-md transition-colors ease-in-out active:bg-blue-300">
           {# TODO: use placeholder image #}
-          <img class="mx-auto w-full h-auto aspect-square" src={{ url_for('static', path=product.filename) }} alt={{ product.name }} />
+          <img class="mx-auto w-full h-auto aspect-square" src="{{ url_for('static', path=product.filename) }}" alt="{{ product.name }}"/>
           <figcaption class="text-center truncate">{{ product.name }}</figcaption>
           <div class="text-center">{{ product.price_str() }}</div>
         </figure>
@@ -22,26 +22,24 @@
           <legend class="float-left">項目を編集</legend>
           <div>
             <label for="product-id">商品番号:</label>
-            <input type="number" id="product-id" value={{ product.product_id }}>
+            <input type="number" id="product-id" name="new_product_id" value="{{ product.product_id }}"/>
           </div>
           <div>
             <label for="product-name">商品名:</label>
-            <input type="text" id="product-name" value={{ product.name }}>
+            <input type="text" id="product-name" name="name" value="{{ product.name }}"/>
           </div>
           <div>
             <label for="product-filename">ファイル名:</label>
-            <input type="text" id="product-filename" value={{ product.filename }}>
+            <input type="text" id="product-filename" name="filename" value="{{ product.filename }}"/>
           </div>
           <div>
             <label for="product-price">金額:</label>
-            <input type="number" id="product-price" value={{ product.price }}>
+            <input type="number" id="product-price" name="price" value="{{ product.price }}"/>
           </div>
-          {#
           <div>
             <label for="product-no-stock">在庫数:</label>
-            <input type="text" id="product-no-stock" value={{ product.no_stock }}>
+            <input type="text" id="product-no-stock" name="no_stock" value="{{ product.no_stock }}"/>
           </div>
-          #}
         </fieldset>
         <div class="flex flex-row justify-between">
           <button

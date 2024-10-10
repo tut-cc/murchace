@@ -12,7 +12,7 @@
               hx-target="#product-editor"
               class="flex flex-col border-4 border-blue-400 rounded-md transition-colors ease-in-out active:bg-blue-300"
             >
-              <img class="mx-auto w-full h-auto aspect-square" src={{ url_for('static', path=product.filename) }} alt={{ product.name }} />
+              <img class="mx-auto w-full h-auto aspect-square" src="{{ url_for('static', path=product.filename) }}" alt="{{ product.name }}"/>
               <figcaption class="text-center truncate">{{ product.name }}</figcaption>
               <div class="text-center">{{ product.price_str() }}</div>
             </figure>

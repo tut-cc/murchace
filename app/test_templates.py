@@ -73,7 +73,6 @@ def test_macro_argument_names_and_function_parameter_names_match():
                     name = dec.args[0].value
                     module = env.get_template(name, globals=debug_global.copy()).module
 
-                    print("len(dec.args) =", len(dec.args))
                     match len(dec.args):
                         case 1:  # Implicitly inferered macro name
                             macro_name = templates.hyphen_path_to_underscore_stem(name)
