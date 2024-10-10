@@ -79,8 +79,18 @@ def layout(
 def index(): ...
 
 
-@macro_template("products.html")
-def products(products: list[Product]): ...
+class products:  # namespace
+    @macro_template("products.html")
+    @staticmethod
+    def page(products: list[Product]): ...
+
+    @macro_template("products.html", "editor")
+    @staticmethod
+    def editor(product: Product): ...
+
+    @macro_template("products.html", "empty_editor")
+    @staticmethod
+    def empty_editor(): ...
 
 
 class order:  # namespace
@@ -148,10 +158,6 @@ def wait_estimates(): ...
 
 
 class components:  # namespace
-    @macro_template("components/product-editor.html")
-    @staticmethod
-    def product_editor(product: Product | None): ...
-
     @macro_template("components/order-confirm.html")
     @staticmethod
     def order_confirm(session: OrderSession, error_status: Optional[str]): ...

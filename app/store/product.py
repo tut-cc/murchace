@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 import pydantic
 import sqlmodel
 from databases import Database
+from sqlmodel import col
 
 
 class Product(sqlmodel.SQLModel, table=True):
@@ -12,10 +13,8 @@ class Product(sqlmodel.SQLModel, table=True):
 
     id: int | None = sqlmodel.Field(default=None, primary_key=True)
     product_id: int
-    # Column(..., String(length=40))
     name: Annotated[str, sqlmodel.Field(max_length=40)]
-    # Column(..., String(length=100))
-    filename: Annotated[str, sqlmodel.Field(max_length=40)]
+    filename: Annotated[str, sqlmodel.Field(max_length=100)]
     price: int
     no_stock: int | None  # Column(..., nullable=True)
 
@@ -218,3 +217,30 @@ class Table:
         query = sqlmodel.select(Product).where(Product.product_id == product_id)
         row = await self._db.fetch_one(query)
         return Product.model_validate(row) if row else None
+
+    async def insert(self, product: Product) -> None:
+        query = sqlmodel.insert(Product)
+        await self._db.execute(query, product.model_dump())
+
+    async def update(self, product_id: int, new_product: Product) -> int | None:
+        dump = new_product.model_dump()
+        dump.pop("id")
+
+        query = (
+            sqlmodel.update(Product)
+            .where(col(Product.product_id) == product_id)
+            .values(**dump)
+            .returning(col(Product.product_id))
+        )
+        if product_id != new_product.product_id:
+            query = query.where(
+                sqlmodel.not_(
+                    sqlmodel.exists(
+                        sqlmodel.select(col(Product.product_id)).where(
+                            col(Product.product_id) == new_product.product_id
+                        )
+                    )
+                )
+            )
+
+        return await self._db.execute(query)

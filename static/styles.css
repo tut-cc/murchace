@@ -578,8 +578,8 @@ video {
   z-index: 10;
 }
 
-.float-left {
-  float: left;
+.col-span-2 {
+  grid-column: span 2 / span 2;
 }
 
 .m-1 {
@@ -694,6 +694,10 @@ video {
   width: 4rem;
 }
 
+.w-2\/3 {
+  width: 66.666667%;
+}
+
 .w-2\/6 {
   width: 33.333333%;
 }
@@ -758,6 +762,10 @@ video {
   grid-template-columns: repeat(1, minmax(0, 1fr));
 }
 
+.grid-cols-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .grid-cols-4 {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
@@ -796,6 +804,10 @@ video {
 
 .justify-around {
   justify-content: space-around;
+}
+
+.justify-items-end {
+  justify-items: end;
 }
 
 .gap-12 {

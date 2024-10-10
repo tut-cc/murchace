@@ -23,6 +23,16 @@ PlacedItemTable = placed_item.Table(database)
 PlacementTable = placement.Table(database)
 
 
+async def delete_product(product_id: int):
+    async with database.transaction():
+        query = sqlmodel.delete(Product).where(col(Product.product_id) == product_id)
+        await database.execute(query)
+
+        clause = col(PlacedItem.product_id) == product_id
+        query = sqlmodel.delete(PlacedItem).where(clause)
+        await database.execute(query)
+
+
 def _to_time(unix_epoch: int) -> str:
     return datetime.fromtimestamp(unix_epoch).strftime("%H:%M:%S")
 
