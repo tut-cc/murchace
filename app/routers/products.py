@@ -98,5 +98,5 @@ async def get_empty_product_editor(request: Request):
 
 # TODO: This path is defined temporally for convenience and should be removed in the future.
 @router.put("/products/static/{csv_file}")
-async def renew_table_from_products_list_csv(csv_file: str = "products-list.csv"):
+async def renew_table_from_products_list_csv(csv_file: str = "product-list.csv"):
     await ProductTable.renew_from_static_csv(f"static/{csv_file}")
