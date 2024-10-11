@@ -94,3 +94,9 @@ async def get_product_editor(request: Request, product_id: int):
 @router.get("/product-editor", response_class=HTMLResponse)
 async def get_empty_product_editor(request: Request):
     return HTMLResponse(templates.products.empty_editor(request))
+
+
+# TODO: This path is defined temporally for convenience and should be removed in the future.
+@router.put("/products/static/{csv_file}")
+async def renew_table_from_products_list_csv(csv_file: str = "products-list.csv"):
+    await ProductTable.renew_from_static_csv(f"static/{csv_file}")

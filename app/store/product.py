@@ -1,4 +1,5 @@
-from typing import Annotated
+import csv
+from typing import Annotated, Iterable
 from uuid import UUID, uuid4
 
 import pydantic
@@ -16,7 +17,7 @@ class Product(sqlmodel.SQLModel, table=True):
     name: Annotated[str, sqlmodel.Field(max_length=40)]
     filename: Annotated[str, sqlmodel.Field(max_length=100)]
     price: int
-    no_stock: int | None  # Column(..., nullable=True)
+    no_stock: int | None
 
     def price_str(self) -> str:
         return self.to_price_str(self.price)
@@ -74,133 +75,29 @@ class Table:
     async def ainit(self) -> None:
         if not await self._empty():
             return
+        await self.renew_from_static_csv()
 
-        # TODO: read this data from CSV or something
-        products = [
-            # Coffee
-            {
-                "product_id": 1,
-                "name": "ブレンドコーヒー",
-                "filename": "coffee01_blend.png",
-                "price": 150,
-                "no_stock": 100,
-            },
-            {
-                "product_id": 2,
-                "name": "アメリカンコーヒー",
-                "filename": "coffee02_american.png",
-                "price": 150,
-                "no_stock": 100,
-            },
-            {
-                "product_id": 3,
-                "name": "カフェオレコーヒー",
-                "filename": "coffee03_cafeole.png",
-                "price": 150,
-                "no_stock": 100,
-            },
-            {
-                "product_id": 4,
-                "name": "ブレンドブラックコーヒー",
-                "filename": "coffee04_blend_black.png",
-                "price": 150,
-                "no_stock": 100,
-            },
-            {
-                "product_id": 5,
-                "name": "カプチーノコーヒー",
-                "filename": "coffee05_cappuccino.png",
-                "price": 150,
-                "no_stock": 100,
-            },
-            {
-                "product_id": 6,
-                "name": "カフェラテコーヒー",
-                "filename": "coffee06_cafelatte.png",
-                "price": 150,
-                "no_stock": 100,
-            },
-            {
-                "product_id": 7,
-                "name": "マキアートコーヒー",
-                "filename": "coffee07_cafe_macchiato.png",
-                "price": 150,
-                "no_stock": 100,
-            },
-            {
-                "product_id": 8,
-                "name": "モカコーヒー",
-                "filename": "coffee08_cafe_mocha.png",
-                "price": 150,
-                "no_stock": 100,
-            },
-            {
-                "product_id": 9,
-                "name": "カラメルコーヒー",
-                "filename": "coffee09_caramel_macchiato.png",
-                "price": 150,
-                "no_stock": 100,
-            },
-            {
-                "product_id": 10,
-                "name": "アイスコーヒー",
-                "filename": "coffee10_iced_coffee.png",
-                "price": 150,
-                "no_stock": 100,
-            },
-            {
-                "product_id": 11,
-                "name": "アイスミルクコーヒー",
-                "filename": "coffee11_iced_milk_coffee.png",
-                "price": 150,
-                "no_stock": 100,
-            },
-            {
-                "product_id": 12,
-                "name": "エスプレッソコーヒー",
-                "filename": "coffee12_espresso.png",
-                "price": 150,
-                "no_stock": 100,
-            },
-            # Tea
-            {
-                "product_id": 13,
-                "name": "レモンティー",
-                "filename": "tea_lemon.png",
-                "price": 100,
-                "no_stock": 100,
-            },
-            {
-                "product_id": 14,
-                "name": "ミルクティー",
-                "filename": "tea_milk.png",
-                "price": 100,
-                "no_stock": 100,
-            },
-            {
-                "product_id": 15,
-                "name": "ストレイトティー",
-                "filename": "tea_straight.png",
-                "price": 100,
-                "no_stock": 100,
-            },
-            # Others
-            {
-                "product_id": 16,
-                "name": "シュガー",
-                "filename": "cooking_sugar_stick.png",
-                "price": 0,
-                "no_stock": None,
-            },
-            {
-                "product_id": 17,
-                "name": "ミルクシロップ",
-                "filename": "sweets_milk_cream.png",
-                "price": 0,
-                "no_stock": None,
-            },
-        ]
-        await self._insert_many([Product.model_validate(obj) for obj in products])
+    # TODO: This function is defined temporally for convenience and should be removed in the future.
+    async def renew_from_static_csv(self, csv_file: str = "static/product-list.csv"):
+        def decomment(csv_rows: Iterable[str]):
+            for row in csv_rows:
+                row_body = row.split("#")[0].strip()
+                if row_body != "":
+                    yield row_body
+
+        products: list[Product] = []
+        with open(csv_file) as f:
+            reader = csv.DictReader(
+                decomment(f), dialect="unix", quoting=csv.QUOTE_STRINGS, strict=True
+            )
+            for csv_row in reader:
+                if csv_row["no_stock"] == "":
+                    csv_row["no_stock"] = None
+                products.append(Product.model_validate(csv_row))
+
+        async with self._db.transaction():
+            await self._db.execute(sqlmodel.delete(Product))
+            await self._insert_many(products)
 
     async def _empty(self) -> bool:
         return await self._db.fetch_one(sqlmodel.select(Product)) is None
@@ -210,7 +107,7 @@ class Table:
         await self._db.execute_many(query, [p.model_dump() for p in products])
 
     async def select_all(self) -> list[Product]:
-        query = sqlmodel.select(Product)
+        query = sqlmodel.select(Product).order_by(col(Product.product_id).asc())
         return [Product.model_validate(m) async for m in self._db.iterate(query)]
 
     async def by_product_id(self, product_id: int) -> Product | None:
@@ -223,7 +120,7 @@ class Table:
         maybe_record = await self._db.fetch_one(query, product.model_dump())
         if (record := maybe_record) is None:
             return None
-        return Product.model_validate(record._mapping)
+        return Product.model_validate(dict(record._mapping))
 
     async def update(self, product_id: int, new_product: Product) -> Product | None:
         dump = new_product.model_dump()
@@ -246,4 +143,4 @@ class Table:
         maybe_record = await self._db.fetch_one(query)
         if (record := maybe_record) is None:
             return None
-        return Product.model_validate(record._mapping)
+        return Product.model_validate(dict(record._mapping))
