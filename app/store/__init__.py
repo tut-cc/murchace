@@ -12,7 +12,7 @@ from sqlmodel import col
 from . import placed_item, placement, product
 from ._helper import _colname
 from .placed_item import PlacedItem
-from .placement import Placement
+from .placement import ModifiedFlag, Placement
 from .product import Product
 
 DATABASE_URL = "sqlite:///db/app.db"
@@ -341,28 +341,37 @@ async def supply_all_and_complete(placement_id: int):
     async with database.transaction():
         await PlacedItemTable._supply_all(placement_id)
         await PlacementTable._complete(placement_id)
-    async with PlacementTable.modified:
-        PlacementTable.modified.notify_all()
+    async with PlacementTable.modified_cond_flag:
+        FLAG = ModifiedFlag.SUPPLIED | ModifiedFlag.RESOLVED
+        PlacementTable.modified_cond_flag.notify_all(FLAG)
 
 
 async def supply_and_complete_placement_if_done(placement_id: int, product_id: int):
     async with database.transaction():
         await PlacedItemTable._supply(placement_id, product_id)
 
-        update_query = sqlmodel.update(Placement).where(
-            (col(Placement.placement_id) == placement_id)
-            & sqlmodel.select(
-                sqlmodel.func.count(col(PlacedItem.item_no))
-                == sqlmodel.func.count(col(PlacedItem.supplied_at))
+        update_query = (
+            sqlmodel.update(Placement)
+            .where(
+                (col(Placement.placement_id) == placement_id)
+                & sqlmodel.select(
+                    sqlmodel.func.count(col(PlacedItem.item_no))
+                    == sqlmodel.func.count(col(PlacedItem.supplied_at))
+                )
+                .where(col(PlacedItem.placement_id) == placement_id)
+                .scalar_subquery()
             )
-            .where(col(PlacedItem.placement_id) == placement_id)
-            .scalar_subquery()
+            .returning(col(Placement.placement_id).isnot(None))
         )
-        values = {"completed_at": datetime.now(timezone.utc)}
-        await database.execute(update_query, values)
 
-    async with PlacementTable.modified:
-        PlacementTable.modified.notify_all()
+        values = {"completed_at": datetime.now(timezone.utc)}
+        completed: bool | None = await database.fetch_val(update_query, values)
+
+    async with PlacementTable.modified_cond_flag:
+        flag = ModifiedFlag.SUPPLIED
+        if completed is not None:
+            flag |= ModifiedFlag.RESOLVED
+        PlacementTable.modified_cond_flag.notify_all(flag)
 
 
 async def _startup_db() -> None:

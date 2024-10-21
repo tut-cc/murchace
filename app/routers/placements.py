@@ -5,6 +5,7 @@ from fastapi import APIRouter, Form, Header, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
 from sse_starlette.sse import EventSourceResponse
 
+from ..store.placement import ModifiedFlag
 from .. import templates
 from ..store import (
     PlacementTable,
@@ -40,13 +41,14 @@ async def _placed_items_incoming_stream(request: Request):
     yield dict(data=content)
     try:
         while True:
-            async with PlacementTable.modified:
-                await PlacementTable.modified.wait()
+            async with PlacementTable.modified_cond_flag:
+                flag = await PlacementTable.modified_cond_flag.wait()
+                if flag & (ModifiedFlag.INCOMING | ModifiedFlag.PUT_BACK):
+                    template = templates.placed_items_incoming.component_with_sound
+                else:
+                    template = templates.placed_items_incoming.component
                 placed_items = await load_placed_items_incoming()
-                content = templates.placed_items_incoming.component(
-                    request, placed_items
-                )
-                yield dict(data=content)
+                yield dict(data=template(request, placed_items))
     except asyncio.CancelledError:
         yield dict(event="shutdown", data="")
     finally:
@@ -80,11 +82,14 @@ async def _incoming_placements_stream(
     yield dict(data=content)
     try:
         while True:
-            async with PlacementTable.modified:
-                await PlacementTable.modified.wait()
+            async with PlacementTable.modified_cond_flag:
+                flag = await PlacementTable.modified_cond_flag.wait()
+                if flag & (ModifiedFlag.INCOMING | ModifiedFlag.PUT_BACK):
+                    template = templates.incoming_placements.component_with_sound
+                else:
+                    template = templates.incoming_placements.component
                 placements = await load_incoming_placements()
-                content = templates.incoming_placements.component(request, placements)
-                yield dict(data=content)
+                yield dict(data=template(request, placements))
     except asyncio.CancelledError:
         yield dict(event="shutdown", data="")
     finally:

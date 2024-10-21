@@ -1,5 +1,6 @@
 import asyncio
 from datetime import datetime, timezone
+from enum import Flag, auto
 from typing import Annotated
 
 import sqlalchemy
@@ -28,8 +29,39 @@ class Placement(sqlmodel.SQLModel, table=True):
     )
 
 
+class ModifiedFlag(Flag):
+    ORIGINAL = auto()
+    INCOMING = auto()
+    SUPPLIED = auto()
+    RESOLVED = auto()
+    PUT_BACK = auto()
+
+
+class ModifiedCondFlag:
+    _condvar: asyncio.Condition = asyncio.Condition()
+    flag: ModifiedFlag = ModifiedFlag.ORIGINAL
+
+    async def __aenter__(self):
+        await self._condvar.__aenter__()
+
+    async def __aexit__(self, exc_type, exc, tb) -> None:
+        await self._condvar.__aexit__(exc_type, exc, tb)
+
+    async def wait(self) -> ModifiedFlag:
+        await self._condvar.wait()
+        flag = self.flag
+        if len(self._condvar._waiters) == 0:
+            self.flag = ModifiedFlag.ORIGINAL
+        return flag
+
+    def notify_all(self, flag: ModifiedFlag | None = None):
+        self._condvar.notify_all()
+        if flag is not None:
+            self.flag |= flag
+
+
 class Table:
-    modified: asyncio.Condition = asyncio.Condition()
+    modified_cond_flag = ModifiedCondFlag()
 
     def __init__(self, database: Database):
         self._db = database
@@ -37,8 +69,8 @@ class Table:
     async def insert(self, placement_id: int) -> None:
         query = sqlmodel.insert(Placement)
         await self._db.execute(query, {"placement_id": placement_id})
-        async with self.modified:
-            self.modified.notify_all()
+        async with self.modified_cond_flag:
+            self.modified_cond_flag.notify_all(ModifiedFlag.INCOMING)
 
     @staticmethod
     def _update(placement_id: int) -> sqlalchemy.Update:
@@ -48,8 +80,8 @@ class Table:
     async def cancel(self, placement_id: int) -> None:
         values = {"canceled_at": datetime.now(timezone.utc), "completed_at": None}
         await self._db.execute(self._update(placement_id), values)
-        async with self.modified:
-            self.modified.notify_all()
+        async with self.modified_cond_flag:
+            self.modified_cond_flag.notify_all(ModifiedFlag.RESOLVED)
 
     async def _complete(self, placement_id: int) -> None:
         """
@@ -62,8 +94,8 @@ class Table:
     async def reset(self, placement_id: int) -> None:
         values = {"canceled_at": None, "completed_at": None}
         await self._db.execute(self._update(placement_id), values)
-        async with self.modified:
-            self.modified.notify_all()
+        async with self.modified_cond_flag:
+            self.modified_cond_flag.notify_all(ModifiedFlag.PUT_BACK)
 
     async def by_placement_id(self, placement_id: int) -> Placement | None:
         query = sqlmodel.select(Placement).where(Placement.placement_id == placement_id)
