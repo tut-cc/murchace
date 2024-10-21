@@ -112,6 +112,10 @@ class placed_items_incoming:  # namespace
     @staticmethod
     def component(placed_items: list[placed_item_t]): ...
 
+    @macro_template("placed-items-incoming.html", "component_with_sound")
+    @staticmethod
+    def component_with_sound(placed_items: list[placed_item_t]): ...
+
 
 class incoming_placements:  # namespace
     @macro_template("incoming-placements.html")
@@ -121,6 +125,10 @@ class incoming_placements:  # namespace
     @macro_template("incoming-placements.html", "component")
     @staticmethod
     def component(placements: list[placement_t]): ...
+
+    @macro_template("incoming-placements.html", "component_with_sound")
+    @staticmethod
+    def component_with_sound(placements: list[placement_t]): ...
 
 
 class resolved_placements:  # namespace

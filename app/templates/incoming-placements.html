@@ -73,3 +73,8 @@
     </div>
   {% endfor %}
 {% endmacro %}
+
+{% macro component_with_sound(placements) %}
+  <audio src="{{ url_for('static', path='notification-1.mp3') }}" autoplay hidden></audio>
+  {{ component(placements) }}
+{% endmacro %}
