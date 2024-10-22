@@ -1,43 +1,83 @@
-from fastapi import APIRouter, Request, Response
-from fastapi.responses import HTMLResponse
-
-from .. import templates
-from ..store import (
-    PlacedItemTable,
-    ProductTable,
-    PlacementTable,
-    database,
-)
-
 import csv
-import os
+from dataclasses import dataclass
+from datetime import datetime
+from functools import lru_cache
+from pathlib import Path
+from typing import Annotated, Literal, Mapping
 
-from datetime import datetime, timedelta
-from typing import Any, Mapping
-import statistics
+import sqlalchemy
+import sqlmodel
+from fastapi import APIRouter, Header, Request
+from fastapi.responses import HTMLResponse
+from sqlmodel import col
+
+from ..templates import macro_template
+from ..store import PlacedItem, Placement, Product, database, unixepoch
 
 router = APIRouter()
 
-DATABASE_URL = os.path.abspath("./db/app.db")
-CSV_OUTPUT_PATH = os.path.abspath("./static/stat.csv")
-GRAPH_OUTPUT_PATH = os.path.abspath("./static/sales.png")
+CSV_OUTPUT_PATH = Path("./static/stat.csv")
+GRAPH_OUTPUT_PATH = Path("./static/sales.png")
 
 
-def convert_unixepoch_to_localtime(unixepoch_time):
+@dataclass
+class Stat:
+    @dataclass
+    class SalesSummary:
+        product_id: int
+        name: str
+        filename: str
+        price: str
+        count: int
+        count_today: int
+        total_sales: str
+        total_sales_today: str
+        no_stock: int | None
+
+    total_sales_all_time: str
+    total_sales_today: str
+    total_items_all_time: int
+    total_items_today: int
+    sales_summary_list: list[SalesSummary]
+    avg_service_time_all: str
+    avg_service_time_recent: str
+
+
+@macro_template("stat.html")
+def tmp_stat(stat: Stat): ...
+
+
+@macro_template("wait-estimate.html")
+def tmp_wait_estimate_page(estimate: str, waiting_order_count: int): ...
+
+
+@macro_template("wait-estimate.html", "component")
+def tmp_wait_estimate_component(estimate: str, waiting_order_count: int): ...
+
+
+def convert_unixepoch_to_localtime(unixepoch_time: int) -> str:
     local_time = datetime.fromtimestamp(unixepoch_time).astimezone()
     return local_time.strftime("%Y-%m-%d %H:%M:%S")
 
 
+def zero_if_null[T](v: T | None) -> T | Literal[0]:
+    """
+    Handles the case where aggregate functions return NULL when no matching rows
+    are found
+    """
+    return v if v is not None else 0
+
+
+# TODO: Use async operations for writing csv rows so that this function does not block
 async def export_placements():
     query = """
     SELECT 
-        placements.placement_id, 
+        placements.placement_id,
+        placed_items.item_no,
         unixepoch(placements.placed_at) AS placed_at,
-        unixepoch(placements.completed_at) AS completed_at, 
-        placements.canceled_at, 
-        placed_items.product_id, 
-        products.product_id, 
-        products.name, 
+        unixepoch(placements.completed_at) AS completed_at,
+        placed_items.product_id,
+        products.name,
         products.price
     FROM
         placements
@@ -45,25 +85,23 @@ async def export_placements():
         placed_items ON placements.placement_id = placed_items.placement_id
     INNER JOIN
         products ON placed_items.product_id = products.product_id
-    WHERE 
-        placements.canceled_at IS NULL;
+    WHERE
+        placements.canceled_at IS NULL
+    ORDER BY
+        placements.placement_id ASC;
     """
 
-    csv_file_path = os.path.abspath(CSV_OUTPUT_PATH)
-    with open(csv_file_path, "w", newline="") as csv_file:
+    with open(CSV_OUTPUT_PATH, "w", newline="") as csv_file:
         csv_writer = csv.writer(csv_file)
 
         async_gen = database.iterate(query)
         if (row := await anext(async_gen, None)) is None:
             return
 
-        headers = [
-            key for key in dict(row).keys() if key not in ("product_id", "canceled_at")
-        ]
+        headers = [key for key in dict(row).keys()]
         csv_writer.writerow(headers)
 
         csv_writer.writerow(_filtered_row(row))
-
         async for row in async_gen:
             csv_writer.writerow(_filtered_row(row))
 
@@ -73,175 +111,163 @@ def _filtered_row(row: Mapping) -> list:
     for column_name, value in dict(row).items():
         if column_name in ("placed_at", "completed_at") and value is not None:
             value = convert_unixepoch_to_localtime(value)
-        if column_name not in ("product_id", "canceled_at"):
-            filtered_row.append(value)
+        filtered_row.append(value)
     return filtered_row
 
 
-async def compute_total_sales() -> tuple[int, int, int, int, list[dict[str, Any]]]:
-    product_table = await ProductTable.select_all()
-    placed_item_table = await PlacedItemTable.select_all()
-    placement_table = await PlacementTable.select_all()
+_placed_today = sqlmodel.func.date(
+    col(Placement.placed_at), "localtime"
+) == sqlmodel.func.date("now", "localtime")
+TOTAL_SALES_QUERY: sqlalchemy.Compiled = (
+    sqlmodel.select(col(Product.product_id))
+    .select_from(sqlmodel.join(PlacedItem, Placement))
+    .join(Product)
+    .add_columns(
+        sqlmodel.func.count(col(Product.product_id)).label("count"),
+        sqlmodel.func.count(col(Product.product_id))
+        .filter(_placed_today)
+        .label("count_today"),
+        col(Product.name),
+        col(Product.filename),
+        col(Product.price),
+        sqlmodel.func.sum(col(Product.price)).label("total_sales"),
+        sqlmodel.func.sum(col(Product.price))
+        .filter(_placed_today)
+        .label("total_sales_today"),
+        col(Product.no_stock),
+    )
+    .where(col(Placement.canceled_at).is_(None))
+    .group_by(col(Product.product_id))
+    .compile(compile_kwargs={"literal_binds": True})
+)
 
-    product_price_map = {product.product_id: product for product in product_table}
+
+class AvgServiceTimeQuery:
+    @classmethod
+    @lru_cache(1)
+    def all_and_recent(cls) -> sqlalchemy.Compiled:
+        return (
+            sqlmodel.select(
+                sqlmodel.func.avg(cls._service_time_diff).label("all"),
+                sqlmodel.func.avg(cls._last_30mins).label("recent"),
+            )
+            .where(col(Placement.completed_at).isnot(None))
+            .compile()
+        )
+
+    @classmethod
+    @lru_cache(1)
+    def recent(cls) -> sqlalchemy.Compiled:
+        return (
+            sqlmodel.select(sqlmodel.func.avg(cls._last_30mins).label("recent"))
+            .where(col(Placement.completed_at).isnot(None))
+            .compile()
+        )
+
+    _service_time_diff = unixepoch(col(Placement.completed_at)) - unixepoch(
+        col(Placement.placed_at)
+    )
+    _elapsed_secs = sqlmodel.func.unixepoch() - unixepoch(col(Placement.completed_at))
+    _last_30mins = sqlmodel.case(
+        (_elapsed_secs / sqlmodel.text("60") < sqlmodel.text("30"), _service_time_diff)
+    )
+
+    @staticmethod
+    def seconds_to_jpn_mmss(secs: int) -> str:
+        mm, ss = divmod(secs, 60)
+        return f"{mm} 分 {ss} 秒"
+
+
+async def construct_stat() -> Stat:
+    sales_summary_aggregated: dict[int, Stat.SalesSummary] = {}
     total_sales_all_time = 0
     total_sales_today = 0
     total_items_all_time = 0
     total_items_today = 0
-    sales_summary_aggregated = {}
 
-    today = datetime.today().date()
+    async for row in database.iterate(str(TOTAL_SALES_QUERY)):
+        product_id = row["product_id"]
+        assert isinstance(product_id, int)
 
-    for item in placed_item_table:
-        product_id = item.product_id
-        placement = next(
-            (p for p in placement_table if p.placement_id == item.placement_id), None
+        count, count_today, total_sales, total_sales_today_ = map(
+            zero_if_null,
+            (
+                row["count"],
+                row["count_today"],
+                row["total_sales"],
+                row["total_sales_today"],
+            ),
         )
 
-        if (
-            placement
-            and placement.canceled_at is None
-            and product_id in product_price_map
-        ):
-            product_info = product_price_map[product_id]
+        sales_summary_aggregated[product_id] = Stat.SalesSummary(
+            product_id=product_id,
+            name=row["name"],
+            filename=row["filename"],
+            price=Product.to_price_str(row["price"]),
+            count=count,
+            count_today=count_today,
+            total_sales=Product.to_price_str(total_sales),
+            total_sales_today=Product.to_price_str(total_sales_today_),
+            no_stock=row["no_stock"],
+        )
 
-            if product_info.name not in sales_summary_aggregated:
-                sales_summary_aggregated[product_info.name] = {
-                    "name": product_info.name,
-                    "filename": product_info.filename,
-                    "count": 1,
-                    "total_sales": product_info.price,
-                    "no_stock": product_info.no_stock,
-                }
-            else:
-                sales_summary_aggregated[product_info.name]["count"] += 1
-                sales_summary_aggregated[product_info.name]["total_sales"] += (
-                    product_info.price
-                )
+        total_sales_all_time += total_sales
+        total_sales_today += total_sales_today_
 
-            total_sales_all_time += product_info.price
-            total_items_all_time += 1
-
-            if placement.completed_at is not None:
-                placed_date = (
-                    datetime.fromisoformat(str(placement.placed_at))
-                    + (datetime.now().astimezone().utcoffset() or timedelta(0))
-                ).date()
-                if placed_date == today:
-                    total_sales_today += product_info.price
-                    total_items_today += 1
+        total_items_all_time += count
+        total_items_today += count_today
 
     sales_summary_list = list(sales_summary_aggregated.values())
 
-    return (
-        total_sales_all_time,
-        total_sales_today,
-        total_items_all_time,
-        total_items_today,
-        sales_summary_list,
+    record = await database.fetch_one(str(AvgServiceTimeQuery.all_and_recent()))
+    assert record is not None
+    avg_service_time_all, avg_service_time_recent = (
+        AvgServiceTimeQuery.seconds_to_jpn_mmss(int(zero_if_null(record[0]))),
+        AvgServiceTimeQuery.seconds_to_jpn_mmss(int(zero_if_null(record[1]))),
     )
 
-
-async def compute_average_service_time() -> tuple[str, str]:
-    placement_table = await PlacementTable.select_all()
-
-    all_service_times = []
-    recent_service_times = []
-    now = datetime.now().astimezone()
-    offset = now.utcoffset() or timedelta(0)
-    thirty_minutes_ago = now - timedelta(minutes=30) - offset
-
-    for placement in placement_table:
-        if placement.completed_at is not None:
-            placed_at = datetime.fromisoformat(str(placement.placed_at)).astimezone()
-            completed_at = datetime.fromisoformat(
-                str(placement.completed_at)
-            ).astimezone()
-
-            time_diff = (completed_at - placed_at).total_seconds()
-            all_service_times.append(time_diff)
-
-            if completed_at >= thirty_minutes_ago:
-                recent_service_times.append(time_diff)
-
-    if all_service_times:
-        average_service_time_all_seconds = statistics.mean(all_service_times)
-        average_all_minutes, average_all_seconds = divmod(
-            int(average_service_time_all_seconds), 60
-        )
-        average_service_time_all = f"{average_all_minutes} 分 {average_all_seconds} 秒"
-    else:
-        average_service_time_all = "0 分 0 秒"
-
-    if recent_service_times:
-        average_service_time_recent_seconds = statistics.mean(recent_service_times)
-        average_recent_minutes, average_recent_seconds = divmod(
-            int(average_service_time_recent_seconds), 60
-        )
-        average_service_time_recent = (
-            f"{average_recent_minutes} 分 {average_recent_seconds} 秒"
-        )
-    else:
-        average_service_time_recent = "0 分 0 秒"
-
-    return average_service_time_all, average_service_time_recent
-
-
-async def compute_waiting_orders() -> int:
-    placement_table = await PlacementTable.select_all()
-    waiting_orders = 0
-    for placement in placement_table:
-        if placement.completed_at is None and placement.canceled_at is None:
-            waiting_orders += 1
-    return waiting_orders
+    return Stat(
+        total_sales_all_time=Product.to_price_str(total_sales_all_time),
+        total_sales_today=Product.to_price_str(total_sales_today),
+        total_items_all_time=total_items_all_time,
+        total_items_today=total_items_today,
+        sales_summary_list=sales_summary_list,
+        avg_service_time_all=avg_service_time_all,
+        avg_service_time_recent=avg_service_time_recent,
+    )
 
 
 @router.get("/stat", response_class=HTMLResponse)
 async def get_stat(request: Request):
     await export_placements()
-    (
-        total_sales_all_time,
-        total_sales_today,
-        total_items_all_time,
-        total_items_today,
-        sales_summary_list,
-    ) = await compute_total_sales()
-    (
-        average_service_time_all,
-        average_service_time_recent,
-    ) = await compute_average_service_time()
-    return HTMLResponse(
-        templates.stat(
-            request,
-            total_sales_all_time,
-            total_sales_today,
-            total_items_all_time,
-            total_items_today,
-            sales_summary_list,
-            average_service_time_all,
-            average_service_time_recent,
-        )
-    )
+    return HTMLResponse(tmp_stat(request, await construct_stat()))
+
+
+WAITING_ORDER_COUNT_QUERY: sqlalchemy.Compiled = (
+    sqlmodel.select(sqlmodel.func.count(col(Placement.placement_id)))
+    .where(col(Placement.completed_at).is_(None) & col(Placement.canceled_at).is_(None))
+    .compile()
+)
 
 
 @router.get("/wait-estimates", response_class=HTMLResponse)
-async def get_estimates(request: Request):
-    return HTMLResponse(templates.wait_estimates(request))
+async def get_estimates(
+    request: Request, hx_request: Annotated[str | None, Header()] = None
+):
+    async with database.transaction():
+        estimate_record = await database.fetch_one(str(AvgServiceTimeQuery.recent()))
+        waiting_order_count = await database.fetch_val(str(WAITING_ORDER_COUNT_QUERY))
 
+    assert estimate_record is not None
+    estimate = int(zero_if_null(estimate_record[0]))
 
-@router.post("/wait-estimates/service-time", response_class=Response)
-async def post_estimates():
-    (
-        average_service_time_all,
-        average_service_time_recent,
-    ) = await compute_average_service_time()
-    if average_service_time_recent == "0 分 0 秒":
-        average_service_time_recent = "待ち時間なし"
-    return average_service_time_recent
+    if estimate == 0:
+        estimate_str = "待ち時間なし"
+    else:
+        estimate_str = AvgServiceTimeQuery.seconds_to_jpn_mmss(estimate)
 
-
-@router.post("/wait-estimates/waiting-orders", response_class=Response)
-async def post_orders():
-    waiting_orders = await compute_waiting_orders()
-    waiting_orders = str(waiting_orders) + "人"
-    return waiting_orders
+    if hx_request == "true":
+        template = tmp_wait_estimate_component
+    else:
+        template = tmp_wait_estimate_page
+    return HTMLResponse(template(request, estimate_str, waiting_order_count))

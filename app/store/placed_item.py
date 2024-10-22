@@ -65,7 +65,7 @@ class Table:
 
     async def _supply_all(self, placement_id: int):
         """
-        Use `store.supply_all_and_complete` when the `completed_at` fields of
+        Use `supply_all_and_complete` when the `completed_at` fields of
         `placements` table should be updated as well.
         """
         clause = col(PlacedItem.placement_id) == placement_id

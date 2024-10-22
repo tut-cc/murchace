@@ -86,8 +86,24 @@ def test_macro_argument_names_and_function_parameter_names_match():
                     macro: jinja2.runtime.Macro = getattr(module, macro_name)
                     yield macro.arguments, func_def
 
-    tree = ast.parse(Path(templates.__file__).read_bytes())
-    for macro_args, func_def in macro_template_decorated_func_defs(tree):
-        for i, (macro_arg, func_arg) in enumerate(zip(macro_args, func_def.args.args)):
-            err_msg = f"The macro argument and function parameter do not match at {i} in function signature `{func_def.name}`: {macro_arg} != {func_arg.arg}"
-            assert macro_arg == func_arg.arg, err_msg
+    import app
+
+    project_dir = Path(app.__file__).parent.parent
+
+    def assert_per_file(path: Path):
+        tree = ast.parse(path.read_bytes())
+        for macro_args, func_def in macro_template_decorated_func_defs(tree):
+            for i, (macro_arg, func_arg) in enumerate(
+                zip(macro_args, func_def.args.args)
+            ):
+                err_loc = f"{path.relative_to(project_dir)} [L{func_def.lineno},{func_def.col_offset}]"
+                err_def = f"def {func_def.name}(*args[{i}])"
+                err_msg = f"{macro_arg} (Jinja macro) != {func_arg.arg} (Python def)"
+                assert macro_arg == func_arg.arg, f"{err_loc}: {err_def}: {err_msg}"
+
+    from . import routers
+
+    assert_per_file(Path(templates.__file__))
+    for path in Path(routers.__file__).parent.rglob("*.py"):
+        if path.is_file():
+            assert_per_file(path)

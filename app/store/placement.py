@@ -85,7 +85,7 @@ class Table:
 
     async def _complete(self, placement_id: int) -> None:
         """
-        Use `store.supply_all_and_complete` when the `supplied_at` fields of
+        Use `supply_all_and_complete` when the `supplied_at` fields of
         `placed_items` table should be updated as well.
         """
         values = {"canceled_at": None, "completed_at": datetime.now(timezone.utc)}

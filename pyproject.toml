@@ -27,6 +27,7 @@ dev-dependencies = [
     "pytailwindcss>=0.2.0",
     "ruff>=0.6.7",
     "djlint>=1.35.2",
+    "sqlparse>=0.5.1",
 ]
 
 [tool.ruff]
