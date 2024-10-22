@@ -1,0 +1,31 @@
+{% from "layout.html" import layout %}
+{% from "components/clock.html" import clock %}
+
+{% macro wait_estimate(estimate, waiting_order_count) %}
+  {% call layout("予測待ち時間 - murchace") %}
+    <header class="sticky z-10 inset-0 w-full px-16 py-3 border-b border-gray-500 bg-white text-2xl">
+      <ul class="flex flex-row">
+        <li class="grow"><a href="/" class="cursor-pointer px-2 rounded bg-gray-300">ホーム</a></li>
+        <li class="flex flex-row">
+          <span class="mr-1">現在時刻:</span>
+          {{ clock() }}
+        </li>
+      </ul>
+    </header>
+    <main hx-get="/wait-estimates" hx-trigger="every 30s" class="px-16 py-3">
+      {{ component(estimate, waiting_order_count) }}
+    </main>
+  {% endcall %}
+{% endmacro %}
+
+{% macro component(estimate, waiting_order_count) %}
+  <div class="flex-1 p-4 border-2 border-b border-gray-300 rounded-t-lg">
+    <h2 class="text-4xl">予測待ち時間</h2>
+    <p class="text-9xl text-center">{{ estimate }}</p>
+    <p class="text-center">#直近30分の提供時間から算出しています</p>
+  </div>
+  <div class="flex-1 p-4 border-2 border-t border-gray-300 rounded-b-lg">
+    <h2 class="text-4xl">受取待ち</h2>
+    <p class="text-9xl text-center">{{ waiting_order_count }}件</p>
+  </div>
+{% endmacro %}

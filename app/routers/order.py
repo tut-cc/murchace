@@ -12,12 +12,75 @@ from fastapi import (
     status,
 )
 from fastapi.responses import HTMLResponse
+import pydantic
 
-from .. import templates
-from ..store import PlacedItemTable, PlacementTable, ProductTable
-from ..store.product import OrderSession
+from ..store import PlacedItemTable, PlacementTable, Product, ProductTable
+from ..templates import hx_post as tmp_hx_post
+from ..templates import macro_template
 
 router = APIRouter()
+
+
+class OrderSession(pydantic.BaseModel):
+    class CountedProduct(pydantic.BaseModel):
+        name: str
+        price: str
+        count: int = pydantic.Field(default=1)
+
+    items: dict[UUID, Product] = pydantic.Field(default_factory=dict)
+    counted_products: dict[int, CountedProduct] = pydantic.Field(default_factory=dict)
+    total_count: int = pydantic.Field(default=0)
+    total_price: int = pydantic.Field(default=0)
+
+    def clear(self):
+        self.total_count = 0
+        self.total_price = 0
+        self.items = {}
+        self.counted_products = {}
+
+    def total_price_str(self) -> str:
+        return Product.to_price_str(self.total_price)
+
+    def add(self, p: Product):
+        self.total_count += 1
+        self.total_price += p.price
+        self.items[uuid4()] = p
+        if p.product_id in self.counted_products:
+            self.counted_products[p.product_id].count += 1
+        else:
+            counted_product = self.CountedProduct(name=p.name, price=p.price_str())
+            self.counted_products[p.product_id] = counted_product
+
+    def delete(self, item_id: UUID):
+        if item_id in self.items:
+            self.total_count -= 1
+            product = self.items.pop(item_id)
+            self.total_price -= product.price
+            if self.counted_products[product.product_id].count == 1:
+                self.counted_products.pop(product.product_id)
+            else:
+                self.counted_products[product.product_id].count -= 1
+
+
+@macro_template("order.html")
+def tmp_order(products: list[Product], session: OrderSession): ...
+
+
+@macro_template("order.html", "order_session")
+def tmp_session(session: OrderSession): ...
+
+
+@macro_template("order.html", "confirm_modal")
+def tmp_confirm_modal(session: OrderSession): ...
+
+
+@macro_template("order.html", "issued_modal")
+def tmp_issued_modal(placement_id: int, session: OrderSession): ...
+
+
+@macro_template("order.html", "error_modal")
+def tmp_error_modal(message: str): ...
+
 
 # NOTE: Do NOT store this data in database (the data is transient and should be kept in memory)
 order_sessions: dict[UUID, OrderSession] = {}
@@ -39,24 +102,22 @@ async def instruct_creation_of_new_session_or_get_existing_session(
 ):
     if session_key is None or (session := order_sessions.get(session_key)) is None:
         return HTMLResponse(
-            templates.hx_post(request, "/order"),
+            tmp_hx_post(request, "/order"),
             status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
             headers={"allow": "POST"},
         )
 
     products = await ProductTable.select_all()
-    return HTMLResponse(templates.order.page(request, products, session))
+    return HTMLResponse(tmp_order(request, products, session))
 
 
-@router.get("/order/confirm", response_class=HTMLResponse)
+@router.get("/order/confirm-modal", response_class=HTMLResponse)
 async def get_confirm_dialog(request: Request, session: SessionDeps):
     if session.total_count == 0:
-        error_status = "エラー：商品が選択されていません"
+        error_msg = "商品が選択されていません"
+        return HTMLResponse(tmp_error_modal(request, error_msg))
     else:
-        error_status = None
-    return HTMLResponse(
-        templates.components.order_confirm(request, session, error_status)
-    )
+        return HTMLResponse(tmp_confirm_modal(request, session))
 
 
 @router.post("/order")
@@ -73,10 +134,8 @@ async def create_new_session_or_place_order(
         return res
 
     if session.total_count == 0:
-        error_status = "エラー：商品が選択されていません"
-        return HTMLResponse(
-            templates.components.order_issued(request, None, session, error_status)
-        )
+        error_msg = "商品が選択されていません"
+        return HTMLResponse(tmp_error_modal(request, error_msg))
 
     order_sessions.pop(session_key)
     res = await _place_order(request, session)
@@ -86,8 +145,7 @@ async def create_new_session_or_place_order(
 
 def _create_new_session() -> UUID:
     session_key = uuid4()
-    session = OrderSession()
-    order_sessions[session_key] = session
+    order_sessions[session_key] = OrderSession()
     return session_key
 
 
@@ -96,9 +154,7 @@ async def _place_order(request: Request, session: SessionDeps) -> HTMLResponse:
     placement_id = await PlacedItemTable.issue(product_ids)
     # TODO: add a branch for out of stock error
     await PlacementTable.insert(placement_id)
-    return HTMLResponse(
-        templates.components.order_issued(request, placement_id, session, None)
-    )
+    return HTMLResponse(tmp_issued_modal(request, placement_id, session))
 
 
 @router.post("/order/items")
@@ -109,19 +165,19 @@ async def add_order_item(
         raise HTTPException(status_code=404, detail=f"Product {product_id} not found")
 
     session.add(product)
-    return HTMLResponse(templates.order.session(request, session))
+    return HTMLResponse(tmp_session(request, session))
 
 
 @router.delete("/order/items/{item_id}", response_class=HTMLResponse)
 async def delete_order_item(request: Request, session: SessionDeps, item_id: UUID):
     session.delete(item_id)
-    return HTMLResponse(templates.order.session(request, session))
+    return HTMLResponse(tmp_session(request, session))
 
 
 @router.delete("/order/items")
 async def clear_order_items(request: Request, session: SessionDeps) -> Response:
     session.clear()
-    return HTMLResponse(templates.order.session(request, session))
+    return HTMLResponse(tmp_session(request, session))
 
 
 # TODO: add proper path operation for order deferral
@@ -141,7 +197,7 @@ async def clear_order_items(request: Request, session: SessionDeps) -> Response:
 #     # TODO: respond with a message about the success of the deferral action
 #     # message = "注文を保留しました"
 #     # res = HTMLResponse(
-#     #     templates.order.session(request, OrderSession(), message=message)
+#     #     tmp_session(request, OrderSession(), message=message)
 #     # )
 #     # res.delete_cookie(SESSION_COOKIE_KEY)
 #     # return res

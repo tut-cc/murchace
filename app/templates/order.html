@@ -12,7 +12,7 @@
             hx-target="#order-session"
             class="flex flex-col border-4 rounded-md transition-colors ease-in-out active:bg-gray-100"
           >
-            <img class="mx-auto w-full h-auto aspect-square" width="" height="" src="{{ url_for('static', path=product.filename) }}" alt="{{ product.name }}"/>
+            <img class="mx-auto w-full h-auto aspect-square" src="{{ url_for('static', path=product.filename) }}" alt="{{ product.name }}"/>
             <figcaption class="text-center truncate">{{ product.name }}</figcaption>
             <div class="text-center">{{ product.price_str() }}</div>
           </figure>
@@ -64,11 +64,108 @@
     <div class="basis-1/4 text-right lg:text-2xl">{{ session.total_count }} 点</div>
     <div class="basis-2/4 text-center lg:text-2xl">合計: {{ session.total_price_str() }}</div>
     <button
-      hx-get="/order/confirm"
-      hx-target="#order-confirm"
+      hx-get="/order/confirm-modal"
+      hx-target="#order-modal-container"
+      hx-swap="innerHTML settle:150ms"
       class="basis-1/4 lg:text-xl text-center text-white p-2 rounded bg-blue-600 disabled:cursor-not-allowed disabled:text-gray-700 disabled:bg-gray-100"
       {{ 'disabled' if session.total_count == 0 else '' }}
     >確定</button>
-    <div id="order-confirm"></div>
+    <div id="order-modal-container"></div>
+  </div>
+{% endmacro %}
+
+{% macro confirm_modal(session) %}
+  <div
+    id="order-modal"
+    class="z-10 fixed inset-0 w-dvw h-dvh py-4 flex items-center bg-gray-500 bg-opacity-75"
+    role="dialog" aria-modal="true"
+    onclick="htmx.swap(this, '', {swapStyle: 'outerHTML'})"
+  >
+    <div
+      id="order-confirm-modal"
+      class="mx-auto w-1/3 h-4/5 p-4 flex flex-col gap-y-2 rounded-lg bg-white [.htmx-settling_&]:scale-50 transition-transform duration-150"
+      onclick="event.stopPropagation()"
+    >
+      <article class="grow min-h-0 flex flex-col gap-y-2 px-3 text-center text-lg">
+        <h2 class="font-semibold">注文の確定</h2>
+        {{ _total(session.counted_products.values(), session.total_count, session.total_price_str()) }}
+      </article>
+      <button
+        hx-post="/order"
+        hx-target="#order-modal-container"
+        hx-swap="innerHTML settle:150ms"
+        class="w-full py-4 text-center text-xl font-semibold text-white bg-blue-600 rounded"
+      >確認</button>
+      <button
+        class="w-full py-4 text-center text-xl font-semibold bg-white border border-gray-300 rounded"
+        onclick="htmx.swap('#order-modal', '', {swapStyle: 'outerHTML'})"
+      >閉じる</button>
+    </div>
+  </div>
+{% endmacro %}
+
+{% macro issued_modal(placement_id, session) %}
+  <div
+    id="order-modal"
+    class="z-10 fixed inset-0 w-dvw h-dvh py-4 flex items-center bg-gray-500 bg-opacity-75"
+    role="dialog" aria-modal="true"
+  >
+    <div
+      id="order-issued-modal"
+      class="mx-auto w-1/3 h-4/5 p-4 flex flex-col gap-y-2 rounded-lg bg-white [.htmx-settling_&]:scale-95 transition-transform duration-150"
+    >
+      <article class="grow min-h-0 flex flex-col gap-y-2 px-3 text-center text-lg">
+        <h2 class="font-semibold">注文番号 #{{ placement_id }}</h2>
+        {{ _total(session.counted_products.values(), session.total_count, session.total_price_str()) }}
+      </article>
+      <button
+        hx-post="/order"
+        class="w-full py-4 text-center text-xl font-semibold text-white bg-green-600 rounded"
+      >新規</button>
+      <a href="/" class="w-full py-4 text-center text-xl font-semibold bg-white border border-gray-300 rounded">ホームに戻る</a>
+    </div>
+  </div>
+{% endmacro %}
+
+{% macro _total(counted_products, total_count, total_price) %}
+  <ul class="grow flex flex-col overflow-y-auto">
+    {% for counted_product in counted_products %}
+      <li class="flex flex-row items-start gap-x-2">
+        <span class="break-words">{{ counted_product.name }}</span>
+        <span class="ml-auto whitespace-nowrap">{{ counted_product.price }} x {{ counted_product.count }}</span>
+      </li>
+    {% endfor %}
+  </ul>
+  <div>
+    <p class="flex flex-row">
+      <span>計</span>
+      <span class="ml-auto whitespace-nowrap">{{ total_count }} 点</span>
+    </p>
+    <p class="flex flex-row">
+      <span class="break-words">合計金額</span>
+      <span class="ml-auto">{{ total_price }}</span>
+    </p>
+  </div>
+{% endmacro %}
+
+{% macro error_modal(message) %}
+  <div
+    id="order-modal"
+    class="z-10 fixed inset-0 w-dvw h-dvh py-4 flex items-center bg-gray-500 bg-opacity-75"
+    role="dialog" aria-modal="true"
+  >
+    <div
+      id="order-error-modal"
+      class="mx-auto w-1/3 h-4/5 p-4 flex flex-col gap-y-2 rounded-lg bg-white [.htmx-settling_&]:scale-50 transition-transform duration-150"
+    >
+      <article class="grow min-h-0 flex flex-col gap-y-2 px-3 text-center text-lg">
+        <h2 class="font-semibold text-red-500">エラー</h2>
+        {{ message }}
+      </article>
+      <button
+        class="w-full py-4 text-center text-xl font-semibold bg-white border border-gray-300 rounded"
+        onclick="htmx.swap('#order-modal', '', {swapStyle: 'outerHTML'})"
+      >閉じる</button>
+    </div>
   </div>
 {% endmacro %}

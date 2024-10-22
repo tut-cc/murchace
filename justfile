@@ -62,7 +62,7 @@ test:
     uv run --frozen pytest
 
     # Lint Jinja template files
-    # uv run --frozen djlint app/templates
+    # uv run --frozen djlint app/templates --ignore 'H006,H030,H031'
 
     # Compare tailwindcss outputs
     tmp=output

@@ -3,16 +3,28 @@ from typing import Annotated
 from fastapi import APIRouter, Form, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse
 
-from .. import templates
 from ..store import Product, ProductTable, delete_product
+from ..templates import macro_template
 
 router = APIRouter()
+
+
+@macro_template("products.html")
+def tmp_products(products: list[Product]): ...
+
+
+@macro_template("products.html", "editor")
+def tmp_editor(product: Product): ...
+
+
+@macro_template("products.html", "empty_editor")
+def tmp_empty_editor(): ...
 
 
 @router.get("/products", response_class=HTMLResponse)
 async def get_products(request: Request):
     products = await ProductTable.select_all()
-    return HTMLResponse(templates.products.page(request, products))
+    return HTMLResponse(tmp_products(request, products))
 
 
 @router.post("/products", response_class=Response)
@@ -88,12 +100,12 @@ async def get_product_editor(request: Request, product_id: int):
     if (product := maybe_product) is None:
         detail = f"Product {product_id} not found"
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
-    return HTMLResponse(templates.products.editor(request, product))
+    return HTMLResponse(tmp_editor(request, product))
 
 
 @router.get("/product-editor", response_class=HTMLResponse)
 async def get_empty_product_editor(request: Request):
-    return HTMLResponse(templates.products.empty_editor(request))
+    return HTMLResponse(tmp_empty_editor(request))
 
 
 # TODO: This path is defined temporally for convenience and should be removed in the future.

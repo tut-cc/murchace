@@ -7,9 +7,9 @@
 
 {% macro incoming_placements(placements) %}
   {% call layout("未受取注文 - murchace", _head()) %}
-    <div class="h-dvh flex flex-col">
-      <header class="w-full px-16 py-3 flex gap-3 border-b border-gray-500 text-2xl">
-        <ul class="flex-grow hidden md:flex md:flex-row gap-3">
+    <div class="flex flex-col">
+      <header class="sticky z-10 inset-0  w-full px-16 py-3 flex gap-3 border-b border-gray-500 bg-white text-2xl">
+        <ul class="flex-grow hidden md:flex md:flex-row gap-x-3">
           <li class="flex-grow"><a href="/" class="cursor-pointer px-2 py-1 rounded bg-gray-300">ホーム</a></li>
           <li><a href="/placements/incoming" class="cursor-pointer px-2 py-1 rounded bg-gray-900 text-white">未受取：注文</a></li>
           <li><a href="/placed-items/incoming" class="cursor-pointer px-2 py-1 rounded bg-gray-300">未受取：商品</a></li>
@@ -24,7 +24,7 @@
         sse-swap="message"
         hx-swap="innerHTML"
         sse-close="shutdown"
-        class="size-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-min gap-3 py-2 px-16 overflow-y-auto"
+        class="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-min gap-3 py-2 px-16 overflow-y-auto"
       >
         {{ component(placements) }}
       </main>

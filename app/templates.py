@@ -1,7 +1,7 @@
 import os
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Protocol, Optional
+from typing import Any, Callable, Protocol
 
 import jinja2
 from fastapi import Request
@@ -9,8 +9,6 @@ from fastapi.datastructures import URL
 from jinja2.ext import debug as debug_ext
 
 from .env import DEBUG
-from .store import Product, placed_item_t, placement_t
-from .store.product import OrderSession
 
 TEMPLATES_DIR = Path("app/templates")
 
@@ -60,7 +58,7 @@ def macro_template[**P](
 
     def type_signature(fn: _MacroArgHints[P]) -> _RenderMacroWithRequest[P]:
         @wraps(fn)
-        def with_request(request, *args: P.args, **kwargs: P.kwargs) -> str:
+        def with_request(request: Request, *args: P.args, **kwargs: P.kwargs) -> str:
             template = env.get_template(name, globals={"request": request, **globals})
             return load_macro(template, macro_name)(*args, **kwargs)
 
@@ -75,103 +73,5 @@ def layout(
 ): ...
 
 
-@macro_template("index.html")
-def index(): ...
-
-
-class products:  # namespace
-    @macro_template("products.html")
-    @staticmethod
-    def page(products: list[Product]): ...
-
-    @macro_template("products.html", "editor")
-    @staticmethod
-    def editor(product: Product): ...
-
-    @macro_template("products.html", "empty_editor")
-    @staticmethod
-    def empty_editor(): ...
-
-
-class order:  # namespace
-    @macro_template("order.html")
-    @staticmethod
-    def page(products: list[Product], session: OrderSession): ...
-
-    @macro_template("order.html", "order_session")
-    @staticmethod
-    def session(session: OrderSession): ...
-
-
-class placed_items_incoming:  # namespace
-    @macro_template("placed-items-incoming.html")
-    @staticmethod
-    def page(placed_items: list[placed_item_t]): ...
-
-    @macro_template("placed-items-incoming.html", "component")
-    @staticmethod
-    def component(placed_items: list[placed_item_t]): ...
-
-    @macro_template("placed-items-incoming.html", "component_with_sound")
-    @staticmethod
-    def component_with_sound(placed_items: list[placed_item_t]): ...
-
-
-class incoming_placements:  # namespace
-    @macro_template("incoming-placements.html")
-    @staticmethod
-    def page(placements: list[placement_t]): ...
-
-    @macro_template("incoming-placements.html", "component")
-    @staticmethod
-    def component(placements: list[placement_t]): ...
-
-    @macro_template("incoming-placements.html", "component_with_sound")
-    @staticmethod
-    def component_with_sound(placements: list[placement_t]): ...
-
-
-class resolved_placements:  # namespace
-    @macro_template("resolved-placements.html")
-    @staticmethod
-    def page(placements: list[placement_t]): ...
-
-    @macro_template("resolved-placements.html", "completed")
-    @staticmethod
-    def completed(placement: placement_t): ...
-
-    @macro_template("resolved-placements.html", "canceled")
-    @staticmethod
-    def canceled(placement: placement_t): ...
-
-
 @macro_template("hx-post.html")
 def hx_post(path: str): ...
-
-
-@macro_template("stat.html")
-def stat(
-    total_sales_all_time: int,
-    total_sales_today: int,
-    total_items_all_time: int,
-    total_items_today: int,
-    sales_summary_list: list[dict[str, Any]],
-    average_service_time_all: str,
-    average_service_time_recent: str,
-): ...
-
-
-@macro_template("wait-estimates.html")
-def wait_estimates(): ...
-
-
-class components:  # namespace
-    @macro_template("components/order-confirm.html")
-    @staticmethod
-    def order_confirm(session: OrderSession, error_status: Optional[str]): ...
-
-    @macro_template("components/order-issued.html")
-    @staticmethod
-    def order_issued(
-        placement_id: Optional[int], session: OrderSession, error_status: Optional[str]
-    ): ...

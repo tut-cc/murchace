@@ -1,73 +1,77 @@
 {% from "layout.html" import layout %}
 {% from "components/clock.html" import clock %}
 
-{% macro stat(total_sales_all_time, total_sales_today, total_items_all_time, total_items_today, sales_summary_list, average_service_time_all, average_service_time_recent) %}
+{% macro stat(stat) %}
   {% call layout("統計 - murchace") %}
-    <header class="w-full px-16 py-3 flex gap-3 border-b border-gray-500 text-2xl">
-        <nav class="flex-grow">
-            <ul class="flex flex-row gap-3">
-                <li><a href="/" class="cursor-pointer px-2 rounded bg-gray-300">ホーム</a></li>
-            </ul>
-        </nav>
-            <a href="/static/stat.csv" class="px-2 text-white bg-blue-600 rounded-lg">売上データの取得</a>
-        {{ clock() }}
+    <header class="sticky z-10 inset-0 w-full px-16 py-3 flex gap-3 border-b border-gray-500 bg-white text-2xl">
+      <ul class="grow flex flex-row gap-3">
+        <li class="flex-grow"><a href="/" class="cursor-pointer px-2 py-1 rounded bg-gray-300">ホーム</a></li>
+        <li class="hidden sm:block"><a href="/static/stat.csv" class="px-2 py-1 text-white bg-blue-600 rounded-lg">売上データの取得</a></li>
+        <li class="hidden sm:block">{{ clock() }}</li>
+      </ul>
     </header>
-    <main class="auto-rows-min gap-3 py-2 px-16 overflow-y-auto">
-      <div class="lg:flex lg:flex-row gap-x-2 border-2 border-gray-300 rounded-lg p-2">
-        <div class="flex-1 gap-y-2 border-2 border-gray-300 rounded-lg p-2">
+    <main class="py-2 px-16">
+      <div class="lg:grid lg:grid-cols-3 border-2 border-b border-gray-300 rounded-t-lg divide-y-2 lg:divide-x-2 lg:divide-y-0 divide-gray-300">
+        <div class="p-2">
           <h2 class="text-2xl">売上</h2>
-          <p class="text-4xl text-center">¥{{ total_sales_all_time }}</p>
+          <p class="text-4xl text-center">{{ stat.total_sales_all_time }}</p>
         </div>
-        <div class="flex-1 gap-y-2 border-2 border-gray-300 rounded-lg p-2">
-          <h2 class="text-2xl">本日の売上</h2>
-          <p class="text-4xl text-center">¥{{ total_sales_today }}</p>
+        <div class="p-2">
+          <h2 class="text-2xl">今日の売上</h2>
+          <p class="text-4xl text-center">{{ stat.total_sales_today }}</p>
         </div>
-        <div class="flex-1 gap-y-2 border-2 border-gray-300 rounded-lg p-2">
+        <div class="p-2">
           <h2 class="text-2xl">平均提供時間</h2>
-          <p class="text-4xl text-center">{{ average_service_time_all }}</p>
+          <p class="text-4xl text-center">{{ stat.avg_service_time_all }}</p>
         </div>
       </div>
-      <div class="lg:flex lg:flex-row gap-x-2 border-2 border-gray-300 rounded-lg p-2">
-        <div class="flex-1 gap-y-2 border-2 border-gray-300 rounded-lg p-2">
+      <div class="lg:grid lg:grid-cols-3 border-2 border-t border-gray-300 rounded-b-lg divide-y-2 lg:divide-x-2 lg:divide-y-0 divide-gray-300">
+        <div class="p-2">
           <h2 class="text-2xl">売上点数</h2>
-          <p class="text-4xl text-center">{{ total_items_all_time }}</p>
+          <p class="text-4xl text-center">{{ stat.total_items_all_time }}</p>
         </div>
-        <div class="flex-1 gap-y-2 border-2 border-gray-300 rounded-lg p-2">
-          <h2 class="text-2xl">本日の売上点数</h2>
-          <p class="text-4xl text-center">{{ total_items_today }}</p>
+        <div class="p-2">
+          <h2 class="text-2xl">今日の売上点数</h2>
+          <p class="text-4xl text-center">{{ stat.total_items_today }}</p>
         </div>
-        <div class="flex-1 gap-y-2 border-2 border-gray-300 rounded-lg p-2">
+        <div class="p-2">
           <h2 class="text-2xl">予測待ち時間</h2>
-          <p class="text-4xl text-center">{{ average_service_time_recent }}</p>
+          <p class="text-4xl text-center">{{ stat.avg_service_time_recent }}</p>
         </div>
       </div>
-      <div class="flex flex-col gap-y-2 border-2 border-gray-300 rounded-lg p-2">
-        <h2 class="text-2xl">商品毎売上情報</h2>
+      <div class="flex flex-col gap-y-2">
+        <h2 class="p-2 text-2xl">商品毎売上情報</h2>
         <table>
           <thead>
-            <tr>
-              <th class="border border-gray-300">商品画像</th>
-              <th class="border border-gray-300">商品名</th>
-              <th class="border border-gray-300">個数</th>
-              <th class="border border-gray-300">売上</th>
-              <th class="border border-gray-300">在庫(未実装)</th>
+            <tr class="text-xl">
+              <th class="border border-b-2 border-gray-300">画像</th>
+              <th class="border border-b-2 border-gray-300 text-left px-2">商品名</th>
+              <th class="border border-b-2 border-gray-300">価格</th>
+              <th class="border border-b-2 border-gray-300">個数</th>
+              <th class="border border-b-2 border-gray-300">今日の個数</th>
+              <th class="border border-b-2 border-gray-300">売上</th>
+              <th class="border border-b-2 border-gray-300">今日の売上</th>
+              <th class="border border-b-2 border-gray-300">在庫（未実装）</th>
             </tr>
           </thead>
           <tbody>
-          {% for sale in sales_summary_list %}
-            <tr>
-              <td class="border border-gray-300 flex items-center justify-center">
-                <img src="/static/{{ sale.filename }}" alt="{{ sale.name }}" class="w-16 h-16 object-cover" width="64" height="64"/>
-              </td>
-              <td class="border border-gray-300">{{ sale.name }}</td>
-              <td class="border border-gray-300 text-center">{{ sale.count }}</td>
-              <td class="border border-gray-300 text-center">¥{{ sale.total_sales }}</td>
-              <td class="border border-gray-300 text-center">{{ sale.no_stock }}</td>
-            </tr>
-          {% endfor %}
+            {% for sale in stat.sales_summary_list %}
+              <tr>
+                <td class="border border-gray-300">
+                  <img src="/static/{{ sale.filename }}" alt="{{ sale.name }}" class="mx-auto w-16 h-auto aspect-square"/>
+                </td>
+                <td class="border border-gray-300 px-2">{{ sale.name }}</td>
+                <td class="border border-gray-300 text-center">{{ sale.price }}</td>
+                <td class="border border-gray-300 text-center">{{ sale.count }}</td>
+                <td class="border border-gray-300 text-center">{{ sale.count_today }}</td>
+                <td class="border border-gray-300 text-center">{{ sale.total_sales }}</td>
+                <td class="border border-gray-300 text-center">{{ sale.total_sales_today }}</td>
+                <td class="border border-gray-300 text-center">{{ sale.no_stock if sale.no_stock is not none else "N/A" }}</td>
+              </tr>
+            {% endfor %}
           </tbody>
         </table>
       </div>
     </main>
   {% endcall %}
-  {% endmacro %}
+{% endmacro %}
