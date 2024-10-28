@@ -19,7 +19,7 @@ env = jinja2.Environment(
     autoescape=True,
     loader=jinja2.FileSystemLoader(TEMPLATES_DIR),
 )
-globals: dict[str, Any] = {"DEBUG": DEBUG}
+env.globals.setdefault("DEBUG", DEBUG)
 
 
 @jinja2.pass_context
@@ -29,13 +29,6 @@ def _url_for(context: dict[str, Any], name: str, /, **path_params: Any) -> URL:
 
 
 env.globals.setdefault("url_for", _url_for)
-
-
-def load_macro(template: jinja2.Template, macro_name: str) -> jinja2.runtime.Macro:
-    macro = getattr(template.module, macro_name)
-    if not isinstance(macro, jinja2.runtime.Macro):
-        raise Exception(f"{macro} is not a jinja2.runtime.Macro instance")
-    return macro
 
 
 def hyphen_path_to_underscore_stem(path: str | os.PathLike[str]) -> str:
@@ -59,8 +52,11 @@ def macro_template[**P](
     def type_signature(fn: _MacroArgHints[P]) -> _RenderMacroWithRequest[P]:
         @wraps(fn)
         def with_request(request: Request, *args: P.args, **kwargs: P.kwargs) -> str:
-            template = env.get_template(name, globals={"request": request, **globals})
-            return load_macro(template, macro_name)(*args, **kwargs)
+            template = env.get_template(name, globals={"request": request})
+            macro = getattr(template.module, macro_name)
+            is_macro = isinstance(macro, jinja2.runtime.Macro)
+            assert is_macro, f"{macro} is not a jinja2.runtime.Macro instance"
+            return macro(*args, **kwargs)
 
         return with_request
 
