@@ -38,8 +38,12 @@ class ModifiedFlag(Flag):
 
 
 class ModifiedCondFlag:
-    _condvar: asyncio.Condition = asyncio.Condition()
-    flag: ModifiedFlag = ModifiedFlag.ORIGINAL
+    _condvar: asyncio.Condition
+    _flag: ModifiedFlag
+
+    def __init__(self):
+        self._condvar = asyncio.Condition()
+        self._flag = ModifiedFlag.ORIGINAL
 
     async def __aenter__(self):
         await self._condvar.__aenter__()
@@ -49,15 +53,14 @@ class ModifiedCondFlag:
 
     async def wait(self) -> ModifiedFlag:
         await self._condvar.wait()
-        flag = self.flag
+        flag = self._flag
         if len(self._condvar._waiters) == 0:
-            self.flag = ModifiedFlag.ORIGINAL
+            self._flag = ModifiedFlag.ORIGINAL
         return flag
 
-    def notify_all(self, flag: ModifiedFlag | None = None):
+    def notify_all(self, flag: ModifiedFlag):
+        self._flag |= flag
         self._condvar.notify_all()
-        if flag is not None:
-            self.flag |= flag
 
 
 class Table:

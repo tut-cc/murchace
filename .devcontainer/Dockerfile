@@ -4,7 +4,7 @@ ENV TZ=Asia/Tokyo
 
 WORKDIR /usr/local/bin
 
-COPY --from=ghcr.io/astral-sh/uv:0.4.0 /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.5.5 /uv /bin/uv
 
 RUN dnf update -y \
     && dnf install -y git vim curl wget --allowerasing \
