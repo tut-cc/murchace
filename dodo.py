@@ -29,21 +29,22 @@ from tasks.task_dict import TaskDict, TaskDictGen
 DOIT_CONFIG = {
     "default_tasks": ["_list"],
     "action_string_formatting": "new",
+    "verbosity": 2,
 }
 
 UV_RUN = ["uv", "run", "--frozen"]
 
 
 def task__list() -> TaskDict:
-    cmd = ["doit", "list", "--all", "--status", "--sort=definition"]
-    return {"actions": [cmd], "verbosity": 2}
+    cmd = [*UV_RUN, "doit", "list", "--all", "--status", "--sort=definition"]
+    return {"actions": [cmd]}
 
 
 def task_serve() -> TaskDictGen:
     """Start the prod server."""
     cmd = LongRunning([*UV_RUN, "fastapi", "run", "app/main.py"], shell=False)
-    yield {"basename": "serve", "actions": [cmd], "verbosity": 2}
-    yield {"basename": "s", "actions": [cmd], "verbosity": 2}
+    yield {"basename": "serve", "actions": [cmd]}
+    yield {"basename": "s", "actions": [cmd]}
 
 
 def task_dev() -> TaskDict:
@@ -67,8 +68,8 @@ def task_watch() -> TaskDictGen:
         )
         cmd_action.execute()
 
-    yield {"basename": "watch", "actions": [cmd], "pos_arg": "args", "verbosity": 2}
-    yield {"basename": "w", "actions": [cmd], "pos_arg": "args", "verbosity": 2}
+    yield {"basename": "watch", "actions": [cmd], "pos_arg": "args"}
+    yield {"basename": "w", "actions": [cmd], "pos_arg": "args"}
 
 
 def task_test() -> TaskDictGen:
@@ -85,8 +86,8 @@ def task_test() -> TaskDictGen:
         # [*UV_RUN, "djlint", "app/templates", "--ignore", "H006,H030,H031"]
         tailwindcss.comparison_test,
     ]
-    yield {"basename": "test", "actions": actions, "verbosity": 2}
-    yield {"basename": "t", "actions": actions, "verbosity": 2}
+    yield {"basename": "test", "actions": actions}
+    yield {"basename": "t", "actions": actions}
 
 
 def task_snapshot_review() -> TaskDictGen:
@@ -98,6 +99,5 @@ def task_snapshot_review() -> TaskDictGen:
         )
         return cmd_action.execute()
 
-    task: TaskDict = {"actions": [cmd], "pos_arg": "files_or_dirs", "verbosity": 2}
-    yield {"basename": "snapshot-review", **task}
-    yield {"basename": "sr", **task}
+    yield {"basename": "snapshot-review", "actions": [cmd], "pos_arg": "files_or_dirs"}
+    yield {"basename": "sr", "actions": [cmd], "pos_arg": "files_or_dirs"}

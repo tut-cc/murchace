@@ -21,7 +21,6 @@ def task__tailwind_install() -> TaskDict:
         "actions": [install_binary],
         "targets": [BINARY_PATH],
         "uptodate": [config_changed(VERSION)],
-        "verbosity": 2,
     }
 
 
@@ -35,7 +34,7 @@ def task_tailwind_build() -> TaskDictGen:
     file_dep.extend(template_files)
     output = "static/styles.min.css"
     cmd = [BINARY_PATH, "--minify", "-i", TAILWIND_INPUT, "-o", output]
-    task: TaskDict = {"file_dep": file_dep, "actions": [cmd], "verbosity": 2}
+    task: TaskDict = {"file_dep": file_dep, "actions": [cmd]}
     # TODO: Figure out a way to assign the same target to two tasks.
     # The issue arrises because using `"targets": ["static/styles.min.css"]`
     # more than twice for different basename tasks is disallowed. It would be
@@ -50,8 +49,8 @@ def task_tailwind_watch() -> TaskDictGen:
     cmd = LongRunning(
         [BINARY_PATH, "--watch", "-i", TAILWIND_INPUT, "-o", output], shell=False
     )
-    yield {"basename": "tailwind-watch", "actions": [cmd], "verbosity": 2}
-    yield {"basename": "tw", "actions": [cmd], "verbosity": 2}
+    yield {"basename": "tailwind-watch", "actions": [cmd]}
+    yield {"basename": "tw", "actions": [cmd]}
 
 
 def task__tailwind_test() -> TaskDict:
