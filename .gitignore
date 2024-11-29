@@ -9,6 +9,7 @@ wheels/
 # venv
 .venv
 
+/.doit.db
 /db/app.db
 /tailwindcss*
 /static/stat.csv
