@@ -493,6 +493,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "databases", extra = ["aiosqlite"] },
+    { name = "doit" },
     { name = "fastapi", extra = ["standard"] },
     { name = "jinja2" },
     { name = "sqlmodel" },
@@ -502,7 +503,6 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "djlint" },
-    { name = "doit" },
     { name = "inline-snapshot" },
     { name = "pyright" },
     { name = "pytest" },
@@ -513,6 +513,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "databases", extras = ["aiosqlite"], specifier = ">=0.9.0" },
+    { name = "doit", specifier = ">=0.36.0" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.115.5" },
     { name = "jinja2", specifier = ">=3.1.4" },
     { name = "sqlmodel", specifier = ">=0.0.22" },
@@ -522,7 +523,6 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "djlint", specifier = ">=1.36.2" },
-    { name = "doit", specifier = ">=0.36.0" },
     { name = "inline-snapshot", specifier = ">=0.14.0" },
     { name = "pyright", specifier = ">=1.1.389" },
     { name = "pytest", specifier = ">=8.3.3" },
