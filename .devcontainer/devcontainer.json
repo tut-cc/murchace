@@ -4,7 +4,7 @@
     "name": "murchace",
     // Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
     "image": "ghcr.io/tut-cc/murchace-dev:main",
-    "postCreateCommand": "just dev",
+    "postCreateCommand": "uv run --frozen doit dev; source .venv/bin/activate",
     // Configure tool-specific properties.
     "customizations": {
         "vscode": {
