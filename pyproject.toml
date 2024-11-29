@@ -31,4 +31,15 @@ dev-dependencies = [
     "doit>=0.36.0",
 ]
 
+[tool.doit]
+backend = "sqlite3"
+dep_file = ".doit.db"
+
+[tool.doit.commands.list]
+status = true
+subtasks = true
+sort = "definition"
+
 [tool.ruff]
+
+[tool.pyright]
