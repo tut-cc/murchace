@@ -15,17 +15,16 @@ purchase /ˈpɜː.t͡ʃəs/ 「購入する」、merchandise /ˈmɜːt͡ʃənda�
 
 ### 実行方法
 
-Python のパッケージマネージャ [uv](https://github.com/astral-sh/uv) と、CLIツール [just](https://github.com/casey/just) のインストールが必要です。
-どちらもインストールが終わった後に、次のコマンドを実行すると Web サーバが起動します:
+Python のパッケージマネージャ [uv](https://github.com/astral-sh/uv) のインストールが必要です。
+インストールが終わった後に、次のコマンドを実行すると Web サーバが起動します:
 
 ```console
-$ just run
+$ uv run --frozen doit serve
 ```
 
-別の実行方法として、コンテナを利用する場合は以下のコマンドを実行してください:
+別の実行方法として、[podman](https://podman.io/) でコンテナを利用する場合は以下のコマンドを実行してください:
 
 ```console
-$ sudo dnf install podman
 $ podman volume create murchace-db
 $ podman run -d --name murchace -p 8000:8000 -v murchace-db:/murchace/db ghcr.io/tut-cc/murchace:main
 ```

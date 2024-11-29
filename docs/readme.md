@@ -75,22 +75,24 @@ sudo dnf install code
 
 - `F1` キーを押してコマンドパレットを開く。`Remote-Containers: Clone Repository in Container Volume...` を実行し、このリポジトリ (https://github.com/tut-cc/murchace.git) 選んで Clone する。すると、拡張機能や依存ライブラリが自動でインストールされる。
 
-テンプレートファイルへの CSS の変更を反映させたいときは、`just tailwind-watch` もしくは `just tw` を実行してください。変更を保存すると自動的に CSS を再生成します。
+テンプレートファイルへの CSS の変更を反映させたいときは、`doit tailwind-watch` もしくは `doit tw` を実行してください。変更を保存すると自動的に CSS を再生成します。
 
-`just watch` もしくは `just w` を実行すると開発 Web サーバーが立ち上がります。Python ファイルに変更を加えると、サーバが自動的に再起動します。
+`doit watch` もしくは `doit w` を実行すると開発 Web サーバーが立ち上がります。Python ファイルに変更を加えると、サーバが自動的に再起動します。
 
 ### ローカルで環境構築
 
-Python のパッケージマネージャ [uv](https://github.com/astral-sh/uv) と、CLIツール [just](https://github.com/casey/just) のインストールが必要です。どちらもインストールが終わったら、次のコマンドを実行してください。
+Python のパッケージマネージャ [uv](https://github.com/astral-sh/uv) のインストールが必要です。
+インストールが終わったら、次のコマンドを実行してください。
 
 ```console
 $ git clone tut-cc/murchace.git && cd murchace
-$ just dev
+$ uv run --frozen doit dev
+$ source .venv/bin/activate
 ```
 
-テンプレートファイルへの CSS の変更を反映させたいときは、`just tailwind-watch` もしくは `just tw` を実行してください。変更を保存すると自動的に CSS を再生成します。
+テンプレートファイルへの CSS の変更を反映させたいときは、`doit tailwind-watch` もしくは `doit tw` を実行してください。変更を保存すると自動的に CSS を再生成します。
 
-`just watch` もしくは `just w` を実行すると開発 Web サーバーが立ち上がります。Python ファイルに変更を加えると、サーバが自動的に再起動します。
+`doit watch` もしくは `doit w` を実行すると開発 Web サーバーが立ち上がります。Python ファイルに変更を加えると、サーバが自動的に再起動します。
 
 ## 技術スタック
 
