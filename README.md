@@ -1,6 +1,8 @@
+[![CI](https://github.com/tut-cc/murchace/actions/workflows/CI.yaml/badge.svg)](https://github.com/tut-cc/murchace/actions/workflows/CI.yaml)
+
 ## murchace
 
-murchace は以下の機能を~~備えた~~実装しようとしている注文管理 Web システムです。
+murchace は以下の機能を備えた注文管理 Web システムです。
 
 - 誰が何の商品を買ったかを把握
 - 提供待ちキューを賢く捌く
