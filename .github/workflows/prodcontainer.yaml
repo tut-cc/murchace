@@ -1,4 +1,5 @@
-name: create and publish a container image
+# create and publish prod-container container images
+name: prod-containers
 
 on:
   workflow_dispatch:
