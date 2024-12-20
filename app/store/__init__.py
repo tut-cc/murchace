@@ -37,19 +37,19 @@ def unixepoch(attr: sa_orm.Mapped) -> sqlalchemy.Label:
     return sqlalchemy.literal_column(f"unixepoch({colname})").label(alias)
 
 
-async def supply_and_complete_placement_if_done(placement_id: int, product_id: int):
+async def supply_and_complete_order_if_done(order_id: int, product_id: int):
     async with database.transaction():
-        await PlacedItemTable._supply(placement_id, product_id)
+        await PlacedItemTable._supply(order_id, product_id)
 
         update_query = (
             sqlmodel.update(Placement)
             .where(
-                (col(Placement.placement_id) == placement_id)
+                (col(Placement.placement_id) == order_id)
                 & sqlmodel.select(
                     sqlmodel.func.count(col(PlacedItem.item_no))
                     == sqlmodel.func.count(col(PlacedItem.supplied_at))
                 )
-                .where(col(PlacedItem.placement_id) == placement_id)
+                .where(col(PlacedItem.placement_id) == order_id)
                 .scalar_subquery()
             )
             .returning(col(Placement.placement_id).isnot(None))
@@ -65,10 +65,10 @@ async def supply_and_complete_placement_if_done(placement_id: int, product_id: i
         PlacementTable.modified_cond_flag.notify_all(flag)
 
 
-async def supply_all_and_complete(placement_id: int):
+async def supply_all_and_complete(order_id: int):
     async with database.transaction():
-        await PlacedItemTable._supply_all(placement_id)
-        await PlacementTable._complete(placement_id)
+        await PlacedItemTable._supply_all(order_id)
+        await PlacementTable._complete(order_id)
     async with PlacementTable.modified_cond_flag:
         FLAG = ModifiedFlag.SUPPLIED | ModifiedFlag.RESOLVED
         PlacementTable.modified_cond_flag.notify_all(FLAG)

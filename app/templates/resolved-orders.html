@@ -1,7 +1,7 @@
 {% from "layout.html" import layout %}
 {% from "components/clock.html" import clock %}
 
-{% macro resolved_orders(placements) %}
+{% macro resolved_orders(orders) %}
   {% call layout("処理済注文 - murchace") %}
     <div class="flex flex-col">
       <header class="sticky z-10 inset-0 w-full px-16 py-3 flex gap-3 border-b border-gray-500 bg-white text-2xl">
@@ -14,14 +14,14 @@
         {{ clock() }}
       </header>
       <main
-        id="placements"
+        id="orders"
         class="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-min gap-3 py-2 px-16 overflow-y-auto"
       >
-        {% for placement in placements | reverse %}
-          {% if placement.completed_at %}
-            {{ completed(placement) }}
+        {% for order in orders | reverse %}
+          {% if order.completed_at %}
+            {{ completed(order) }}
           {% else %}
-            {{ canceled(placement) }}
+            {{ canceled(order) }}
           {% endif %}
         {% endfor %}
       </main>
@@ -29,55 +29,55 @@
   {% endcall %}
 {% endmacro %}
 
-{% macro completed(placement) %}
+{% macro completed(order) %}
   <div
-    id="placement-{{ placement.placement_id }}"
+    id="order-{{ order.order_id }}"
     class="w-full h-64 flex flex-col gap-y-1 border-2 border-gray-300 rounded-lg pb-2"
   >
     <div class="width-full flex flex-row items-start p-2 bg-cyan-100 rounded-t-lg">
       <div class="grow flex flex-row items-end">
-        <h2 class="text-2xl">#{{ placement.placement_id }}</h2>
-        <span class="ml-1">@{{ placement.placed_at }}/{{ placement.completed_at }}</span>
+        <h2 class="text-2xl">#{{ order.order_id }}</h2>
+        <span class="ml-1">@{{ order.ordered_at }}/{{ order.completed_at }}</span>
       </div>
       <button
-        hx-post="/orders/{{ placement.placement_id }}/canceled-at"
+        hx-post="/orders/{{ order.order_id }}/canceled-at"
         hx-vals='{"card_response": true}'
-        hx-confirm="完了した注文 #{{ placement.placement_id }} を取り消しますか？"
-        hx-target="#placement-{{ placement.placement_id }}"
+        hx-confirm="完了した注文 #{{ order.order_id }} を取り消しますか？"
+        hx-target="#order-{{ order.order_id }}"
         hx-swap="outerHTML"
         class="px-2 py-1 text-white bg-red-600 rounded-lg"
       >取消</button>
     </div>
-    {{ _placement_body(placement) }}
+    {{ _order_body(order) }}
   </div>
 {% endmacro %}
 
-{% macro canceled(placement) %}
+{% macro canceled(order) %}
   <div
-    id="placement-{{ placement.placement_id }}"
+    id="order-{{ order.order_id }}"
     class="w-full h-64 flex flex-col gap-y-1 border-2 border-gray-300 rounded-lg pb-2"
   >
     <div class="width-full flex flex-row items-start p-2 bg-orange-200 rounded-t-md">
       <div class="grow flex flex-row items-end">
-        <h2 class="text-2xl line-through">#{{ placement.placement_id }}</h2>
-        <span class="ml-1">@{{ placement.placed_at }}/{{ placement.canceled_at }}</span>
+        <h2 class="text-2xl line-through">#{{ order.order_id }}</h2>
+        <span class="ml-1">@{{ order.ordered_at }}/{{ order.canceled_at }}</span>
       </div>
       <button
-        hx-post="/orders/{{ placement.placement_id }}/completed-at"
+        hx-post="/orders/{{ order.order_id }}/completed-at"
         hx-vals='{"card_response": true}'
-        hx-confirm="一度取り消した注文 #{{ placement.placement_id }} を完了しますか？"
-        hx-target="#placement-{{ placement.placement_id }}"
+        hx-confirm="一度取り消した注文 #{{ order.order_id }} を完了しますか？"
+        hx-target="#order-{{ order.order_id }}"
         hx-swap="outerHTML"
         class="px-2 py-1 text-white bg-red-600 rounded-lg"
       >完了</button>
     </div>
-    {{ _placement_body(placement) }}
+    {{ _order_body(order) }}
   </div>
 {% endmacro %}
 
-{% macro _placement_body(placement) %}
+{% macro _order_body(order) %}
   <ul class="flex-grow overflow-y-auto px-2 divide-y-2">
-    {% for item in placement.items_ %}
+    {% for item in order.items_ %}
       <li class="flex flex-row items-start gap-x-2">
         {% if item.supplied_at %}
           <span class="text-green-500 font-bold">✓</span>
@@ -91,12 +91,12 @@
   </ul>
   <p class="flex flex-row mx-1 justify-between px-2">
     <span class="break-words">合計金額</span>
-    <span class="whitespace-nowrap">{{ placement.total_price }}</span>
+    <span class="whitespace-nowrap">{{ order.total_price }}</span>
   </p>
   <button
-    hx-delete="/orders/{{ placement.placement_id }}/resolved-at"
-    hx-target="#placement-{{ placement.placement_id }}"
-    hx-confirm="一度取り消した注文 #{{ placement.placement_id }} を受け取り待ちに戻しますか？"
+    hx-delete="/orders/{{ order.order_id }}/resolved-at"
+    hx-target="#order-{{ order.order_id }}"
+    hx-confirm="一度取り消した注文 #{{ order.order_id }} を受け取り待ちに戻しますか？"
     hx-swap="delete"
     class="mx-10 py-1 border border-gray-600 rounded-lg"
   >未受取に戻す</button>
