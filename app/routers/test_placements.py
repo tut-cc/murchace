@@ -1,7 +1,7 @@
 import sqlparse
 from inline_snapshot import snapshot
 
-from .placements import query_incoming, query_placed_items_incoming, query_resolved
+from .orders import query_incoming, query_placed_items_incoming, query_resolved
 
 
 def format_sql(sql: object):

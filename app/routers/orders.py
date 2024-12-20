@@ -102,16 +102,16 @@ def _placed_items_loader() -> Callable[[], Awaitable[list[placed_item_t]]]:
 load_placed_items_incoming = _placed_items_loader()
 
 
-class placed_items_incoming:  # namespace
-    @macro_template("placed-items-incoming.html")
+class ordered_items_incoming:  # namespace
+    @macro_template("ordered-items-incoming.html")
     @staticmethod
     def page(placed_items: list[placed_item_t]): ...
 
-    @macro_template("placed-items-incoming.html", "component")
+    @macro_template("ordered-items-incoming.html", "component")
     @staticmethod
     def component(placed_items: list[placed_item_t]): ...
 
-    @macro_template("placed-items-incoming.html", "component_with_sound")
+    @macro_template("ordered-items-incoming.html", "component_with_sound")
     @staticmethod
     def component_with_sound(placed_items: list[placed_item_t]): ...
 
@@ -309,60 +309,60 @@ async def load_one_resolved_placement(placement_id: int) -> placement_t | None:
     return placement
 
 
-class incoming_placements:  # namespace
-    @macro_template("incoming-placements.html")
+class incoming_orders:  # namespace
+    @macro_template("incoming-orders.html")
     @staticmethod
     def page(placements: list[placement_t]): ...
 
-    @macro_template("incoming-placements.html", "component")
+    @macro_template("incoming-orders.html", "component")
     @staticmethod
     def component(placements: list[placement_t]): ...
 
-    @macro_template("incoming-placements.html", "component_with_sound")
+    @macro_template("incoming-orders.html", "component_with_sound")
     @staticmethod
     def component_with_sound(placements: list[placement_t]): ...
 
 
-class resolved_placements:  # namespace
-    @macro_template("resolved-placements.html")
+class resolved_orders:  # namespace
+    @macro_template("resolved-orders.html")
     @staticmethod
     def page(placements: list[placement_t]): ...
 
-    @macro_template("resolved-placements.html", "completed")
+    @macro_template("resolved-orders.html", "completed")
     @staticmethod
     def completed(placement: placement_t): ...
 
-    @macro_template("resolved-placements.html", "canceled")
+    @macro_template("resolved-orders.html", "canceled")
     @staticmethod
     def canceled(placement: placement_t): ...
 
 
-@router.get("/placed-items/incoming", response_class=HTMLResponse)
-async def get_incoming_placed_items(request: Request):
+@router.get("/ordered-items/incoming", response_class=HTMLResponse)
+async def get_incoming_ordered_items(request: Request):
     placed_items = await load_placed_items_incoming()
-    return HTMLResponse(placed_items_incoming.page(request, placed_items))
+    return HTMLResponse(ordered_items_incoming.page(request, placed_items))
 
 
-@router.get("/placed-items/incoming-stream", response_class=EventSourceResponse)
-async def placed_items_incoming_stream(
+@router.get("/ordered-items/incoming-stream", response_class=EventSourceResponse)
+async def ordered_items_incoming_stream(
     request: Request, accept: Annotated[Literal["text/event-stream"], Header()]
 ):
     _ = accept
-    return EventSourceResponse(_placed_items_incoming_stream(request))
+    return EventSourceResponse(_ordered_items_incoming_stream(request))
 
 
-async def _placed_items_incoming_stream(request: Request):
+async def _ordered_items_incoming_stream(request: Request):
     placed_items = await load_placed_items_incoming()
-    content = placed_items_incoming.component(request, placed_items)
+    content = ordered_items_incoming.component(request, placed_items)
     yield dict(data=content)
     try:
         while True:
             async with PlacementTable.modified_cond_flag:
                 flag = await PlacementTable.modified_cond_flag.wait()
                 if flag & (ModifiedFlag.INCOMING | ModifiedFlag.PUT_BACK):
-                    template = placed_items_incoming.component_with_sound
+                    template = ordered_items_incoming.component_with_sound
                 else:
-                    template = placed_items_incoming.component
+                    template = ordered_items_incoming.component
                 placed_items = await load_placed_items_incoming()
                 yield dict(data=template(request, placed_items))
     except asyncio.CancelledError:
@@ -371,39 +371,39 @@ async def _placed_items_incoming_stream(request: Request):
         yield dict(event="shutdown", data="")
 
 
-@router.post("/placements/{placement_id}/products/{product_id}/supplied-at")
+@router.post("/orders/{placement_id}/products/{product_id}/supplied-at")
 async def supply_products(placement_id: int, product_id: int):
     await supply_and_complete_placement_if_done(placement_id, product_id)
 
 
-@router.get("/placements/incoming", response_class=HTMLResponse)
-async def get_incoming_placements(request: Request):
+@router.get("/orders/incoming", response_class=HTMLResponse)
+async def get_incoming_orders(request: Request):
     placements = await load_incoming_placements()
-    return HTMLResponse(incoming_placements.page(request, placements))
+    return HTMLResponse(incoming_orders.page(request, placements))
 
 
-@router.get("/placements/incoming-stream", response_class=EventSourceResponse)
-async def incoming_placements_stream(
+@router.get("/orders/incoming-stream", response_class=EventSourceResponse)
+async def incoming_orders_stream(
     request: Request, accept: Annotated[Literal["text/event-stream"], Header()]
 ):
     _ = accept
-    return EventSourceResponse(_incoming_placements_stream(request))
+    return EventSourceResponse(_incoming_orders_stream(request))
 
 
-async def _incoming_placements_stream(
+async def _incoming_orders_stream(
     request: Request,
 ) -> AsyncGenerator[dict[str, str], None]:
     placements = await load_incoming_placements()
-    content = incoming_placements.component(request, placements)
+    content = incoming_orders.component(request, placements)
     yield dict(data=content)
     try:
         while True:
             async with PlacementTable.modified_cond_flag:
                 flag = await PlacementTable.modified_cond_flag.wait()
                 if flag & (ModifiedFlag.INCOMING | ModifiedFlag.PUT_BACK):
-                    template = incoming_placements.component_with_sound
+                    template = incoming_orders.component_with_sound
                 else:
-                    template = incoming_placements.component
+                    template = incoming_orders.component
                 placements = await load_incoming_placements()
                 yield dict(data=template(request, placements))
     except asyncio.CancelledError:
@@ -412,18 +412,18 @@ async def _incoming_placements_stream(
         yield dict(event="shutdown", data="")
 
 
-@router.get("/placements/resolved", response_class=HTMLResponse)
-async def get_resolved_placements(request: Request):
+@router.get("/orders/resolved", response_class=HTMLResponse)
+async def get_resolved_orders(request: Request):
     placements = await load_resolved_placements()
-    return HTMLResponse(resolved_placements.page(request, placements))
+    return HTMLResponse(resolved_orders.page(request, placements))
 
 
-@router.delete("/placements/{placement_id}/resolved-at")
+@router.delete("/orders/{placement_id}/resolved-at")
 async def reset(placement_id: int):
     await PlacementTable.reset(placement_id)
 
 
-@router.post("/placements/{placement_id}/completed-at", response_class=HTMLResponse)
+@router.post("/orders/{placement_id}/completed-at", response_class=HTMLResponse)
 async def complete(
     request: Request, placement_id: int, card_response: Annotated[bool, Form()] = False
 ):
@@ -439,10 +439,10 @@ async def complete(
         detail = f"Placement {placement_id} not found"
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
 
-    return HTMLResponse(resolved_placements.completed(request, placement))
+    return HTMLResponse(resolved_orders.completed(request, placement))
 
 
-@router.post("/placements/{placement_id}/canceled-at", response_class=HTMLResponse)
+@router.post("/orders/{placement_id}/canceled-at", response_class=HTMLResponse)
 async def cancel(
     request: Request, placement_id: int, card_response: Annotated[bool, Form()] = False
 ):
@@ -458,4 +458,4 @@ async def cancel(
         detail = f"Placement {placement_id} not found"
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
 
-    return HTMLResponse(resolved_placements.canceled(request, placement))
+    return HTMLResponse(resolved_orders.canceled(request, placement))
