@@ -1,13 +1,13 @@
 {% from "layout.html" import layout %}
 {% from "components/clock.html" import clock %}
 
-{% macro order(products, session) %}
+{% macro register(products, session) %}
   {% call layout("新規注文 - murchace") %}
     <div class="h-dvh flex flex-row">
       <main class="w-1/2 lg:w-4/6 h-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-6 auto-cols-max auto-rows-min gap-2 py-2 pl-10 pr-6 overflow-y-auto">
         {% for product in products %}
           <figure
-            hx-post="/order/items"
+            hx-post="/register/items"
             hx-vals='{"product_id": {{ product.product_id }}}'
             hx-target="#order-session"
             class="flex flex-col border-4 rounded-md transition-colors ease-in-out active:bg-gray-100"
@@ -22,7 +22,7 @@
         <div class="flex flex-row py-2 justify-around items-center text-xl">
           <a href="/" class="px-2 py-1 rounded bg-gray-300 hidden lg:inline-block">ホーム</a>
           <button
-            hx-delete="/order/items"
+            hx-delete="/register/items"
             hx-target="#order-session"
             class="text-white px-2 py-1 rounded bg-red-600 hidden sm:inline-block"
             tabindex="0"
@@ -51,7 +51,7 @@
           </div>
           <div class="flex items-center">
             <button
-              hx-delete="/order/items/{{ item_id }}"
+              hx-delete="/register/items/{{ item_id }}"
               hx-target="#order-session"
               class="font-bold text-white bg-red-600 px-2 rounded"
             >X</button>
@@ -64,7 +64,7 @@
     <div class="basis-1/4 text-right lg:text-2xl">{{ session.total_count }} 点</div>
     <div class="basis-2/4 text-center lg:text-2xl">合計: {{ session.total_price_str() }}</div>
     <button
-      hx-get="/order/confirm-modal"
+      hx-get="/register/confirm-modal"
       hx-target="#order-modal-container"
       hx-swap="innerHTML settle:150ms"
       class="basis-1/4 lg:text-xl text-center text-white p-2 rounded bg-blue-600 disabled:cursor-not-allowed disabled:text-gray-700 disabled:bg-gray-100"
@@ -91,7 +91,7 @@
         {{ _total(session.counted_products.values(), session.total_count, session.total_price_str()) }}
       </article>
       <button
-        hx-post="/order"
+        hx-post="/register"
         hx-target="#order-modal-container"
         hx-swap="innerHTML settle:150ms"
         class="w-full py-4 text-center text-xl font-semibold text-white bg-blue-600 rounded"
@@ -119,7 +119,7 @@
         {{ _total(session.counted_products.values(), session.total_count, session.total_price_str()) }}
       </article>
       <button
-        hx-post="/order"
+        hx-post="/register"
         class="w-full py-4 text-center text-xl font-semibold text-white bg-green-600 rounded"
       >新規</button>
       <a href="/" class="w-full py-4 text-center text-xl font-semibold bg-white border border-gray-300 rounded">ホームに戻る</a>

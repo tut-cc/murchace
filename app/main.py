@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from .env import DEBUG
-from .routers import order, placements, products, stat
+from .routers import placements, products, register, stat
 from .store import startup_and_shutdown_db
 from .templates import macro_template
 
@@ -35,6 +35,6 @@ async def get_root(request: Request):
 
 
 app.include_router(products.router)
-app.include_router(order.router)
+app.include_router(register.router)
 app.include_router(placements.router)
 app.include_router(stat.router)

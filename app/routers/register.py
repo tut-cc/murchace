@@ -62,27 +62,27 @@ class OrderSession(pydantic.BaseModel):
                 self.counted_products[product.product_id].count -= 1
 
 
-@macro_template("order.html")
-def tmp_order(products: list[Product], session: OrderSession): ...
+@macro_template("register.html")
+def tmp_register(products: list[Product], session: OrderSession): ...
 
 
-@macro_template("order.html", "order_session")
+@macro_template("register.html", "order_session")
 def tmp_session(session: OrderSession): ...
 
 
-@macro_template("order.html", "confirm_modal")
+@macro_template("register.html", "confirm_modal")
 def tmp_confirm_modal(session: OrderSession): ...
 
 
-@macro_template("order.html", "issued_modal")
+@macro_template("register.html", "issued_modal")
 def tmp_issued_modal(placement_id: int, session: OrderSession): ...
 
 
-@macro_template("order.html", "error_modal")
+@macro_template("register.html", "error_modal")
 def tmp_error_modal(message: str): ...
 
 
-# NOTE: Do NOT store this data in database (the data is transient and should be kept in memory)
+# NOTE: Do NOT store this data in database because the data is transient and should be kept in memory
 order_sessions: dict[UUID, OrderSession] = {}
 SESSION_COOKIE_KEY = "session_key"
 
@@ -96,22 +96,22 @@ async def order_session_dep(session_key: Annotated[UUID, Cookie()]) -> OrderSess
 SessionDeps = Annotated[OrderSession, Depends(order_session_dep)]
 
 
-@router.get("/order", response_class=HTMLResponse)
+@router.get("/register", response_class=HTMLResponse)
 async def instruct_creation_of_new_session_or_get_existing_session(
     request: Request, session_key: Annotated[UUID | None, Cookie()] = None
 ):
     if session_key is None or (session := order_sessions.get(session_key)) is None:
         return HTMLResponse(
-            tmp_hx_post(request, "/order"),
+            tmp_hx_post(request, "/register"),
             status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
             headers={"allow": "POST"},
         )
 
     products = await ProductTable.select_all()
-    return HTMLResponse(tmp_order(request, products, session))
+    return HTMLResponse(tmp_register(request, products, session))
 
 
-@router.get("/order/confirm-modal", response_class=HTMLResponse)
+@router.get("/register/confirm-modal", response_class=HTMLResponse)
 async def get_confirm_dialog(request: Request, session: SessionDeps):
     if session.total_count == 0:
         error_msg = "商品が選択されていません"
@@ -120,14 +120,14 @@ async def get_confirm_dialog(request: Request, session: SessionDeps):
         return HTMLResponse(tmp_confirm_modal(request, session))
 
 
-@router.post("/order")
+@router.post("/register")
 async def create_new_session_or_place_order(
     request: Request, session_key: Annotated[UUID | None, Cookie()] = None
 ):
     if session_key is None or (session := order_sessions.get(session_key)) is None:
         session_key = _create_new_session()
 
-        LOCATION = "/order"
+        LOCATION = "/register"
         headers = {"location": LOCATION, "hx-location": LOCATION}
         res = Response(LOCATION, status_code=status.HTTP_201_CREATED, headers=headers)
         res.set_cookie(SESSION_COOKIE_KEY, str(session_key))
@@ -157,8 +157,8 @@ async def _place_order(request: Request, session: SessionDeps) -> HTMLResponse:
     return HTMLResponse(tmp_issued_modal(request, placement_id, session))
 
 
-@router.post("/order/items")
-async def add_order_item(
+@router.post("/register/items")
+async def add_session_item(
     request: Request, session: SessionDeps, product_id: Annotated[int, Form()]
 ) -> Response:
     if (product := await ProductTable.by_product_id(product_id)) is None:
@@ -168,14 +168,14 @@ async def add_order_item(
     return HTMLResponse(tmp_session(request, session))
 
 
-@router.delete("/order/items/{item_id}", response_class=HTMLResponse)
-async def delete_order_item(request: Request, session: SessionDeps, item_id: UUID):
+@router.delete("/register/items/{item_id}", response_class=HTMLResponse)
+async def delete_session_item(request: Request, session: SessionDeps, item_id: UUID):
     session.delete(item_id)
     return HTMLResponse(tmp_session(request, session))
 
 
-@router.delete("/order/items")
-async def clear_order_items(request: Request, session: SessionDeps) -> Response:
+@router.delete("/register/items")
+async def clear_session_items(request: Request, session: SessionDeps) -> Response:
     session.clear()
     return HTMLResponse(tmp_session(request, session))
 
@@ -185,8 +185,8 @@ async def clear_order_items(request: Request, session: SessionDeps) -> Response:
 # deferred_order_sessions: dict[int, OrderSession] = {}
 #
 #
-# @router.post("/deferred_orders/", response_class=HTMLResponse)
-# async def post_order_defer_session(request: Request, session_key: Annotated[UUID, Cookie()]):
+# @router.post("/register/deferred", response_class=HTMLResponse)
+# async def post_defer_session(request: Request, session_key: Annotated[UUID, Cookie()]):
 #     order_session = await order_session_dep(session_key)
 #     if order_session in deferred_order_sessions:
 #         raise HTTPException(
