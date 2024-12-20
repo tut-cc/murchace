@@ -5,7 +5,7 @@
   <script src="{{ url_for('static', path='/sse.js') }}"></script>
 {% endmacro %}
 
-{% macro incoming_orders(placements) %}
+{% macro incoming_orders(orders) %}
   {% call layout("未受取注文 - murchace", _head()) %}
     <div class="flex flex-col">
       <header class="sticky z-10 inset-0  w-full px-16 py-3 flex gap-3 border-b border-gray-500 bg-white text-2xl">
@@ -18,7 +18,7 @@
         {{ clock() }}
       </header>
       <main
-        id="placements"
+        id="orders"
         hx-ext="sse"
         sse-connect="/orders/incoming-stream"
         sse-swap="message"
@@ -26,33 +26,33 @@
         sse-close="shutdown"
         class="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-min gap-3 py-2 px-16 overflow-y-auto"
       >
-        {{ component(placements) }}
+        {{ component(orders) }}
       </main>
     </div>
   {% endcall %}
 {% endmacro %}
 
-{% macro component(placements) %}
-  {% for placement in placements %}
+{% macro component(orders) %}
+  {% for order in orders %}
     <div
-      id="placement-{{ placement.placement_id }}"
+      id="order-{{ order.order_id }}"
       class="w-full h-60 flex flex-col gap-y-1 border-2 border-gray-300 rounded-lg pb-2"
     >
       <div class="width-full flex flex-row p-2 items-start">
         <div class="grow flex flex-row items-end">
-          <h2 class="text-2xl">#{{ placement.placement_id }}</h2>
-          <span class="ml-1">@{{ placement.placed_at }}</span>
+          <h2 class="text-2xl">#{{ order.order_id }}</h2>
+          <span class="ml-1">@{{ order.ordered_at }}</span>
         </div>
         <button
-          hx-post="/orders/{{ placement.placement_id }}/canceled-at"
-          hx-confirm="確定注文 #{{ placement.placement_id }} を取り消しますか？"
-          hx-target="#placement-{{ placement.placement_id }}"
+          hx-post="/orders/{{ order.order_id }}/canceled-at"
+          hx-confirm="確定注文 #{{ order.order_id }} を取り消しますか？"
+          hx-target="#order-{{ order.order_id }}"
           hx-swap="delete"
           class="px-2 py-1 text-white bg-red-600 rounded-lg"
         >取消</button>
       </div>
       <ul class="flex-grow overflow-y-auto px-2 divide-y-2">
-        {% for item in placement.items_ %}
+        {% for item in order.items_ %}
           <li class="flex flex-row items-start gap-x-2 px-1">
             {% if item.supplied_at %}
               <span class="text-green-500 font-bold">✓</span>
@@ -65,8 +65,8 @@
         {% endfor %}
       </ul>
       <button
-        hx-post="/orders/{{ placement.placement_id }}/completed-at"
-        hx-target="#placement-{{ placement.placement_id }}"
+        hx-post="/orders/{{ order.order_id }}/completed-at"
+        hx-target="#order-{{ order.order_id }}"
         hx-swap="delete"
         class="mx-10 py-1 text-white bg-blue-600 rounded-lg"
       >完了</button>
@@ -74,7 +74,7 @@
   {% endfor %}
 {% endmacro %}
 
-{% macro component_with_sound(placements) %}
+{% macro component_with_sound(orders) %}
   <audio src="{{ url_for('static', path='notification-1.mp3') }}" autoplay hidden></audio>
-  {{ component(placements) }}
+  {{ component(orders) }}
 {% endmacro %}

@@ -5,7 +5,7 @@
   <script src="{{ url_for('static', path='/sse.js') }}"></script>
 {% endmacro %}
 
-{% macro ordered_items_incoming(placed_items) %}
+{% macro ordered_items_incoming(ordered_items) %}
   {% call layout("未受取商品 - murchace", _head()) %}
     <div class="flex flex-col">
       <header class="sticky z-10 inset-0 w-full px-16 py-3 flex gap-3 border-b border-gray-500 bg-white text-2xl">
@@ -18,7 +18,7 @@
         {{ clock() }}
       </header>
       <main
-        id="placed-items"
+        id="ordered-items"
         hx-ext="sse"
         sse-connect="/ordered-items/incoming-stream"
         sse-swap="message"
@@ -26,36 +26,36 @@
         sse-close="shutdown"
         class="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-min gap-3 py-2 px-16 overflow-y-auto"
       >
-        {{ component(placed_items) }}
+        {{ component(ordered_items) }}
       </main>
     </div>
   {% endcall %}
 {% endmacro %}
 
-{% macro component(placed_items) %}
-  {% for placed_item in placed_items %}
+{% macro component(ordered_items) %}
+  {% for ordered_item in ordered_items %}
     <div
-      id="product-{{ placed_item.product_id }}"
+      id="product-{{ ordered_item.product_id }}"
       class="h-80 flex flex-col border-2 border-gray-300 rounded-lg pb-2"
     >
       <div class="width-full flex flex-row mx-1 items-start pb-2">
-        <h3 class="text-lg ml-1">{{ placed_item.name }}</h3>
+        <h3 class="text-lg ml-1">{{ ordered_item.name }}</h3>
       </div>
       <div class="w-1/3 mx-auto">
-        <img class="mx-auto w-full h-auto aspect-square" src="{{ url_for('static', path=placed_item.filename) }}" alt="{{ placed_item.name }}"/>
+        <img class="mx-auto w-full h-auto aspect-square" src="{{ url_for('static', path=ordered_item.filename) }}" alt="{{ ordered_item.name }}"/>
       </div>
       <ul class="flex-grow overflow-y-auto px-2 divide-y-2">
-        {% for placement in placed_item.placements %}
+        {% for order in ordered_item.orders %}
           <li
-            id="placed-item-{{ placement.placement_id }}-{{ placed_item.product_id }}"
+            id="ordered-item-{{ order.order_id }}-{{ ordered_item.product_id }}"
             class="flex flex-row items-center"
           >
-            <span class="text-xl">#{{ placement.placement_id }}</span>
-            <span class="ml-1">@{{ placement.placed_at }}</span>
-            <span class="whitespace-nowrap ml-auto">x {{ placement.count }}</span>
+            <span class="text-xl">#{{ order.order_id }}</span>
+            <span class="ml-1">@{{ order.ordered_at }}</span>
+            <span class="whitespace-nowrap ml-auto">x {{ order.count }}</span>
             <button
-              hx-post="/orders/{{ placement.placement_id }}/products/{{ placed_item.product_id }}/supplied-at"
-              hx-target="#placed-item-{{ placement.placement_id }}-{{ placed_item.product_id }}"
+              hx-post="/orders/{{ order.order_id }}/products/{{ ordered_item.product_id }}/supplied-at"
+              hx-target="#ordered-item-{{ order.order_id }}-{{ ordered_item.product_id }}"
               hx-swap="delete"
               class="w-1/3 py-1 m-1 text-white bg-green-600 rounded"
             >✓</button>
@@ -66,7 +66,7 @@
   {% endfor %}
 {% endmacro %}
 
-{% macro component_with_sound(placed_items) %}
+{% macro component_with_sound(ordered_items) %}
   <audio src="{{ url_for('static', path='notification-1.mp3') }}" autoplay hidden></audio>
-  {{ component(placed_items) }}
+  {{ component(ordered_items) }}
 {% endmacro %}

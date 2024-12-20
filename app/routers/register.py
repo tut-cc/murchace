@@ -75,7 +75,7 @@ def tmp_confirm_modal(session: OrderSession): ...
 
 
 @macro_template("register.html", "issued_modal")
-def tmp_issued_modal(placement_id: int, session: OrderSession): ...
+def tmp_issued_modal(order_id: int, session: OrderSession): ...
 
 
 @macro_template("register.html", "error_modal")
@@ -151,10 +151,10 @@ def _create_new_session() -> UUID:
 
 async def _place_order(request: Request, session: SessionDeps) -> HTMLResponse:
     product_ids = [item.product_id for item in session.items.values()]
-    placement_id = await PlacedItemTable.issue(product_ids)
+    order_id = await PlacedItemTable.issue(product_ids)
     # TODO: add a branch for out of stock error
-    await PlacementTable.insert(placement_id)
-    return HTMLResponse(tmp_issued_modal(request, placement_id, session))
+    await PlacementTable.insert(order_id)
+    return HTMLResponse(tmp_issued_modal(request, order_id, session))
 
 
 @router.post("/register/items")

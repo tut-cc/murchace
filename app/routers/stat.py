@@ -69,7 +69,7 @@ def zero_if_null[T](v: T | None) -> T | Literal[0]:
 
 
 # TODO: Use async operations for writing csv rows so that this function does not block
-async def export_placements():
+async def export_orders():
     query = """
     SELECT 
         placements.placement_id,
@@ -115,7 +115,7 @@ def _filtered_row(row: Mapping) -> list:
     return filtered_row
 
 
-_placed_today = sqlmodel.func.date(
+_ordered_today = sqlmodel.func.date(
     col(Placement.placed_at), "localtime"
 ) == sqlmodel.func.date("now", "localtime")
 TOTAL_SALES_QUERY: sqlalchemy.Compiled = (
@@ -125,14 +125,14 @@ TOTAL_SALES_QUERY: sqlalchemy.Compiled = (
     .add_columns(
         sqlmodel.func.count(col(Product.product_id)).label("count"),
         sqlmodel.func.count(col(Product.product_id))
-        .filter(_placed_today)
+        .filter(_ordered_today)
         .label("count_today"),
         col(Product.name),
         col(Product.filename),
         col(Product.price),
         sqlmodel.func.sum(col(Product.price)).label("total_sales"),
         sqlmodel.func.sum(col(Product.price))
-        .filter(_placed_today)
+        .filter(_ordered_today)
         .label("total_sales_today"),
         col(Product.no_stock),
     )
@@ -239,7 +239,7 @@ async def construct_stat() -> Stat:
 
 @router.get("/stat", response_class=HTMLResponse)
 async def get_stat(request: Request):
-    await export_placements()
+    await export_orders()
     return HTMLResponse(tmp_stat(request, await construct_stat()))
 
 

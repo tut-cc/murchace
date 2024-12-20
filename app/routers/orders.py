@@ -17,7 +17,7 @@ from ..store import (
     Product,
     database,
     supply_all_and_complete,
-    supply_and_complete_placement_if_done,
+    supply_and_complete_order_if_done,
     unixepoch,
 )
 from ..store.placement import ModifiedFlag
@@ -64,60 +64,60 @@ query_placed_items_incoming: sqlalchemy.Select = (
     .order_by(col(PlacedItem.product_id).asc(), col(PlacedItem.placement_id).asc())
 )
 
-type placed_item_t = dict[str, int | str | list[dict[str, int | str]]]
+type ordered_item_t = dict[str, int | str | list[dict[str, int | str]]]
 
 
-def _placed_items_loader() -> Callable[[], Awaitable[list[placed_item_t]]]:
+def _ordered_items_loader() -> Callable[[], Awaitable[list[ordered_item_t]]]:
     query_str = str(query_placed_items_incoming.compile())
 
-    placed_items: list[placed_item_t] = []
+    ordered_items: list[ordered_item_t] = []
 
     def init_cb(product_id: int, map: Mapping):
-        placed_items.append(
+        ordered_items.append(
             {"product_id": product_id, "name": map["name"], "filename": map["filename"]}
         )
 
     def elem_cb(map: Mapping) -> dict[str, int | str]:
         return {
-            "placement_id": map["placement_id"],
+            "order_id": map["placement_id"],
             "count": map["count"],
-            "placed_at": _to_time(map["placed_at"]),
+            "ordered_at": _to_time(map["placed_at"]),
         }
 
-    def list_cb(placements: list[dict[str, int | str]]):
-        placed_items[-1]["placements"] = placements
+    def list_cb(orders: list[dict[str, int | str]]):
+        ordered_items[-1]["orders"] = orders
 
-    load_placed_products = partial(
+    load_ordered_products = partial(
         _agen_query_executor, query_str, "product_id", init_cb, elem_cb, list_cb
     )
 
     async def load():
-        placed_items.clear()
-        await load_placed_products()
-        return placed_items
+        ordered_items.clear()
+        await load_ordered_products()
+        return ordered_items
 
     return load
 
 
-load_placed_items_incoming = _placed_items_loader()
+load_ordered_items_incoming = _ordered_items_loader()
 
 
 class ordered_items_incoming:  # namespace
     @macro_template("ordered-items-incoming.html")
     @staticmethod
-    def page(placed_items: list[placed_item_t]): ...
+    def page(ordered_items: list[ordered_item_t]): ...
 
     @macro_template("ordered-items-incoming.html", "component")
     @staticmethod
-    def component(placed_items: list[placed_item_t]): ...
+    def component(ordered_items: list[ordered_item_t]): ...
 
     @macro_template("ordered-items-incoming.html", "component_with_sound")
     @staticmethod
-    def component_with_sound(placed_items: list[placed_item_t]): ...
+    def component_with_sound(ordered_items: list[ordered_item_t]): ...
 
 
 type item_t = dict[str, int | str | None]
-type placement_t = dict[str, int | list[item_t] | str | datetime | None]
+type order_t = dict[str, int | list[item_t] | str | datetime | None]
 
 
 query_incoming: sqlalchemy.Select = (
@@ -164,20 +164,15 @@ query_resolved: sqlalchemy.Select = (
 )
 
 
-def callbacks_placements_incoming(
-    placements: list[placement_t],
+def callbacks_orders_incoming(
+    orders: list[order_t],
 ) -> tuple[
     Callable[[int, Mapping], None],
     Callable[[Mapping], item_t],
     Callable[[list[item_t]], None],
 ]:
-    def init_cb(placement_id: int, map: Mapping) -> None:
-        placements.append(
-            {
-                "placement_id": placement_id,
-                "placed_at": _to_time(map["placed_at"]),
-            }
-        )
+    def init_cb(order_id: int, map: Mapping) -> None:
+        orders.append({"order_id": order_id, "ordered_at": _to_time(map["placed_at"])})
 
     def elem_cb(map: Mapping) -> item_t:
         supplied_at = map["supplied_at"]
@@ -189,13 +184,13 @@ def callbacks_placements_incoming(
         }
 
     def list_cb(items: list[item_t]) -> None:
-        placements[-1]["items_"] = items
+        orders[-1]["items_"] = items
 
     return init_cb, elem_cb, list_cb
 
 
-def callbacks_placements_resolved(
-    placements: list[placement_t],
+def callbacks_orders_resolved(
+    orders: list[order_t],
 ) -> tuple[
     Callable[[int, Mapping], None],
     Callable[[Mapping], item_t],
@@ -203,12 +198,12 @@ def callbacks_placements_resolved(
 ]:
     total_price = 0
 
-    def init_cb(placement_id: int, map: Mapping) -> None:
+    def init_cb(order_id: int, map: Mapping) -> None:
         canceled_at, completed_at = map["canceled_at"], map["completed_at"]
-        placements.append(
+        orders.append(
             {
-                "placement_id": placement_id,
-                "placed_at": _to_time(map["placed_at"]),
+                "order_id": order_id,
+                "ordered_at": _to_time(map["placed_at"]),
                 "canceled_at": _to_time(canceled_at) if canceled_at else None,
                 "completed_at": _to_time(completed_at) if completed_at else None,
             }
@@ -230,57 +225,57 @@ def callbacks_placements_resolved(
         }
 
     def list_cb(items: list[item_t]) -> None:
-        placements[-1]["items_"] = items
-        placements[-1]["total_price"] = Product.to_price_str(total_price)
+        orders[-1]["items_"] = items
+        orders[-1]["total_price"] = Product.to_price_str(total_price)
 
     return init_cb, elem_cb, list_cb
 
 
-def _placements_loader(
+def _orders_loader(
     query: sqlalchemy.Compiled,
     callbacks: Callable[
-        [list[placement_t]],
+        [list[order_t]],
         tuple[
             Callable[[int, Mapping], None],
             Callable[[Mapping], item_t],
             Callable[[list[item_t]], None],
         ],
     ],
-) -> Callable[[], Awaitable[list[placement_t]]]:
-    placements: list[placement_t] = []
+) -> Callable[[], Awaitable[list[order_t]]]:
+    orders: list[order_t] = []
 
-    init_cb, elem_cb, list_cb = callbacks(placements)
-    load_placements = partial(
+    init_cb, elem_cb, list_cb = callbacks(orders)
+    load_orders = partial(
         _agen_query_executor, str(query), "placement_id", init_cb, elem_cb, list_cb
     )
 
     async def load():
-        placements.clear()
-        await load_placements()
-        return placements
+        orders.clear()
+        await load_orders()
+        return orders
 
     return load
 
 
-load_incoming_placements = _placements_loader(
-    query_incoming.compile(), callbacks_placements_incoming
+load_incoming_orders = _orders_loader(
+    query_incoming.compile(), callbacks_orders_incoming
 )
-load_resolved_placements = _placements_loader(
-    query_resolved.compile(), callbacks_placements_resolved
+load_resolved_orders = _orders_loader(
+    query_resolved.compile(), callbacks_orders_resolved
 )
 
 
-async def load_one_resolved_placement(placement_id: int) -> placement_t | None:
-    query = query_resolved.where(col(Placement.placement_id) == placement_id)
+async def load_one_resolved_order(order_id: int) -> order_t | None:
+    query = query_resolved.where(col(Placement.placement_id) == order_id)
 
     rows_agen = database.iterate(query)
     if (row := await anext(rows_agen, None)) is None:
         return None
 
     canceled_at, completed_at = row["canceled_at"], row["completed_at"]
-    placement: placement_t = {
-        "placement_id": placement_id,
-        "placed_at": _to_time(row["placed_at"]),
+    order: order_t = {
+        "order_id": order_id,
+        "ordered_at": _to_time(row["placed_at"]),
         "canceled_at": _to_time(canceled_at) if canceled_at else None,
         "completed_at": _to_time(completed_at) if completed_at else None,
     }
@@ -303,44 +298,44 @@ async def load_one_resolved_placement(placement_id: int) -> placement_t | None:
     items = [to_item(row)]
     async for row in rows_agen:
         items.append(to_item(row))
-    placement["items_"] = items
-    placement["total_price"] = Product.to_price_str(total_price)
+    order["items_"] = items
+    order["total_price"] = Product.to_price_str(total_price)
 
-    return placement
+    return order
 
 
 class incoming_orders:  # namespace
     @macro_template("incoming-orders.html")
     @staticmethod
-    def page(placements: list[placement_t]): ...
+    def page(orders: list[order_t]): ...
 
     @macro_template("incoming-orders.html", "component")
     @staticmethod
-    def component(placements: list[placement_t]): ...
+    def component(orders: list[order_t]): ...
 
     @macro_template("incoming-orders.html", "component_with_sound")
     @staticmethod
-    def component_with_sound(placements: list[placement_t]): ...
+    def component_with_sound(orders: list[order_t]): ...
 
 
 class resolved_orders:  # namespace
     @macro_template("resolved-orders.html")
     @staticmethod
-    def page(placements: list[placement_t]): ...
+    def page(orders: list[order_t]): ...
 
     @macro_template("resolved-orders.html", "completed")
     @staticmethod
-    def completed(placement: placement_t): ...
+    def completed(order: order_t): ...
 
     @macro_template("resolved-orders.html", "canceled")
     @staticmethod
-    def canceled(placement: placement_t): ...
+    def canceled(order: order_t): ...
 
 
 @router.get("/ordered-items/incoming", response_class=HTMLResponse)
 async def get_incoming_ordered_items(request: Request):
-    placed_items = await load_placed_items_incoming()
-    return HTMLResponse(ordered_items_incoming.page(request, placed_items))
+    ordered_items = await load_ordered_items_incoming()
+    return HTMLResponse(ordered_items_incoming.page(request, ordered_items))
 
 
 @router.get("/ordered-items/incoming-stream", response_class=EventSourceResponse)
@@ -352,8 +347,8 @@ async def ordered_items_incoming_stream(
 
 
 async def _ordered_items_incoming_stream(request: Request):
-    placed_items = await load_placed_items_incoming()
-    content = ordered_items_incoming.component(request, placed_items)
+    ordered_items = await load_ordered_items_incoming()
+    content = ordered_items_incoming.component(request, ordered_items)
     yield dict(data=content)
     try:
         while True:
@@ -363,23 +358,23 @@ async def _ordered_items_incoming_stream(request: Request):
                     template = ordered_items_incoming.component_with_sound
                 else:
                     template = ordered_items_incoming.component
-                placed_items = await load_placed_items_incoming()
-                yield dict(data=template(request, placed_items))
+                ordered_items = await load_ordered_items_incoming()
+                yield dict(data=template(request, ordered_items))
     except asyncio.CancelledError:
         yield dict(event="shutdown", data="")
     finally:
         yield dict(event="shutdown", data="")
 
 
-@router.post("/orders/{placement_id}/products/{product_id}/supplied-at")
-async def supply_products(placement_id: int, product_id: int):
-    await supply_and_complete_placement_if_done(placement_id, product_id)
+@router.post("/orders/{order_id}/products/{product_id}/supplied-at")
+async def supply_products(order_id: int, product_id: int):
+    await supply_and_complete_order_if_done(order_id, product_id)
 
 
 @router.get("/orders/incoming", response_class=HTMLResponse)
 async def get_incoming_orders(request: Request):
-    placements = await load_incoming_placements()
-    return HTMLResponse(incoming_orders.page(request, placements))
+    orders = await load_incoming_orders()
+    return HTMLResponse(incoming_orders.page(request, orders))
 
 
 @router.get("/orders/incoming-stream", response_class=EventSourceResponse)
@@ -393,8 +388,8 @@ async def incoming_orders_stream(
 async def _incoming_orders_stream(
     request: Request,
 ) -> AsyncGenerator[dict[str, str], None]:
-    placements = await load_incoming_placements()
-    content = incoming_orders.component(request, placements)
+    orders = await load_incoming_orders()
+    content = incoming_orders.component(request, orders)
     yield dict(data=content)
     try:
         while True:
@@ -404,8 +399,8 @@ async def _incoming_orders_stream(
                     template = incoming_orders.component_with_sound
                 else:
                     template = incoming_orders.component
-                placements = await load_incoming_placements()
-                yield dict(data=template(request, placements))
+                orders = await load_incoming_orders()
+                yield dict(data=template(request, orders))
     except asyncio.CancelledError:
         yield dict(event="shutdown", data="")
     finally:
@@ -414,48 +409,48 @@ async def _incoming_orders_stream(
 
 @router.get("/orders/resolved", response_class=HTMLResponse)
 async def get_resolved_orders(request: Request):
-    placements = await load_resolved_placements()
-    return HTMLResponse(resolved_orders.page(request, placements))
+    orders = await load_resolved_orders()
+    return HTMLResponse(resolved_orders.page(request, orders))
 
 
-@router.delete("/orders/{placement_id}/resolved-at")
-async def reset(placement_id: int):
-    await PlacementTable.reset(placement_id)
+@router.delete("/orders/{order_id}/resolved-at")
+async def reset(order_id: int):
+    await PlacementTable.reset(order_id)
 
 
-@router.post("/orders/{placement_id}/completed-at", response_class=HTMLResponse)
+@router.post("/orders/{order_id}/completed-at", response_class=HTMLResponse)
 async def complete(
-    request: Request, placement_id: int, card_response: Annotated[bool, Form()] = False
+    request: Request, order_id: int, card_response: Annotated[bool, Form()] = False
 ):
     if not card_response:
-        await supply_all_and_complete(placement_id)
+        await supply_all_and_complete(order_id)
         return
 
     async with database.transaction():
-        await supply_all_and_complete(placement_id)
-        maybe_placement = await load_one_resolved_placement(placement_id)
+        await supply_all_and_complete(order_id)
+        maybe_order = await load_one_resolved_order(order_id)
 
-    if (placement := maybe_placement) is None:
-        detail = f"Placement {placement_id} not found"
+    if (order := maybe_order) is None:
+        detail = f"Order {order_id} not found"
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
 
-    return HTMLResponse(resolved_orders.completed(request, placement))
+    return HTMLResponse(resolved_orders.completed(request, order))
 
 
-@router.post("/orders/{placement_id}/canceled-at", response_class=HTMLResponse)
+@router.post("/orders/{order_id}/canceled-at", response_class=HTMLResponse)
 async def cancel(
-    request: Request, placement_id: int, card_response: Annotated[bool, Form()] = False
+    request: Request, order_id: int, card_response: Annotated[bool, Form()] = False
 ):
     if not card_response:
-        await PlacementTable.cancel(placement_id)
+        await PlacementTable.cancel(order_id)
         return
 
     async with database.transaction():
-        await PlacementTable.cancel(placement_id)
-        maybe_placement = await load_one_resolved_placement(placement_id)
+        await PlacementTable.cancel(order_id)
+        maybe_order = await load_one_resolved_order(order_id)
 
-    if (placement := maybe_placement) is None:
-        detail = f"Placement {placement_id} not found"
+    if (order := maybe_order) is None:
+        detail = f"Order {order_id} not found"
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
 
-    return HTMLResponse(resolved_orders.canceled(request, placement))
+    return HTMLResponse(resolved_orders.canceled(request, order))
