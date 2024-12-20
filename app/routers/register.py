@@ -1,6 +1,7 @@
 from typing import Annotated
 from uuid import UUID, uuid4
 
+import pydantic
 from fastapi import (
     APIRouter,
     Cookie,
@@ -12,9 +13,8 @@ from fastapi import (
     status,
 )
 from fastapi.responses import HTMLResponse
-import pydantic
 
-from ..store import PlacedItemTable, PlacementTable, Product, ProductTable
+from ..store import OrderedItemTable, OrderTable, Product, ProductTable
 from ..templates import hx_post as tmp_hx_post
 from ..templates import macro_template
 
@@ -151,9 +151,9 @@ def _create_new_session() -> UUID:
 
 async def _place_order(request: Request, session: SessionDeps) -> HTMLResponse:
     product_ids = [item.product_id for item in session.items.values()]
-    order_id = await PlacedItemTable.issue(product_ids)
+    order_id = await OrderedItemTable.issue(product_ids)
     # TODO: add a branch for out of stock error
-    await PlacementTable.insert(order_id)
+    await OrderTable.insert(order_id)
     return HTMLResponse(tmp_issued_modal(request, order_id, session))
 
 

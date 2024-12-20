@@ -1,7 +1,7 @@
 import sqlparse
 from inline_snapshot import snapshot
 
-from .orders import query_incoming, query_placed_items_incoming, query_resolved
+from .orders import query_incoming, query_ordered_items_incoming, query_resolved
 
 
 def format_sql(sql: object):
@@ -9,7 +9,7 @@ def format_sql(sql: object):
 
 
 def test_incoming_placed_items_query():
-    assert format_sql(str(query_placed_items_incoming)) == snapshot(
+    assert format_sql(str(query_ordered_items_incoming)) == snapshot(
         """\
 SELECT placed_items.placement_id, placed_items.product_id, count(placed_items.product_id) AS COUNT,
        products.name, products.filename, unixepoch(placements.placed_at) AS placed_at

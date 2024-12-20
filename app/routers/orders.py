@@ -11,16 +11,16 @@ from sqlmodel import col
 from sse_starlette.sse import EventSourceResponse
 
 from ..store import (
-    PlacedItem,
-    Placement,
-    PlacementTable,
+    Order,
+    OrderedItem,
+    OrderTable,
     Product,
     database,
     supply_all_and_complete,
     supply_and_complete_order_if_done,
     unixepoch,
 )
-from ..store.placement import ModifiedFlag
+from ..store.order import ModifiedFlag
 from ..templates import macro_template
 
 router = APIRouter()
@@ -51,24 +51,24 @@ async def _agen_query_executor[T](
         list_cb(lst)
 
 
-query_placed_items_incoming: sqlalchemy.Select = (
-    sqlmodel.select(PlacedItem.placement_id, PlacedItem.product_id)
-    .add_columns(sqlmodel.func.count(col(PlacedItem.product_id)).label("count"))
-    .where(col(PlacedItem.supplied_at).is_(None))  # Filter out supplied items
-    .group_by(col(PlacedItem.placement_id), col(PlacedItem.product_id))
-    .select_from(sqlmodel.join(PlacedItem, Product))
+query_ordered_items_incoming: sqlalchemy.Select = (
+    sqlmodel.select(OrderedItem.placement_id, OrderedItem.product_id)
+    .add_columns(sqlmodel.func.count(col(OrderedItem.product_id)).label("count"))
+    .where(col(OrderedItem.supplied_at).is_(None))  # Filter out supplied items
+    .group_by(col(OrderedItem.placement_id), col(OrderedItem.product_id))
+    .select_from(sqlmodel.join(OrderedItem, Product))
     .add_columns(col(Product.name), col(Product.filename))
-    .join(Placement)
-    .add_columns(unixepoch(col(Placement.placed_at)))
-    .where(col(Placement.canceled_at).is_(None) & col(Placement.completed_at).is_(None))
-    .order_by(col(PlacedItem.product_id).asc(), col(PlacedItem.placement_id).asc())
+    .join(Order)
+    .add_columns(unixepoch(col(Order.placed_at)))
+    .where(col(Order.canceled_at).is_(None) & col(Order.completed_at).is_(None))
+    .order_by(col(OrderedItem.product_id).asc(), col(OrderedItem.placement_id).asc())
 )
 
 type ordered_item_t = dict[str, int | str | list[dict[str, int | str]]]
 
 
 def _ordered_items_loader() -> Callable[[], Awaitable[list[ordered_item_t]]]:
-    query_str = str(query_placed_items_incoming.compile())
+    query_str = str(query_ordered_items_incoming.compile())
 
     ordered_items: list[ordered_item_t] = []
 
@@ -121,19 +121,19 @@ type order_t = dict[str, int | list[item_t] | str | datetime | None]
 
 
 query_incoming: sqlalchemy.Select = (
-    # Query from the placements table
-    sqlmodel.select(Placement.placement_id)
-    .group_by(col(Placement.placement_id))
-    .order_by(col(Placement.placement_id).asc())
-    .add_columns(unixepoch(col(Placement.placed_at)))
-    # Filter out canceled/completed placements
-    .where(col(Placement.canceled_at).is_(None) & col(Placement.completed_at).is_(None))
-    # Query the list of placed items
-    .select_from(sqlmodel.join(Placement, PlacedItem))
-    .add_columns(col(PlacedItem.product_id), unixepoch(col(PlacedItem.supplied_at)))
-    .group_by(col(PlacedItem.product_id))
-    .order_by(col(PlacedItem.product_id).asc())
-    .add_columns(sqlmodel.func.count(col(PlacedItem.product_id)).label("count"))
+    # Query from the orders table
+    sqlmodel.select(Order.placement_id)
+    .group_by(col(Order.placement_id))
+    .order_by(col(Order.placement_id).asc())
+    .add_columns(unixepoch(col(Order.placed_at)))
+    # Filter out canceled/completed orders
+    .where(col(Order.canceled_at).is_(None) & col(Order.completed_at).is_(None))
+    # Query the list of ordered items
+    .select_from(sqlmodel.join(Order, OrderedItem))
+    .add_columns(col(OrderedItem.product_id), unixepoch(col(OrderedItem.supplied_at)))
+    .group_by(col(OrderedItem.product_id))
+    .order_by(col(OrderedItem.product_id).asc())
+    .add_columns(sqlmodel.func.count(col(OrderedItem.product_id)).label("count"))
     # Query product name
     .join(Product)
     .add_columns(col(Product.name))
@@ -141,23 +141,21 @@ query_incoming: sqlalchemy.Select = (
 
 
 query_resolved: sqlalchemy.Select = (
-    # Query from the placements table
-    sqlmodel.select(Placement.placement_id)
-    .group_by(col(Placement.placement_id))
-    .order_by(col(Placement.placement_id).asc())
-    .add_columns(unixepoch(col(Placement.placed_at)))
-    # Query canceled/completed placements
-    .where(
-        col(Placement.canceled_at).isnot(None) | col(Placement.completed_at).isnot(None)
-    )
-    .add_columns(unixepoch(col(Placement.canceled_at)))
-    .add_columns(unixepoch(col(Placement.completed_at)))
-    # Query the list of placed items
-    .select_from(sqlmodel.join(Placement, PlacedItem))
-    .add_columns(col(PlacedItem.product_id), unixepoch(col(PlacedItem.supplied_at)))
-    .group_by(col(PlacedItem.product_id))
-    .order_by(col(PlacedItem.product_id).asc())
-    .add_columns(sqlmodel.func.count(col(PlacedItem.product_id)).label("count"))
+    # Query from the orders table
+    sqlmodel.select(Order.placement_id)
+    .group_by(col(Order.placement_id))
+    .order_by(col(Order.placement_id).asc())
+    .add_columns(unixepoch(col(Order.placed_at)))
+    # Query canceled/completed orders
+    .where(col(Order.canceled_at).isnot(None) | col(Order.completed_at).isnot(None))
+    .add_columns(unixepoch(col(Order.canceled_at)))
+    .add_columns(unixepoch(col(Order.completed_at)))
+    # Query the list of ordered items
+    .select_from(sqlmodel.join(Order, OrderedItem))
+    .add_columns(col(OrderedItem.product_id), unixepoch(col(OrderedItem.supplied_at)))
+    .group_by(col(OrderedItem.product_id))
+    .order_by(col(OrderedItem.product_id).asc())
+    .add_columns(sqlmodel.func.count(col(OrderedItem.product_id)).label("count"))
     # Query product name and price
     .join(Product)
     .add_columns(col(Product.name), col(Product.price))
@@ -266,7 +264,7 @@ load_resolved_orders = _orders_loader(
 
 
 async def load_one_resolved_order(order_id: int) -> order_t | None:
-    query = query_resolved.where(col(Placement.placement_id) == order_id)
+    query = query_resolved.where(col(Order.placement_id) == order_id)
 
     rows_agen = database.iterate(query)
     if (row := await anext(rows_agen, None)) is None:
@@ -352,8 +350,8 @@ async def _ordered_items_incoming_stream(request: Request):
     yield dict(data=content)
     try:
         while True:
-            async with PlacementTable.modified_cond_flag:
-                flag = await PlacementTable.modified_cond_flag.wait()
+            async with OrderTable.modified_cond_flag:
+                flag = await OrderTable.modified_cond_flag.wait()
                 if flag & (ModifiedFlag.INCOMING | ModifiedFlag.PUT_BACK):
                     template = ordered_items_incoming.component_with_sound
                 else:
@@ -393,8 +391,8 @@ async def _incoming_orders_stream(
     yield dict(data=content)
     try:
         while True:
-            async with PlacementTable.modified_cond_flag:
-                flag = await PlacementTable.modified_cond_flag.wait()
+            async with OrderTable.modified_cond_flag:
+                flag = await OrderTable.modified_cond_flag.wait()
                 if flag & (ModifiedFlag.INCOMING | ModifiedFlag.PUT_BACK):
                     template = incoming_orders.component_with_sound
                 else:
@@ -415,7 +413,7 @@ async def get_resolved_orders(request: Request):
 
 @router.delete("/orders/{order_id}/resolved-at")
 async def reset(order_id: int):
-    await PlacementTable.reset(order_id)
+    await OrderTable.reset(order_id)
 
 
 @router.post("/orders/{order_id}/completed-at", response_class=HTMLResponse)
@@ -442,11 +440,11 @@ async def cancel(
     request: Request, order_id: int, card_response: Annotated[bool, Form()] = False
 ):
     if not card_response:
-        await PlacementTable.cancel(order_id)
+        await OrderTable.cancel(order_id)
         return
 
     async with database.transaction():
-        await PlacementTable.cancel(order_id)
+        await OrderTable.cancel(order_id)
         maybe_order = await load_one_resolved_order(order_id)
 
     if (order := maybe_order) is None:
