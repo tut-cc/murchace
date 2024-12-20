@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse
 from sqlmodel import col
 
 from ..templates import macro_template
-from ..store import PlacedItem, Placement, Product, database, unixepoch
+from ..store import OrderedItem, Order, Product, database, unixepoch
 
 router = APIRouter()
 
@@ -116,11 +116,11 @@ def _filtered_row(row: Mapping) -> list:
 
 
 _ordered_today = sqlmodel.func.date(
-    col(Placement.placed_at), "localtime"
+    col(Order.placed_at), "localtime"
 ) == sqlmodel.func.date("now", "localtime")
 TOTAL_SALES_QUERY: sqlalchemy.Compiled = (
     sqlmodel.select(col(Product.product_id))
-    .select_from(sqlmodel.join(PlacedItem, Placement))
+    .select_from(sqlmodel.join(OrderedItem, Order))
     .join(Product)
     .add_columns(
         sqlmodel.func.count(col(Product.product_id)).label("count"),
@@ -136,7 +136,7 @@ TOTAL_SALES_QUERY: sqlalchemy.Compiled = (
         .label("total_sales_today"),
         col(Product.no_stock),
     )
-    .where(col(Placement.canceled_at).is_(None))
+    .where(col(Order.canceled_at).is_(None))
     .group_by(col(Product.product_id))
     .compile(compile_kwargs={"literal_binds": True})
 )
@@ -151,7 +151,7 @@ class AvgServiceTimeQuery:
                 sqlmodel.func.avg(cls._service_time_diff).label("all"),
                 sqlmodel.func.avg(cls._last_30mins).label("recent"),
             )
-            .where(col(Placement.completed_at).isnot(None))
+            .where(col(Order.completed_at).isnot(None))
             .compile()
         )
 
@@ -160,14 +160,14 @@ class AvgServiceTimeQuery:
     def recent(cls) -> sqlalchemy.Compiled:
         return (
             sqlmodel.select(sqlmodel.func.avg(cls._last_30mins).label("recent"))
-            .where(col(Placement.completed_at).isnot(None))
+            .where(col(Order.completed_at).isnot(None))
             .compile()
         )
 
-    _service_time_diff = unixepoch(col(Placement.completed_at)) - unixepoch(
-        col(Placement.placed_at)
+    _service_time_diff = unixepoch(col(Order.completed_at)) - unixepoch(
+        col(Order.placed_at)
     )
-    _elapsed_secs = sqlmodel.func.unixepoch() - unixepoch(col(Placement.completed_at))
+    _elapsed_secs = sqlmodel.func.unixepoch() - unixepoch(col(Order.completed_at))
     _last_30mins = sqlmodel.case(
         (_elapsed_secs / sqlmodel.text("60") < sqlmodel.text("30"), _service_time_diff)
     )
@@ -244,8 +244,8 @@ async def get_stat(request: Request):
 
 
 WAITING_ORDER_COUNT_QUERY: sqlalchemy.Compiled = (
-    sqlmodel.select(sqlmodel.func.count(col(Placement.placement_id)))
-    .where(col(Placement.completed_at).is_(None) & col(Placement.canceled_at).is_(None))
+    sqlmodel.select(sqlmodel.func.count(col(Order.placement_id)))
+    .where(col(Order.completed_at).is_(None) & col(Order.canceled_at).is_(None))
     .compile()
 )
 

@@ -6,18 +6,18 @@ from databases import Database
 from sqlalchemy import orm as sa_orm
 from sqlmodel import col
 
-from . import placed_item, placement, product
+from . import order, ordered_item, product
 from ._helper import _colname
-from .placed_item import PlacedItem
-from .placement import ModifiedFlag, Placement  # noqa: F401
+from .order import ModifiedFlag, Order  # noqa: F401
+from .ordered_item import OrderedItem
 from .product import Product
 
 DATABASE_URL = "sqlite:///db/app.db"
 database = Database(DATABASE_URL)
 
 ProductTable = product.Table(database)
-PlacedItemTable = placed_item.Table(database)
-PlacementTable = placement.Table(database)
+OrderedItemTable = ordered_item.Table(database)
+OrderTable = order.Table(database)
 
 
 async def delete_product(product_id: int):
@@ -25,8 +25,8 @@ async def delete_product(product_id: int):
         query = sqlmodel.delete(Product).where(col(Product.product_id) == product_id)
         await database.execute(query)
 
-        clause = col(PlacedItem.product_id) == product_id
-        query = sqlmodel.delete(PlacedItem).where(clause)
+        clause = col(OrderedItem.product_id) == product_id
+        query = sqlmodel.delete(OrderedItem).where(clause)
         await database.execute(query)
 
 
@@ -39,39 +39,39 @@ def unixepoch(attr: sa_orm.Mapped) -> sqlalchemy.Label:
 
 async def supply_and_complete_order_if_done(order_id: int, product_id: int):
     async with database.transaction():
-        await PlacedItemTable._supply(order_id, product_id)
+        await OrderedItemTable._supply(order_id, product_id)
 
         update_query = (
-            sqlmodel.update(Placement)
+            sqlmodel.update(Order)
             .where(
-                (col(Placement.placement_id) == order_id)
+                (col(Order.placement_id) == order_id)
                 & sqlmodel.select(
-                    sqlmodel.func.count(col(PlacedItem.item_no))
-                    == sqlmodel.func.count(col(PlacedItem.supplied_at))
+                    sqlmodel.func.count(col(OrderedItem.item_no))
+                    == sqlmodel.func.count(col(OrderedItem.supplied_at))
                 )
-                .where(col(PlacedItem.placement_id) == order_id)
+                .where(col(OrderedItem.placement_id) == order_id)
                 .scalar_subquery()
             )
-            .returning(col(Placement.placement_id).isnot(None))
+            .returning(col(Order.placement_id).isnot(None))
         )
 
         values = {"completed_at": datetime.now(timezone.utc)}
         completed: bool | None = await database.fetch_val(update_query, values)
 
-    async with PlacementTable.modified_cond_flag:
+    async with OrderTable.modified_cond_flag:
         flag = ModifiedFlag.SUPPLIED
         if completed is not None:
             flag |= ModifiedFlag.RESOLVED
-        PlacementTable.modified_cond_flag.notify_all(flag)
+        OrderTable.modified_cond_flag.notify_all(flag)
 
 
 async def supply_all_and_complete(order_id: int):
     async with database.transaction():
-        await PlacedItemTable._supply_all(order_id)
-        await PlacementTable._complete(order_id)
-    async with PlacementTable.modified_cond_flag:
+        await OrderedItemTable._supply_all(order_id)
+        await OrderTable._complete(order_id)
+    async with OrderTable.modified_cond_flag:
         FLAG = ModifiedFlag.SUPPLIED | ModifiedFlag.RESOLVED
-        PlacementTable.modified_cond_flag.notify_all(FLAG)
+        OrderTable.modified_cond_flag.notify_all(FLAG)
 
 
 async def _startup_db() -> None:
@@ -85,7 +85,7 @@ async def _startup_db() -> None:
         await database.execute(query)
 
     await ProductTable.ainit()
-    await PlacedItemTable.ainit()
+    await OrderedItemTable.ainit()
 
 
 async def _shutdown_db() -> None:
