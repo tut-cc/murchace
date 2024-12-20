@@ -5,22 +5,22 @@
   <script src="{{ url_for('static', path='/sse.js') }}"></script>
 {% endmacro %}
 
-{% macro incoming_placements(placements) %}
+{% macro incoming_orders(placements) %}
   {% call layout("未受取注文 - murchace", _head()) %}
     <div class="flex flex-col">
       <header class="sticky z-10 inset-0  w-full px-16 py-3 flex gap-3 border-b border-gray-500 bg-white text-2xl">
         <ul class="flex-grow hidden md:flex md:flex-row gap-x-3">
           <li class="flex-grow"><a href="/" class="cursor-pointer px-2 py-1 rounded bg-gray-300">ホーム</a></li>
-          <li><a href="/placements/incoming" class="cursor-pointer px-2 py-1 rounded bg-gray-900 text-white">未受取：注文</a></li>
-          <li><a href="/placed-items/incoming" class="cursor-pointer px-2 py-1 rounded bg-gray-300">未受取：商品</a></li>
-          <li><a href="/placements/resolved" class="cursor-pointer px-2 py-1 rounded bg-gray-300">処理済</a></li>
+          <li><a href="/orders/incoming" class="cursor-pointer px-2 py-1 rounded bg-gray-900 text-white">未受取：注文</a></li>
+          <li><a href="/ordered-items/incoming" class="cursor-pointer px-2 py-1 rounded bg-gray-300">未受取：商品</a></li>
+          <li><a href="/orders/resolved" class="cursor-pointer px-2 py-1 rounded bg-gray-300">処理済</a></li>
         </ul>
         {{ clock() }}
       </header>
       <main
         id="placements"
         hx-ext="sse"
-        sse-connect="/placements/incoming-stream"
+        sse-connect="/orders/incoming-stream"
         sse-swap="message"
         hx-swap="innerHTML"
         sse-close="shutdown"
@@ -44,7 +44,7 @@
           <span class="ml-1">@{{ placement.placed_at }}</span>
         </div>
         <button
-          hx-post="/placements/{{ placement.placement_id }}/canceled-at"
+          hx-post="/orders/{{ placement.placement_id }}/canceled-at"
           hx-confirm="確定注文 #{{ placement.placement_id }} を取り消しますか？"
           hx-target="#placement-{{ placement.placement_id }}"
           hx-swap="delete"
@@ -65,7 +65,7 @@
         {% endfor %}
       </ul>
       <button
-        hx-post="/placements/{{ placement.placement_id }}/completed-at"
+        hx-post="/orders/{{ placement.placement_id }}/completed-at"
         hx-target="#placement-{{ placement.placement_id }}"
         hx-swap="delete"
         class="mx-10 py-1 text-white bg-blue-600 rounded-lg"
