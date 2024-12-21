@@ -32,7 +32,7 @@ def _to_time(unix_epoch: int) -> str:
 
 async def _agen_query_executor[T](
     query: str,
-    unique_key: Literal["placement_id"] | Literal["product_id"],
+    unique_key: Literal["order_id"] | Literal["product_id"],
     init_cb: Callable[[Any, Mapping], None],
     elem_cb: Callable[[Mapping], T],
     list_cb: Callable[[list[T]], None],
@@ -52,16 +52,16 @@ async def _agen_query_executor[T](
 
 
 query_ordered_items_incoming: sqlalchemy.Select = (
-    sqlmodel.select(OrderedItem.placement_id, OrderedItem.product_id)
+    sqlmodel.select(OrderedItem.order_id, OrderedItem.product_id)
     .add_columns(sqlmodel.func.count(col(OrderedItem.product_id)).label("count"))
     .where(col(OrderedItem.supplied_at).is_(None))  # Filter out supplied items
-    .group_by(col(OrderedItem.placement_id), col(OrderedItem.product_id))
+    .group_by(col(OrderedItem.order_id), col(OrderedItem.product_id))
     .select_from(sqlmodel.join(OrderedItem, Product))
     .add_columns(col(Product.name), col(Product.filename))
     .join(Order)
-    .add_columns(unixepoch(col(Order.placed_at)))
+    .add_columns(unixepoch(col(Order.ordered_at)))
     .where(col(Order.canceled_at).is_(None) & col(Order.completed_at).is_(None))
-    .order_by(col(OrderedItem.product_id).asc(), col(OrderedItem.placement_id).asc())
+    .order_by(col(OrderedItem.product_id).asc(), col(OrderedItem.order_id).asc())
 )
 
 type ordered_item_t = dict[str, int | str | list[dict[str, int | str]]]
@@ -79,9 +79,9 @@ def _ordered_items_loader() -> Callable[[], Awaitable[list[ordered_item_t]]]:
 
     def elem_cb(map: Mapping) -> dict[str, int | str]:
         return {
-            "order_id": map["placement_id"],
+            "order_id": map["order_id"],
             "count": map["count"],
-            "ordered_at": _to_time(map["placed_at"]),
+            "ordered_at": _to_time(map["ordered_at"]),
         }
 
     def list_cb(orders: list[dict[str, int | str]]):
@@ -122,10 +122,10 @@ type order_t = dict[str, int | list[item_t] | str | datetime | None]
 
 query_incoming: sqlalchemy.Select = (
     # Query from the orders table
-    sqlmodel.select(Order.placement_id)
-    .group_by(col(Order.placement_id))
-    .order_by(col(Order.placement_id).asc())
-    .add_columns(unixepoch(col(Order.placed_at)))
+    sqlmodel.select(Order.order_id)
+    .group_by(col(Order.order_id))
+    .order_by(col(Order.order_id).asc())
+    .add_columns(unixepoch(col(Order.ordered_at)))
     # Filter out canceled/completed orders
     .where(col(Order.canceled_at).is_(None) & col(Order.completed_at).is_(None))
     # Query the list of ordered items
@@ -142,10 +142,10 @@ query_incoming: sqlalchemy.Select = (
 
 query_resolved: sqlalchemy.Select = (
     # Query from the orders table
-    sqlmodel.select(Order.placement_id)
-    .group_by(col(Order.placement_id))
-    .order_by(col(Order.placement_id).asc())
-    .add_columns(unixepoch(col(Order.placed_at)))
+    sqlmodel.select(Order.order_id)
+    .group_by(col(Order.order_id))
+    .order_by(col(Order.order_id).asc())
+    .add_columns(unixepoch(col(Order.ordered_at)))
     # Query canceled/completed orders
     .where(col(Order.canceled_at).isnot(None) | col(Order.completed_at).isnot(None))
     .add_columns(unixepoch(col(Order.canceled_at)))
@@ -170,7 +170,7 @@ def callbacks_orders_incoming(
     Callable[[list[item_t]], None],
 ]:
     def init_cb(order_id: int, map: Mapping) -> None:
-        orders.append({"order_id": order_id, "ordered_at": _to_time(map["placed_at"])})
+        orders.append({"order_id": order_id, "ordered_at": _to_time(map["ordered_at"])})
 
     def elem_cb(map: Mapping) -> item_t:
         supplied_at = map["supplied_at"]
@@ -201,7 +201,7 @@ def callbacks_orders_resolved(
         orders.append(
             {
                 "order_id": order_id,
-                "ordered_at": _to_time(map["placed_at"]),
+                "ordered_at": _to_time(map["ordered_at"]),
                 "canceled_at": _to_time(canceled_at) if canceled_at else None,
                 "completed_at": _to_time(completed_at) if completed_at else None,
             }
@@ -244,7 +244,7 @@ def _orders_loader(
 
     init_cb, elem_cb, list_cb = callbacks(orders)
     load_orders = partial(
-        _agen_query_executor, str(query), "placement_id", init_cb, elem_cb, list_cb
+        _agen_query_executor, str(query), "order_id", init_cb, elem_cb, list_cb
     )
 
     async def load():
@@ -264,7 +264,7 @@ load_resolved_orders = _orders_loader(
 
 
 async def load_one_resolved_order(order_id: int) -> order_t | None:
-    query = query_resolved.where(col(Order.placement_id) == order_id)
+    query = query_resolved.where(col(Order.order_id) == order_id)
 
     rows_agen = database.iterate(query)
     if (row := await anext(rows_agen, None)) is None:
@@ -273,7 +273,7 @@ async def load_one_resolved_order(order_id: int) -> order_t | None:
     canceled_at, completed_at = row["canceled_at"], row["completed_at"]
     order: order_t = {
         "order_id": order_id,
-        "ordered_at": _to_time(row["placed_at"]),
+        "ordered_at": _to_time(row["ordered_at"]),
         "canceled_at": _to_time(canceled_at) if canceled_at else None,
         "completed_at": _to_time(completed_at) if completed_at else None,
     }
