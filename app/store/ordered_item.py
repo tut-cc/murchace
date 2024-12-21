@@ -6,11 +6,12 @@ from databases import Database
 from sqlmodel import col
 
 from ._helper import _colname
+from .base import TableBase
 from .order import Order
 from .product import Product
 
 
-class OrderedItem(sqlmodel.SQLModel, table=True):
+class OrderedItem(TableBase, table=True):
     # NOTE: there are no Pydantic ways to set the generated table's name, as per https://github.com/fastapi/sqlmodel/issues/159
     __tablename__ = "placed_items"  # pyright: ignore[reportAssignmentType]
 

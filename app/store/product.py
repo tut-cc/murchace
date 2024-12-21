@@ -5,8 +5,10 @@ import sqlmodel
 from databases import Database
 from sqlmodel import col
 
+from .base import TableBase
 
-class Product(sqlmodel.SQLModel, table=True):
+
+class Product(TableBase, table=True):
     # NOTE: there are no Pydantic ways to set the generated table's name, as per https://github.com/fastapi/sqlmodel/issues/159
     __tablename__ = "products"  # pyright: ignore[reportAssignmentType]
 
