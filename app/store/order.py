@@ -8,8 +8,10 @@ import sqlmodel
 from databases import Database
 from sqlmodel import col
 
+from .base import TableBase
 
-class Order(sqlmodel.SQLModel, table=True):
+
+class Order(TableBase, table=True):
     # NOTE: there are no Pydantic ways to set the generated table's name, as per https://github.com/fastapi/sqlmodel/issues/159
     __tablename__ = "placements"  # pyright: ignore[reportAssignmentType]
 

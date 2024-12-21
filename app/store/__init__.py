@@ -12,6 +12,8 @@ from .order import ModifiedFlag, Order  # noqa: F401
 from .ordered_item import OrderedItem
 from .product import Product
 
+from .base import TableBase
+
 DATABASE_URL = "sqlite:///db/app.db"
 database = Database(DATABASE_URL)
 
@@ -77,9 +79,12 @@ async def supply_all_and_complete(order_id: int):
 async def _startup_db() -> None:
     await database.connect()
 
-    # TODO: we should use a database schema migration tool like Alembic as explained in:
-    # https://www.encode.io/databases/database_queries/#creating-tables
-    for table in sqlmodel.SQLModel.metadata.tables.values():
+    # TODO:instruct the user to generate missing tables by running alembic
+    # migrations instead of creating tables through the SQLAlchemy query. Right
+    # now, this code won't create an alembic version table.
+    # Alternatively, we might want to migrate here in the application code:
+    # https://stackoverflow.com/questions/24622170/using-alembic-api-from-inside-application-code
+    for table in TableBase.metadata.tables.values():
         schema = sqlalchemy.schema.CreateTable(table, if_not_exists=True)
         query = str(schema.compile())
         await database.execute(query)
