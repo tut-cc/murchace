@@ -46,15 +46,15 @@ async def supply_and_complete_order_if_done(order_id: int, product_id: int):
         update_query = (
             sqlmodel.update(Order)
             .where(
-                (col(Order.placement_id) == order_id)
+                (col(Order.order_id) == order_id)
                 & sqlmodel.select(
                     sqlmodel.func.count(col(OrderedItem.item_no))
                     == sqlmodel.func.count(col(OrderedItem.supplied_at))
                 )
-                .where(col(OrderedItem.placement_id) == order_id)
+                .where(col(OrderedItem.order_id) == order_id)
                 .scalar_subquery()
             )
-            .returning(col(Order.placement_id).isnot(None))
+            .returning(col(Order.order_id).isnot(None))
         )
 
         values = {"completed_at": datetime.now(timezone.utc)}

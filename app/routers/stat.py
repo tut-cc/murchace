@@ -72,23 +72,23 @@ def zero_if_null[T](v: T | None) -> T | Literal[0]:
 async def export_orders():
     query = """
     SELECT 
-        placements.placement_id,
-        placed_items.item_no,
-        unixepoch(placements.placed_at) AS placed_at,
-        unixepoch(placements.completed_at) AS completed_at,
-        placed_items.product_id,
+        orders.order_id,
+        ordered_items.item_no,
+        unixepoch(orders.ordered_at) AS ordered_at,
+        unixepoch(orders.completed_at) AS completed_at,
+        ordered_items.product_id,
         products.name,
         products.price
     FROM
-        placements
+        orders
     INNER JOIN
-        placed_items ON placements.placement_id = placed_items.placement_id
+        ordered_items ON orders.order_id = ordered_items.order_id
     INNER JOIN
-        products ON placed_items.product_id = products.product_id
+        products ON ordered_items.product_id = products.product_id
     WHERE
-        placements.canceled_at IS NULL
+        orders.canceled_at IS NULL
     ORDER BY
-        placements.placement_id ASC;
+        orders.order_id ASC;
     """
 
     with open(CSV_OUTPUT_PATH, "w", newline="") as csv_file:
@@ -109,14 +109,14 @@ async def export_orders():
 def _filtered_row(row: Mapping) -> list:
     filtered_row = []
     for column_name, value in dict(row).items():
-        if column_name in ("placed_at", "completed_at") and value is not None:
+        if column_name in ("ordered_at", "completed_at") and value is not None:
             value = convert_unixepoch_to_localtime(value)
         filtered_row.append(value)
     return filtered_row
 
 
 _ordered_today = sqlmodel.func.date(
-    col(Order.placed_at), "localtime"
+    col(Order.ordered_at), "localtime"
 ) == sqlmodel.func.date("now", "localtime")
 TOTAL_SALES_QUERY: sqlalchemy.Compiled = (
     sqlmodel.select(col(Product.product_id))
@@ -165,7 +165,7 @@ class AvgServiceTimeQuery:
         )
 
     _service_time_diff = unixepoch(col(Order.completed_at)) - unixepoch(
-        col(Order.placed_at)
+        col(Order.ordered_at)
     )
     _elapsed_secs = sqlmodel.func.unixepoch() - unixepoch(col(Order.completed_at))
     _last_30mins = sqlmodel.case(
@@ -244,7 +244,7 @@ async def get_stat(request: Request):
 
 
 WAITING_ORDER_COUNT_QUERY: sqlalchemy.Compiled = (
-    sqlmodel.select(sqlmodel.func.count(col(Order.placement_id)))
+    sqlmodel.select(sqlmodel.func.count(col(Order.order_id)))
     .where(col(Order.completed_at).is_(None) & col(Order.canceled_at).is_(None))
     .compile()
 )
