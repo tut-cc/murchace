@@ -11,7 +11,7 @@ from .task_dict import TaskDict, TaskDictGen
 # List of available tailwindcss versions:
 # https://github.com/tailwindlabs/tailwindcss/releases
 # Or set "latest" to get the most up-to-date stable release
-VERSION = os.environ.get("TAILWINDCSS_VERSION", "v3.4.13")
+VERSION = os.environ.get("TAILWINDCSS_VERSION", "v4.0.0")
 BINARY_PATH = Path(__file__).parent.resolve() / "bin" / f"tailwindcss-{VERSION}"
 BINARY_SYMLINK_PATH = BINARY_PATH.parent / "tailwindcss"
 
@@ -24,7 +24,7 @@ def task__tailwind_install() -> TaskDict:
     }
 
 
-TAILWIND_INPUT = Path("app/styles.css")
+TAILWIND_INPUT = Path("app/input.css")
 
 
 def task_tailwind_build() -> TaskDictGen:

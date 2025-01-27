@@ -10,7 +10,7 @@
             hx-post="/register/items"
             hx-vals='{"product_id": {{ product.product_id }}}'
             hx-target="#order-session"
-            class="flex flex-col border-4 rounded-md transition-colors ease-in-out active:bg-gray-100"
+            class="flex flex-col border-4 border-gray-200 rounded-md transition-colors ease-in-out active:bg-gray-100"
           >
             <img class="mx-auto w-full h-auto aspect-square" src="{{ url_for('static', path=product.filename) }}" alt="{{ product.name }}"/>
             <figcaption class="text-center truncate">{{ product.name }}</figcaption>
@@ -20,11 +20,11 @@
       </main>
       <aside class="w-1/2 lg:w-2/6 h-full flex flex-col p-4 justify-between">
         <div class="flex flex-row py-2 justify-around items-center text-xl">
-          <a href="/" class="px-2 py-1 rounded bg-gray-300 hidden lg:inline-block">ホーム</a>
+          <a href="/" class="px-2 py-1 rounded-sm bg-gray-300 hidden lg:inline-block">ホーム</a>
           <button
             hx-delete="/register/items"
             hx-target="#order-session"
-            class="text-white px-2 py-1 rounded bg-red-600 hidden sm:inline-block"
+            class="text-white px-2 py-1 rounded-sm bg-red-600 hidden sm:inline-block"
             tabindex="0"
           >全消去</button>
           <div class="text-xl hidden md:inline-block">
@@ -42,7 +42,7 @@
 {% macro order_session(session) %}
   {# `flex-col-reverse` lets the browser to pin scroll to bottom #}
   <div class="flex flex-col-reverse overflow-y-auto">
-    <ul class="text-lg divide-y-4">
+    <ul class="text-lg divide-y-4 divide-gray-200">
       {% for item_id, product in session.items.items() %}
         <li id="item-{{ item_id }}" class="flex justify-between">
           <div class="overflow-x-auto whitespace-nowrap sm:flex sm:flex-1 sm:justify-between p-4">
@@ -53,7 +53,7 @@
             <button
               hx-delete="/register/items/{{ item_id }}"
               hx-target="#order-session"
-              class="font-bold text-white bg-red-600 px-2 rounded"
+              class="font-bold text-white bg-red-600 px-2 rounded-sm"
             >X</button>
           </div>
         </li>
@@ -67,7 +67,7 @@
       hx-get="/register/confirm-modal"
       hx-target="#order-modal-container"
       hx-swap="innerHTML settle:150ms"
-      class="basis-1/4 lg:text-xl text-center text-white p-2 rounded bg-blue-600 disabled:cursor-not-allowed disabled:text-gray-700 disabled:bg-gray-100"
+      class="basis-1/4 lg:text-xl text-center text-white p-2 rounded-sm bg-blue-600 disabled:cursor-not-allowed disabled:text-gray-700 disabled:bg-gray-100"
       {{ 'disabled' if session.total_count == 0 else '' }}
     >確定</button>
     <div id="order-modal-container"></div>
@@ -77,7 +77,7 @@
 {% macro confirm_modal(session) %}
   <div
     id="order-modal"
-    class="z-10 fixed inset-0 w-dvw h-dvh py-4 flex items-center bg-gray-500 bg-opacity-75"
+    class="z-10 fixed inset-0 w-dvw h-dvh py-4 flex items-center bg-gray-500/75"
     role="dialog" aria-modal="true"
     onclick="htmx.swap(this, '', {swapStyle: 'outerHTML'})"
   >
@@ -94,10 +94,10 @@
         hx-post="/register"
         hx-target="#order-modal-container"
         hx-swap="innerHTML settle:150ms"
-        class="w-full py-4 text-center text-xl font-semibold text-white bg-blue-600 rounded"
+        class="w-full py-4 text-center text-xl font-semibold text-white bg-blue-600 rounded-sm"
       >確認</button>
       <button
-        class="w-full py-4 text-center text-xl font-semibold bg-white border border-gray-300 rounded"
+        class="w-full py-4 text-center text-xl font-semibold bg-white border border-gray-300 rounded-sm"
         onclick="htmx.swap('#order-modal', '', {swapStyle: 'outerHTML'})"
       >閉じる</button>
     </div>
@@ -107,7 +107,7 @@
 {% macro issued_modal(order_id, session) %}
   <div
     id="order-modal"
-    class="z-10 fixed inset-0 w-dvw h-dvh py-4 flex items-center bg-gray-500 bg-opacity-75"
+    class="z-10 fixed inset-0 w-dvw h-dvh py-4 flex items-center bg-gray-500/75"
     role="dialog" aria-modal="true"
   >
     <div
@@ -120,9 +120,9 @@
       </article>
       <button
         hx-post="/register"
-        class="w-full py-4 text-center text-xl font-semibold text-white bg-green-600 rounded"
+        class="w-full py-4 text-center text-xl font-semibold text-white bg-green-600 rounded-sm"
       >新規</button>
-      <a href="/" class="w-full py-4 text-center text-xl font-semibold bg-white border border-gray-300 rounded">ホームに戻る</a>
+      <a href="/" class="w-full py-4 text-center text-xl font-semibold bg-white border border-gray-300 rounded-sm">ホームに戻る</a>
     </div>
   </div>
 {% endmacro %}
@@ -151,7 +151,7 @@
 {% macro error_modal(message) %}
   <div
     id="order-modal"
-    class="z-10 fixed inset-0 w-dvw h-dvh py-4 flex items-center bg-gray-500 bg-opacity-75"
+    class="z-10 fixed inset-0 w-dvw h-dvh py-4 flex items-center bg-gray-500/75"
     role="dialog" aria-modal="true"
   >
     <div
@@ -163,7 +163,7 @@
         {{ message }}
       </article>
       <button
-        class="w-full py-4 text-center text-xl font-semibold bg-white border border-gray-300 rounded"
+        class="w-full py-4 text-center text-xl font-semibold bg-white border border-gray-300 rounded-sm"
         onclick="htmx.swap('#order-modal', '', {swapStyle: 'outerHTML'})"
       >閉じる</button>
     </div>
