@@ -30,7 +30,7 @@
         </main>
         <aside class="w-2/6 flex flex-col p-4">
           <ul class="flex flex-row py-2 justify-around items-center text-xl">
-            <li class="flex-grow"><a href="/" class="px-2 py-1 rounded bg-gray-300 hidden lg:inline-block">ホーム</a></li>
+            <li class="grow"><a href="/" class="px-2 py-1 rounded-sm bg-gray-300 hidden lg:inline-block">ホーム</a></li>
           </ul>
           <div id="product-editor" class="grow flex flex-col justify-center">
             <div class="text-center">
@@ -45,7 +45,7 @@
 
 {% macro editor(product) %}
   <div class="h-full flex flex-col">
-    <div id="product-preview" class="flex-grow">
+    <div id="product-preview" class="grow">
       <figure class="w-2/3 mx-auto flex flex-col border-4 border-blue-400 rounded-md transition-colors ease-in-out active:bg-blue-300">
         <img class="mx-auto w-full h-auto aspect-square" src="{{ url_for('static', path=product.filename) }}" alt="{{ product.name }}"/>
         <figcaption class="text-center truncate">{{ product.name }}</figcaption>
@@ -93,7 +93,7 @@
 
 {% macro empty_editor() %}
   <div class="h-full flex flex-col">
-    <div id="product-preview" class="flex-grow">
+    <div id="product-preview" class="grow">
       <figure class="w-2/3 mx-auto flex flex-col border-4 border-blue-400 rounded-md transition-colors ease-in-out active:bg-blue-300">
         <img class="mx-auto w-full h-auto aspect-square" src="{{ url_for('static', path='no-image.png') }}" alt="仮画像"/>
       </figure>
