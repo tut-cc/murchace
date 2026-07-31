@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import sqlalchemy
 import sqlalchemy.orm as sa_orm
@@ -32,7 +32,7 @@ async def delete_product(product_id: int):
 # TODO: there should be a way to use the unixepoch function without this boiler plate
 def unixepoch(attr: sa_orm.Mapped) -> sqlalchemy.Label:
     colname = attr.label(None)  # Fully resolved name in the `table.field` format
-    alias = getattr(attr, "name")
+    alias = getattr(attr, "name")  # noqa: B009
     return sae.literal_column(f"unixepoch({colname})").label(alias)
 
 
@@ -54,14 +54,14 @@ async def supply_and_complete_order_if_done(order_id: int, product_id: int) -> b
             .returning(Order.order_id.isnot(None))
         )
 
-        values = {"completed_at": datetime.now(timezone.utc)}
+        values = {"completed_at": datetime.now(UTC)}
         completed: bool | None = await database.fetch_val(update_query, values)
 
     flag = ModifiedFlag.SUPPLIED
     if completed is not None:
         flag |= ModifiedFlag.RESOLVED
     OrderTable.modified_flag_bc.send(flag)
-    return True if completed is not None else False
+    return completed is not None
 
 
 async def supply_all_and_complete(order_id: int):

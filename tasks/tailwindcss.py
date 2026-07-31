@@ -1,8 +1,8 @@
 # Installing/running tailwindcss binary
 
 import os
+from collections.abc import Generator
 from pathlib import Path
-from typing import Generator
 
 from doit.action import PythonAction, TaskFailed
 from doit.tools import LongRunning, config_changed
@@ -13,7 +13,7 @@ from .task_dict import TaskDict
 # List of available tailwindcss versions are here:
 # https://github.com/tailwindlabs/tailwindcss/releases
 # Setting it to "latest" will lead to an unreproducible build.
-VERSION = os.environ.get("TAILWINDCSS_VERSION", "v4.1.14")
+VERSION = os.environ.get("TAILWINDCSS_VERSION", "v4.3.3")
 BINARY_PATH = Path(__file__).parent.resolve() / "bin" / f"tailwindcss-{VERSION}"
 BINARY_SYMLINK_PATH = BINARY_PATH.parent / "tailwindcss"
 
@@ -57,7 +57,6 @@ def task_tailwind_watch() -> Generator[TaskDict, None, TaskFailed | None]:
     if not BINARY_PATH.exists():
         return TaskFailed(f"{BINARY_PATH} does not exist; run `doit dev` first")
     cmd = LongRunning(CMD_FMT + ["-w", "-o", "static/styles.css"], shell=False)
-    # TODO: abort the cmd action when the tailwindcss binary does not exist
     yield {"basename": "tailwind-watch", "actions": [cmd]}
     yield {"basename": "tw", "actions": [cmd]}
 
@@ -82,12 +81,12 @@ def install_binary() -> None:
         urllib.request.urlretrieve(url, BINARY_PATH)
     except HTTPError as err:
         if err.code == 404:
-            raise Exception(
+            raise RuntimeError(
                 f"Couldn't find Tailwind CSS binary for version {VERSION}. "
                 f"Please check if this version exists at "
                 f"https://github.com/tailwindlabs/tailwindcss/releases"
             )
-        raise err
+        raise
 
     BINARY_PATH.chmod(BINARY_PATH.stat().st_mode | stat.S_IEXEC)  # Set executable bit
     BINARY_SYMLINK_PATH.symlink_to(BINARY_PATH.name)
@@ -108,7 +107,7 @@ def get_download_url(version: str) -> str:
         "aarch64": f"{os_name}-arm64",
     }.get(platform.machine().lower())
     if target is None:
-        raise Exception(f"{platform.machine()} architecture is not supported")
+        raise RuntimeError(f"{platform.machine()} architecture is not supported")
     binary_name = f"tailwindcss-{target}"
 
     if version == "latest":
@@ -121,17 +120,17 @@ def comparison_test() -> TaskFailed | None:
 
     tmpfile = Path("output")
     try:
-        # NOTE: unfortunately as of v4.1.14, tailwindcss produces different
-        # results on the first invocation and the subsequent invocations, so
-        # we run the command twice to mimic reproducibility
-        # TODO: find the issue related to reproducibility or file one
+        print(str(" ".join(str(arg) for arg in CMD_FMT + ["-o", tmpfile])))
         subprocess.run(CMD_FMT + ["-o", tmpfile], check=True)
-        subprocess.run(CMD_FMT + ["-o", tmpfile], check=True)
-        subprocess.run(["diff", "static/styles.css", tmpfile], check=True)
+        subprocess.run(
+            ["diff", "--color=always", "static/styles.css", tmpfile], check=True
+        )
         tmpfile.unlink()
-        subprocess.run(CMD_MIN + ["-o", tmpfile], check=True)
         print(str(" ".join(str(arg) for arg in CMD_MIN + ["-o", tmpfile])))
-        subprocess.run(["diff", "static/styles.min.css", tmpfile], check=True)
+        subprocess.run(CMD_MIN + ["-o", tmpfile], check=True)
+        subprocess.run(
+            ["diff", "--color=always", "static/styles.min.css", tmpfile], check=True
+        )
     except subprocess.CalledProcessError as e:
         tmpfile.unlink(missing_ok=True)
         return TaskFailed(e)

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import sqlalchemy.sql.expression as sa_exp
 from databases import Database
@@ -55,7 +55,7 @@ class Table:
         query = sa_exp.update(OrderedItem).where(
             (OrderedItem.order_id == order_id) & (OrderedItem.product_id == product_id)
         )
-        await self._db.execute(query, {"supplied_at": datetime.now(timezone.utc)})
+        await self._db.execute(query, {"supplied_at": datetime.now(UTC)})
 
     async def _supply_all(self, order_id: int):
         """
@@ -63,7 +63,7 @@ class Table:
         `orders` table should be updated as well.
         """
         query = sa_exp.update(OrderedItem).where(OrderedItem.order_id == order_id)
-        await self._db.execute(query, {"supplied_at": datetime.now(timezone.utc)})
+        await self._db.execute(query, {"supplied_at": datetime.now(UTC)})
 
     # NOTE: this function needs authorization since it destroys all receipts
     # async def clear(self) -> None:

@@ -7,7 +7,10 @@ from .env import DEBUG
 
 
 def page_layout(
-    req: Request, inner: Node, title: str = "murchace", head_section: list[Element] = []
+    req: Request,
+    inner: Node,
+    title: str = "murchace",
+    head_section: list[Element] | None = None,
 ) -> HTMLElement:
     icon_url = req.url_for("static", path="/favicon.ico")
     datastar_url = req.url_for("static", path="datastar.js")
@@ -21,7 +24,7 @@ def page_layout(
             link(rel="icon", type="image/x-icon", href=str(icon_url)),
             script(type="module", src=str(datastar_url)),
             link(rel="stylesheet", href=str(css_url)),
-            *head_section,
+            head_section,
         ],
         body[inner],
     ]

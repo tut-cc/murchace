@@ -1,10 +1,12 @@
 import asyncio
+from collections.abc import AsyncIterable, Awaitable, Callable, Mapping
 from datetime import datetime
 from functools import partial
-from typing import Any, AsyncIterable, Awaitable, Callable, Literal, Mapping
+from typing import Any, Literal
 
 import sqlalchemy
 import sqlalchemy.sql.expression as sa_exp
+from datastar_py import attribute_generator as data
 from datastar_py.fastapi import DatastarResponse
 from datastar_py.sse import DatastarEvent
 from datastar_py.sse import ServerSentEventGenerator as SSE
@@ -58,9 +60,9 @@ def link_selected(href: str, text: str) -> Element:
 def notif_ringtone(req: Request) -> list[Element]:
     return [
         Element("notif-ringtone")(
-            data_signals="{_notifRingtone: false}",
-            data_attr_notification="$_notifRingtone",
-            data_on_playing="$_notifRingtone = false",
+            data.signals({"_notifRingtone": False}),
+            data.attr({"notification": "$_notifRingtone"}),
+            data.on("playing", "$_notifRingtone = false"),
             src=str(req.url_for("static", path="notification-1.mp3")),
         ),
         script[
@@ -98,7 +100,7 @@ def notif_ringtone(req: Request) -> list[Element]:
 
 
 def _to_time(unix_epoch: int) -> str:
-    return datetime.fromtimestamp(unix_epoch).strftime("%H:%M:%S")
+    return datetime.fromtimestamp(unix_epoch).strftime("%H:%M:%S")  # noqa: DTZ006
 
 
 # This function exists to reduce code duplication, at the cost of terrible
@@ -116,20 +118,20 @@ def _to_time(unix_epoch: int) -> str:
 # construct the object and let the others waiting for it.
 async def _agen_query_executor[T](
     query: str,
-    unique_key: Literal["order_id"] | Literal["product_id"],
+    unique_key: Literal["order_id", "product_id"],
     init_cb: Callable[[Any, Mapping], None],
     elem_cb: Callable[[Mapping], T],
     list_cb: Callable[[list[T]], None],
 ):
     prev_unique_id = -1
-    lst: list[T] = list()
+    lst: list[T] = []
     async for map in database.iterate(query):
         if (unique_id := map[unique_key]) != prev_unique_id:
             if prev_unique_id != -1:
                 list_cb(lst)
             prev_unique_id = unique_id
             init_cb(unique_id, map)
-            lst: list[T] = list()
+            lst: list[T] = []
         lst.append(elem_cb(map))
     if prev_unique_id != -1:
         list_cb(lst)
@@ -148,7 +150,7 @@ query_ordered_items_incoming: sa_exp.Select = (
     .order_by(OrderedItem.product_id.asc(), OrderedItem.order_id.asc())
 )
 
-type ordered_item_t = dict[str, int | str | list[dict[str, int | str]]]
+type ordered_item_t = dict[str, int | str | list[dict[str, int | str]]]  # noqa: PYI042
 
 
 def _ordered_items_loader() -> Callable[[], Awaitable[list[ordered_item_t]]]:
@@ -200,7 +202,7 @@ elm_main_ordered_items = main(
 
 def page_ordered_items_incoming(req: Request) -> HTMLElement:
     inner = div(
-        class_="flex flex-col", data_on_load="@get('/ordered-items/incoming-stream')"
+        data.init("@get('/ordered-items/incoming-stream')"), class_="flex flex-col"
     )[
         header(
             class_="sticky z-10 inset-0 w-full px-16 py-3 flex gap-3 border-b border-gray-500 bg-white text-2xl"
@@ -225,18 +227,21 @@ def ordered_items_incoming_component(
     def orders(ordered_item: ordered_item_t) -> list[Element]:
         return [
             li(
-                id=f"ordered-item-{order['order_id']}-{ordered_item['product_id']}",
+                id=f"ordered-item-{order['order_id']}-{ordered_item['product_id']}",  # ty: ignore[invalid-argument-type]
                 class_="flex flex-row items-center",
             )[
-                span(class_="text-xl")[f"#{order['order_id']}"],
-                span(class_="ml-1")[f"@{order['ordered_at']}"],
-                span(class_="whitespace-nowrap ml-auto")[f"x {order['count']}"],
+                span(class_="text-xl")[f"#{order['order_id']}"],  # ty: ignore[invalid-argument-type]
+                span(class_="ml-1")[f"@{order['ordered_at']}"],  # ty: ignore[invalid-argument-type]
+                span(class_="whitespace-nowrap ml-auto")[f"x {order['count']}"],  # ty: ignore[invalid-argument-type]
                 button(
-                    data_on_click=f"@post('/orders/{order['order_id']}/products/{ordered_item['product_id']}/supplied-at')",
+                    data.on(
+                        "click",
+                        f"@post('/orders/{order['order_id']}/products/{ordered_item['product_id']}/supplied-at')",  # ty: ignore[invalid-argument-type]
+                    ),
                     class_="w-1/3 py-1 m-1 text-white bg-green-600 rounded-sm",
                 )["✓"],
             ]
-            for order in ordered_item["orders"]  # pyright: ignore[reportGeneralTypeIssues]
+            for order in ordered_item["orders"]  # ty: ignore[not-iterable]
         ]
 
     return elm_main_ordered_items[
@@ -264,8 +269,8 @@ def ordered_items_incoming_component(
     ]
 
 
-type item_t = dict[str, int | str | None]
-type order_t = dict[str, int | list[item_t] | str | datetime | None]
+type item_t = dict[str, int | str | None]  # noqa: PYI042
+type order_t = dict[str, int | list[item_t] | str | datetime | None]  # noqa: PYI042
 
 
 query_incoming: sa_exp.Select = (
@@ -463,7 +468,7 @@ elm_main_incoming_orders = main(
 
 
 def page_incoming_orders(req: Request) -> HTMLElement:
-    inner = div(class_="flex flex-col", data_on_load="@get('/orders/incoming-stream')")[
+    inner = div(data.init("@get('/orders/incoming-stream')"), class_="flex flex-col")[
         header(
             class_="sticky z-10 inset-0 w-full px-16 py-3 flex gap-3 border-b border-gray-500 bg-white text-2xl"
         )[
@@ -487,13 +492,13 @@ def incoming_orders_component(orders: list[order_t]) -> Element:
             li(class_="flex flex-row items-start gap-x-2 px-1")[
                 (
                     span(class_="text-green-500 font-bold")["✓"]
-                    if item["supplied_at"]
+                    if item["supplied_at"]  # ty: ignore[invalid-argument-type]
                     else span(class_="text-red-500 font-bold")["✗"]
                 ),
-                span(class_="break-words")[item["name"]],
-                span(class_="ml-auto whitespace-nowrap")[f"x {item['count']}"],
+                span(class_="break-words")[item["name"]],  # ty: ignore[invalid-argument-type]
+                span(class_="ml-auto whitespace-nowrap")[f"x {item['count']}"],  # ty: ignore[invalid-argument-type]
             ]
-            for item in order["items"]  # pyright: ignore[reportGeneralTypeIssues, reportOptionalIterable]
+            for item in order["items"]  # ty: ignore[not-iterable]
         ]
 
     return elm_main_incoming_orders[
@@ -508,7 +513,10 @@ def incoming_orders_component(orders: list[order_t]) -> Element:
                         span(class_="ml-1")[f"@{order['ordered_at']}"],
                     ],
                     button(
-                        data_on_click=f"confirm('確定注文 #{order['order_id']} を取り消しますか？') && @post('/orders/{order['order_id']}/canceled-at')",
+                        data.on(
+                            "click",
+                            f"confirm('確定注文 #{order['order_id']} を取り消しますか？') && @post('/orders/{order['order_id']}/canceled-at')",
+                        ),
                         class_="px-2 py-1 text-white bg-red-600 rounded-lg",
                     )["取消"],
                 ],
@@ -516,7 +524,10 @@ def incoming_orders_component(orders: list[order_t]) -> Element:
                     ordered_items(order)
                 ],
                 button(
-                    data_on_click=f"@post('/orders/{order['order_id']}/completed-at')",
+                    data.on(
+                        "click",
+                        f"@post('/orders/{order['order_id']}/completed-at')",
+                    ),
                     class_="mx-10 py-1 text-white bg-blue-600 rounded-lg",
                 )["完了"],
             ]
@@ -564,7 +575,10 @@ def resolved_order_completed(order: order_t) -> Element:
                 span(class_="ml-1")[f"@{order['ordered_at']}-{order['completed_at']}"],
             ],
             button(
-                data_on_click=f"confirm('完了した注文 #{order['order_id']} を取り消しますか？') && @post('/orders/{order['order_id']}/canceled-at?card_response=1')",
+                data.on(
+                    "click",
+                    f"confirm('完了した注文 #{order['order_id']} を取り消しますか？') && @post('/orders/{order['order_id']}/canceled-at?card_response=1')",
+                ),
                 class_="px-2 py-1 text-white bg-red-600 rounded-lg",
             )["取消"],
         ],
@@ -585,7 +599,10 @@ def resolved_order_canceled(order: order_t) -> Element:
                 span(class_="ml-1")[f"@{order['ordered_at']}-{order['canceled_at']}"],
             ],
             button(
-                data_on_click=f"$card_response=true; confirm('一度取り消した注文 #{order['order_id']} を完了しますか？') && @post('/orders/{order['order_id']}/completed-at?card_response=1')",
+                data.on(
+                    "click",
+                    f"$card_response=true; confirm('一度取り消した注文 #{order['order_id']} を完了しますか？') && @post('/orders/{order['order_id']}/completed-at?card_response=1')",
+                ),
                 class_="px-2 py-1 text-white bg-red-600 rounded-lg",
             )["完了"],
         ],
@@ -599,22 +616,25 @@ def _order_body(order: order_t) -> list[Element]:
             [
                 li(class_="flex flex-row items-start gap-x-2")[
                     span(class_="text-green-500 font-bold")["✓"]
-                    if item["supplied_at"]
+                    if item["supplied_at"]  # ty: ignore[invalid-argument-type]
                     else span(class_="text-red-500 font-bold")["✗"],
-                    span(class_="break-words")[item["name"]],
+                    span(class_="break-words")[item["name"]],  # ty: ignore[invalid-argument-type]
                     span(class_="ml-auto whitespace-nowrap")[
-                        f"{item['price']} x {item['count']}"
+                        f"{item['price']} x {item['count']}"  # ty: ignore[invalid-argument-type]
                     ],
                 ]
-                for item in order["items"]  # pyright: ignore[reportGeneralTypeIssues, reportOptionalIterable]
+                for item in order["items"]  # ty: ignore[not-iterable]
             ]
         ],
         p(class_="flex flex-row mx-1 justify-between px-2")[
             span(class_="break-words")["合計金額"],
-            span(class_="whitespace-nowrap")[order["total_price"]],  # pyright: ignore[reportArgumentType]
+            span(class_="whitespace-nowrap")[order["total_price"]],  # ty: ignore[invalid-argument-type]
         ],
         button(
-            data_on_click=f"confirm('一度取り消した注文 #{order['order_id']} を受け取り待ちに戻しますか？') && @delete('/orders/{order['order_id']}/resolved-at')",
+            data.on(
+                "click",
+                f"confirm('一度取り消した注文 #{order['order_id']} を受け取り待ちに戻しますか？') && @delete('/orders/{order['order_id']}/resolved-at')",
+            ),
             class_="mx-10 py-1 border border-gray-600 rounded-lg",
         )["未受取に戻す"],
     ]

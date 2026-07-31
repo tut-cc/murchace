@@ -1,5 +1,6 @@
-from .product import Product
 from inline_snapshot import snapshot
+
+from .product import Product
 
 
 def test_to_price_str() -> None:

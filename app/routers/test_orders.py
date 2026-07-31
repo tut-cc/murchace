@@ -4,7 +4,7 @@ from inline_snapshot import snapshot
 from .orders import query_incoming, query_ordered_items_incoming, query_resolved
 
 
-def format_sql(sql: object):
+def format_sql(sql: str):
     return sqlparse.format(sql, keyword_case="upper", reindent=True, wrap_after=80)
 
 

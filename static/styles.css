@@ -1,19 +1,10 @@
-/*! tailwindcss v4.1.14 | MIT License | https://tailwindcss.com */
+/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
 @layer properties {
   @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
     *, :before, :after, ::backdrop {
-      --tw-scale-x: 1;
-      --tw-scale-y: 1;
-      --tw-scale-z: 1;
-      --tw-rotate-x: initial;
-      --tw-rotate-y: initial;
-      --tw-rotate-z: initial;
-      --tw-skew-x: initial;
-      --tw-skew-y: initial;
       --tw-divide-y-reverse: 0;
       --tw-border-style: solid;
       --tw-font-weight: initial;
-      --tw-outline-style: solid;
       --tw-blur: initial;
       --tw-brightness: initial;
       --tw-contrast: initial;
@@ -30,14 +21,19 @@
       --tw-duration: initial;
       --tw-ease: initial;
       --tw-divide-x-reverse: 0;
+      --tw-scale-x: 1;
+      --tw-scale-y: 1;
+      --tw-scale-z: 1;
     }
   }
 }
 
 @layer theme {
   :root, :host {
-    --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", Arial,
+    sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
     --color-red-500: oklch(63.7% .237 25.331);
     --color-red-600: oklch(57.7% .245 27.325);
     --color-orange-200: oklch(90.1% .076 70.697);
@@ -74,7 +70,6 @@
     --radius-md: .375rem;
     --radius-lg: .5rem;
     --radius-2xl: 1rem;
-    --ease-in: cubic-bezier(.4, 0, 1, 1);
     --ease-in-out: cubic-bezier(.4, 0, .2, 1);
     --default-transition-duration: .15s;
     --default-transition-timing-function: cubic-bezier(.4, 0, .2, 1);
@@ -102,7 +97,7 @@
     -webkit-text-size-adjust: 100%;
     tab-size: 4;
     line-height: 1.5;
-    font-family: var(--default-font-family, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji");
+    font-family: var(--default-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji");
     font-feature-settings: var(--default-font-feature-settings, normal);
     font-variation-settings: var(--default-font-variation-settings, normal);
     -webkit-tap-highlight-color: transparent;
@@ -168,7 +163,7 @@
     border-collapse: collapse;
   }
 
-  :-moz-focusring {
+  :-moz-focusring:where(:not(iframe)) {
     outline: auto;
   }
 
@@ -333,10 +328,6 @@
 @layer components;
 
 @layer utilities {
-  .visible {
-    visibility: visible;
-  }
-
   .fixed {
     position: fixed;
   }
@@ -350,7 +341,7 @@
   }
 
   .inset-0 {
-    inset: calc(var(--spacing) * 0);
+    inset: 0;
   }
 
   .z-10 {
@@ -396,11 +387,11 @@
   }
 
   .m-1 {
-    margin: calc(var(--spacing) * 1);
+    margin: var(--spacing);
   }
 
   .mx-1 {
-    margin-inline: calc(var(--spacing) * 1);
+    margin-inline: var(--spacing);
   }
 
   .mx-10 {
@@ -412,11 +403,11 @@
   }
 
   .mr-1 {
-    margin-right: calc(var(--spacing) * 1);
+    margin-right: var(--spacing);
   }
 
   .ml-1 {
-    margin-left: calc(var(--spacing) * 1);
+    margin-left: var(--spacing);
   }
 
   .ml-auto {
@@ -455,10 +446,6 @@
     aspect-ratio: 1;
   }
 
-  .h-4 {
-    height: calc(var(--spacing) * 4);
-  }
-
   .h-4\/5 {
     height: 80%;
   }
@@ -488,11 +475,7 @@
   }
 
   .min-h-0 {
-    min-height: calc(var(--spacing) * 0);
-  }
-
-  .w-1 {
-    width: calc(var(--spacing) * 1);
+    min-height: 0;
   }
 
   .w-1\/2 {
@@ -503,20 +486,12 @@
     width: 33.3333%;
   }
 
-  .w-2 {
-    width: calc(var(--spacing) * 2);
-  }
-
   .w-2\/3 {
     width: 66.6667%;
   }
 
   .w-2\/6 {
     width: 33.3333%;
-  }
-
-  .w-4 {
-    width: calc(var(--spacing) * 4);
   }
 
   .w-4\/6 {
@@ -539,46 +514,16 @@
     flex: 1;
   }
 
-  .flex-grow, .grow {
+  .grow {
     flex-grow: 1;
-  }
-
-  .basis-1 {
-    flex-basis: calc(var(--spacing) * 1);
   }
 
   .basis-1\/4 {
     flex-basis: 25%;
   }
 
-  .basis-2 {
-    flex-basis: calc(var(--spacing) * 2);
-  }
-
   .basis-2\/4 {
     flex-basis: 50%;
-  }
-
-  .border-collapse {
-    border-collapse: collapse;
-  }
-
-  .scale-50 {
-    --tw-scale-x: 50%;
-    --tw-scale-y: 50%;
-    --tw-scale-z: 50%;
-    scale: var(--tw-scale-x) var(--tw-scale-y);
-  }
-
-  .scale-95 {
-    --tw-scale-x: 95%;
-    --tw-scale-y: 95%;
-    --tw-scale-z: 95%;
-    scale: var(--tw-scale-x) var(--tw-scale-y);
-  }
-
-  .transform {
-    transform: var(--tw-rotate-x, ) var(--tw-rotate-y, ) var(--tw-rotate-z, ) var(--tw-skew-x, ) var(--tw-skew-y, );
   }
 
   .animate-\[scale-50_150ms_ease-in\] {
@@ -595,10 +540,6 @@
 
   .cursor-pointer {
     cursor: pointer;
-  }
-
-  .resize {
-    resize: both;
   }
 
   .auto-cols-max {
@@ -682,7 +623,7 @@
   }
 
   .gap-y-1 {
-    row-gap: calc(var(--spacing) * 1);
+    row-gap: var(--spacing);
   }
 
   .gap-y-2 {
@@ -729,6 +670,10 @@
 
   .overflow-y-scroll {
     overflow-y: scroll;
+  }
+
+  .rounded {
+    border-radius: .25rem;
   }
 
   .rounded-2xl {
@@ -832,10 +777,6 @@
     background-color: var(--color-gray-300);
   }
 
-  .bg-gray-500 {
-    background-color: var(--color-gray-500);
-  }
-
   .bg-gray-500\/75 {
     background-color: #6a7282bf;
   }
@@ -879,7 +820,7 @@
   }
 
   .px-1 {
-    padding-inline: calc(var(--spacing) * 1);
+    padding-inline: var(--spacing);
   }
 
   .px-2 {
@@ -895,7 +836,7 @@
   }
 
   .py-1 {
-    padding-block: calc(var(--spacing) * 1);
+    padding-block: var(--spacing);
   }
 
   .py-2 {
@@ -1005,23 +946,8 @@
     text-decoration-line: line-through;
   }
 
-  .underline {
-    text-decoration-line: underline;
-  }
-
-  .outline {
-    outline-style: var(--tw-outline-style);
-    outline-width: 1px;
-  }
-
   .filter {
     filter: var(--tw-blur, ) var(--tw-brightness, ) var(--tw-contrast, ) var(--tw-grayscale, ) var(--tw-hue-rotate, ) var(--tw-invert, ) var(--tw-saturate, ) var(--tw-sepia, ) var(--tw-drop-shadow, );
-  }
-
-  .transition {
-    transition-property: color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to, opacity, box-shadow, transform, translate, scale, rotate, filter, -webkit-backdrop-filter, backdrop-filter, display, content-visibility, overlay, pointer-events;
-    transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
-    transition-duration: var(--tw-duration, var(--default-transition-duration));
   }
 
   .transition-colors {
@@ -1039,11 +965,6 @@
   .duration-150 {
     --tw-duration: .15s;
     transition-duration: .15s;
-  }
-
-  .ease-in {
-    --tw-ease: var(--ease-in);
-    transition-timing-function: var(--ease-in);
   }
 
   .ease-in-out {
@@ -1186,49 +1107,6 @@
   }
 }
 
-@property --tw-scale-x {
-  syntax: "*";
-  inherits: false;
-  initial-value: 1;
-}
-
-@property --tw-scale-y {
-  syntax: "*";
-  inherits: false;
-  initial-value: 1;
-}
-
-@property --tw-scale-z {
-  syntax: "*";
-  inherits: false;
-  initial-value: 1;
-}
-
-@property --tw-rotate-x {
-  syntax: "*";
-  inherits: false
-}
-
-@property --tw-rotate-y {
-  syntax: "*";
-  inherits: false
-}
-
-@property --tw-rotate-z {
-  syntax: "*";
-  inherits: false
-}
-
-@property --tw-skew-x {
-  syntax: "*";
-  inherits: false
-}
-
-@property --tw-skew-y {
-  syntax: "*";
-  inherits: false
-}
-
 @property --tw-divide-y-reverse {
   syntax: "*";
   inherits: false;
@@ -1244,12 +1122,6 @@
 @property --tw-font-weight {
   syntax: "*";
   inherits: false
-}
-
-@property --tw-outline-style {
-  syntax: "*";
-  inherits: false;
-  initial-value: solid;
 }
 
 @property --tw-blur {
@@ -1332,6 +1204,24 @@
   syntax: "*";
   inherits: false;
   initial-value: 0;
+}
+
+@property --tw-scale-x {
+  syntax: "*";
+  inherits: false;
+  initial-value: 1;
+}
+
+@property --tw-scale-y {
+  syntax: "*";
+  inherits: false;
+  initial-value: 1;
+}
+
+@property --tw-scale-z {
+  syntax: "*";
+  inherits: false;
+  initial-value: 1;
 }
 
 @keyframes scale-50 {

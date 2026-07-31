@@ -1,10 +1,10 @@
 import sqlparse
 from inline_snapshot import snapshot
 
-from .stat import AvgServiceTimeQuery, WAITING_ORDER_COUNT_QUERY, TOTAL_SALES_QUERY
+from .stat import TOTAL_SALES_QUERY, WAITING_ORDER_COUNT_QUERY, AvgServiceTimeQuery
 
 
-def format_sql(sql: object):
+def format_sql(sql: str):
     return sqlparse.format(sql, keyword_case="upper", reindent=True, wrap_after=80)
 
 

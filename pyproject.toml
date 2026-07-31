@@ -1,27 +1,27 @@
 [project]
 name = "murchace"
-version = "0.0.1"
-description = "Add your description here"
+version = "0.0.2"
+description = "Slick Serving Experience powered by Server-Sent Events"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi>=0.120.0",
-    "uvicorn[standard]>=0.38.0",
-    "python-multipart>=0.0.20",
+    "fastapi>=0.141.1",
+    "uvicorn[standard]>=0.52.0",
+    "python-multipart>=0.0.32",
     "databases[aiosqlite]>=0.9.0",
-    "doit>=0.36.0",
-    "alembic>=1.17.0",
-    "datastar-py>=0.6.5",
-    "htpy>=25.10.0",
+    "doit>=0.37.0",
+    "alembic>=1.18.5",
+    "datastar-py>=1.0.2",
+    "htpy>=26.5.1",
 ]
 
 [dependency-groups]
 dev = [
-    "pytest>=8.4.2",
-    "inline-snapshot>=0.30.1",
-    "pyright>=1.1.407",
-    "ruff>=0.14.2",
-    "sqlparse>=0.5.3",
+    "pytest>=9.1.1",
+    "inline-snapshot>=0.35.3",
+    "ty>=0.0.65",
+    "ruff>=0.16.0",
+    "sqlparse>=0.5.5",
 ]
 
 [build-system]
@@ -41,5 +41,6 @@ subtasks = true
 sort = "definition"
 
 [tool.ruff]
+exclude = ["db/env.py", "db/versions"]
 
-[tool.pyright]
+[tool.ty]

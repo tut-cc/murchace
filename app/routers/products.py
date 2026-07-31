@@ -1,8 +1,9 @@
 from typing import Annotated
 
+from datastar_py import attribute_generator as data
 from datastar_py.fastapi import DatastarResponse
 from datastar_py.sse import ServerSentEventGenerator as SSE
-from fastapi import APIRouter, Form, HTTPException, Request, Response, status
+from fastapi import APIRouter, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, StreamingResponse
 from htpy import (
     Element,
@@ -32,9 +33,9 @@ router = APIRouter()
 def page_products(req: Request, products: list[Product]) -> HTMLElement:
     product_figures = [
         figure(
+            data.on("click", f"@get('/products/{p.product_id}/editor')"),
             id=f"product-{p.product_id}",
             class_="flex flex-col border-4 border-blue-400 rounded-md transition-colors ease-in-out active:bg-blue-300",
-            data_on_click=f"@get('/products/{p.product_id}/editor')",
         )[
             img(
                 src=str(req.url_for("static", path=p.filename)),
@@ -52,9 +53,9 @@ def page_products(req: Request, products: list[Product]) -> HTMLElement:
     )[
         *product_figures,
         figure(
+            data.on("click", "@get('/product-editor')"),
             id="product-placeholder",
             class_="flex flex-col border-4 border-blue-400 rounded-md transition-colors ease-in-out active:bg-blue-300",
-            data_on_click="@get('/product-editor')",
         )[
             img(
                 src=str(req.url_for("static", path="no-image.png")),
@@ -103,28 +104,35 @@ def fragment_editor(req: Request, product: Product) -> Element:
         ]
     ]
     editor_form = form(
-        data_on_submit=f"@post('/products/{product.product_id}', {{contentType: 'form'}})",
+        data.on(
+            "submit",
+            f"@post('/products/{product.product_id}', {{contentType: 'form'}})",
+        ),
         class_="flex flex-col",
     )[
         fieldset(
-            data_signals_product_id=product.product_id,
-            data_signals_name=f'"{product.name}"',  # TODO: properly escape quotes
-            data_signals_filename=f'"{product.filename}"',  # TODO: properly escape quotes
-            data_signals_price=product.price,
-            data_signals_no_stock=product.no_stock,
+            data.signals(
+                {
+                    "product-id": product.product_id,
+                    "name": product.name,
+                    "filename": product.filename,
+                    "price": product.price,
+                    "no-stock": product.no_stock,
+                }
+            ),
             class_="grid grid-cols-3 auto-rows-min justify-items-end gap-2 py-4 text-lg",
         )[
             label(for_="product-id", class_="w-full text-right")["商品番号:"],
             input(
-                data_bind_product_id=True,
+                data.bind("product-id"),
                 type="number",
                 id="product-id",
-                name="id",
+                name="product_id",
                 class_="col-span-2 w-full",
             ),
             label(for_="product-name", class_="w-full text-right")["商品名:"],
             input(
-                data_bind_name=True,
+                data.bind("name"),
                 type="text",
                 id="product-name",
                 name="name",
@@ -132,7 +140,7 @@ def fragment_editor(req: Request, product: Product) -> Element:
             ),
             label(for_="product-filename", class_="w-full text-right")["ファイル名:"],
             input(
-                data_bind_filename=True,
+                data.bind("filename"),
                 type="text",
                 id="product-filename",
                 name="filename",
@@ -140,7 +148,7 @@ def fragment_editor(req: Request, product: Product) -> Element:
             ),
             label(for_="product-price", class_="w-full text-right")["金額:"],
             input(
-                data_bind_price=True,
+                data.bind("price"),
                 type="number",
                 id="product-price",
                 name="price",
@@ -150,21 +158,24 @@ def fragment_editor(req: Request, product: Product) -> Element:
                 "在庫数（未実装）:"
             ],
             input(
-                data_bind_no_stock=True,
+                data.bind("no-stock"),
                 type="text",
                 id="product-no-stock",
-                name="no-stock",
+                name="no_stock",
                 class_="col-span-2 w-full",
             ),
         ],
         div(class_="flex flex-row justify-between")[
             button(
-                data_on_click=f"confirm(`本当に「${{$name}}（{product.product_id}）」を削除しますか？`) && @delete('/products/{product.product_id}')",
+                data.on(
+                    "click",
+                    f"confirm(`本当に「${{$name}}（{product.product_id}）」を削除しますか？`) && @delete('/products/{product.product_id}')",
+                ),
                 type="button",
                 class_="px-2 py-1 text-white bg-red-500 rounded-lg",
             )["削除"],
             button(
-                data_on_click=f"@get('/products/{product.product_id}/editor')",
+                data.on("click", f"@get('/products/{product.product_id}/editor')"),
                 type="reset",
                 class_="px-2 py-1 border border-black rounded-lg",
             )["リセット"],
@@ -192,7 +203,7 @@ def fragment_empty_editor(req: Request) -> Element:
         ]
     ]
     editor_form = form(
-        data_on_submit="@post('/products', {contentType: 'form'})",
+        data.on("submit", "@post('/products', {contentType: 'form'})"),
         class_="flex flex-col",
     )[
         fieldset(
@@ -237,7 +248,7 @@ def fragment_empty_editor(req: Request) -> Element:
         ],
         div(class_="flex flex-row justify-between")[
             button(
-                data_on_click="@get('/product-editor')",
+                data.on("click", "@get('/product-editor')"),
                 type="reset",
                 class_="px-2 py-1 border border-black rounded-lg",
             )["リセット"],
@@ -258,7 +269,7 @@ async def get_products(request: Request):
     return HTMLResponse(page_products(request, products))
 
 
-@router.post("/products", response_class=Response)
+@router.post("/products")
 async def new_product(
     product_id: Annotated[int, Form()],
     name: Annotated[str, Form(max_length=40)],

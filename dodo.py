@@ -17,7 +17,7 @@
 # ```
 
 import os
-from typing import Generator
+from collections.abc import Generator
 
 from doit.action import TaskFailed
 from doit.tools import Interactive, LongRunning
@@ -85,10 +85,10 @@ def task_test() -> Generator[TaskDict]:
     from tasks import tailwindcss
 
     actions = [
-        [*UV_RUN, "ruff", "check"],
-        [*UV_RUN, "ruff", "format", "--diff"],
-        [*UV_RUN, "pyright", "--stats"],
-        [*UV_RUN, "pytest"],
+        [*UV_RUN, "ruff", "--color", "always", "check"],
+        [*UV_RUN, "ruff", "--color", "always", "format", "--diff"],
+        [*UV_RUN, "ty", "check", "--color", "always"],
+        [*UV_RUN, "pytest", "--color", "yes"],
         tailwindcss.comparison_test,
     ]
     yield {"basename": "test", "actions": actions}

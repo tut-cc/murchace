@@ -1,6 +1,7 @@
 import csv
+from collections.abc import Iterable
 from dataclasses import asdict
-from typing import Any, Iterable
+from typing import Any
 
 import sqlalchemy.sql.expression as sae
 from databases import Database
@@ -45,7 +46,7 @@ class Table:
                     yield row_body
 
         products: list[Product] = []
-        with open(csv_file) as f:
+        with open(csv_file) as f:  # noqa: ASYNC230
             reader = csv.DictReader(
                 decomment(f), dialect="unix", quoting=csv.QUOTE_STRINGS, strict=True
             )
@@ -53,8 +54,8 @@ class Table:
                 csv_row: dict[str, Any]
                 if csv_row["no_stock"] == "":
                     csv_row["no_stock"] = None
-                assert all(isinstance(k, str) for k in csv_row.keys())
-                products.append(Product(**dict(**csv_row)))
+                assert all(isinstance(k, str) for k in csv_row)
+                products.append(Product(**dict(**csv_row)))  # ty: ignore[invalid-argument-type]
 
         async with self._db.transaction():
             await self._db.execute(sae.delete(Product))

@@ -1,8 +1,9 @@
 # This file defines types for doit objects. If type errors are found, we should
 # modify this module according to the implementation details.
 
+from collections.abc import Callable, Sequence
 from os import PathLike
-from typing import Callable, Literal, Sequence, TypedDict
+from typing import Literal, TypedDict
 
 from doit.action import BaseAction
 from doit.exceptions import BaseFail
@@ -51,7 +52,7 @@ class Param(ParamBase, total=False):
 
 
 class TaskBase(TypedDict):
-    actions: list[Action] | tuple[Action] | None  # list - L{BaseAction}
+    actions: Sequence[Action] | None  # list - L{BaseAction}
 
 
 # See doit.task.Task object for reference
@@ -75,7 +76,7 @@ class TaskDict(TaskBase, total=False):
     params: list[Param] | tuple[Param]
     pos_arg: str | None
     """name of parameter in action to receive positional parameters from command line"""
-    verbosity: None | Literal[0] | Literal[1] | Literal[2]
+    verbosity: None | Literal[0, 1, 2]
     # io: dict | None
     # getargs: dict
     # """values from other tasks"""

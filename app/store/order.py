@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Flag, auto
 
 import sqlalchemy.sql.expression as sa_exp
@@ -48,7 +48,7 @@ class Table:
         return sa_exp.update(Order).where(Order.order_id == order_id)
 
     async def cancel(self, order_id: int) -> None:
-        values = {"canceled_at": datetime.now(timezone.utc), "completed_at": None}
+        values = {"canceled_at": datetime.now(UTC), "completed_at": None}
         await self._db.execute(self._update(order_id), values)
         self.modified_flag_bc.send(ModifiedFlag.RESOLVED)
 
@@ -57,7 +57,7 @@ class Table:
         Use `supply_all_and_complete` when the `supplied_at` fields of
         `ordered_items` table should be updated as well.
         """
-        values = {"canceled_at": None, "completed_at": datetime.now(timezone.utc)}
+        values = {"canceled_at": None, "completed_at": datetime.now(UTC)}
         await self._db.execute(self._update(order_id), values)
 
     async def reset(self, order_id: int) -> None:

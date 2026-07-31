@@ -6,9 +6,6 @@ dist/
 wheels/
 *.egg-info
 
-# venv
-.venv
-
+/.venv
 /.doit.db
-/tailwindcss*
 /static/stat.csv

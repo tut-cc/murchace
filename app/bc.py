@@ -1,9 +1,10 @@
 # Best-effort asynchronous broadcast channel
 
 import asyncio
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import AsyncIterator
+from typing import ClassVar
 
 
 # A wrapper class to pass any type of values by reference
@@ -32,7 +33,7 @@ class Receiver[T]:
 # going on in the central broadcaster object.
 class Broadcaster[T]:
     shared: Slot[T]
-    modified_events: list[asyncio.Event] = []
+    modified_events: ClassVar[list[asyncio.Event]] = []
 
     def __init__(self, default: T):
         self.shared = Slot(default)

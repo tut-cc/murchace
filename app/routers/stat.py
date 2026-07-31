@@ -1,13 +1,14 @@
 import csv
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
-from typing import Annotated, Literal, Mapping
+from typing import Annotated, Literal
 
 import sqlalchemy
 import sqlalchemy.sql.expression as sa_exp
-from sqlalchemy.sql.functions import func as sa_func
+from datastar_py import attribute_generator as data
 from datastar_py.fastapi import DatastarResponse
 from datastar_py.sse import ServerSentEventGenerator as SSE
 from fastapi import APIRouter, Header, Request
@@ -32,6 +33,7 @@ from htpy import (
     tr,
     ul,
 )
+from sqlalchemy.sql.functions import func as sa_func
 
 from ..components import clock, page_layout
 from ..store import Order, OrderedItem, Product, database, unixepoch
@@ -159,7 +161,7 @@ def _stat_table(stat: Stat) -> Element:
 
 def page_wait_estimate(req: Request) -> HTMLElement:
     inner_header = header(
-        {"data-on-interval__duration.5s.leading": "@get('/wait-estimates')"},
+        data.on_interval("@get('/wait-estimates')").duration("5s", leading=True),
         class_="sticky z-10 inset-0 w-full px-16 py-3 border-b border-gray-500 bg-white text-2xl",
     )[
         ul(class_="flex flex-row")[
@@ -225,14 +227,14 @@ async def export_orders():
         orders.order_id ASC;
     """
 
-    with open(CSV_OUTPUT_PATH, "w", newline="") as csv_file:
+    with open(CSV_OUTPUT_PATH, "w", newline="") as csv_file:  # noqa: ASYNC230
         csv_writer = csv.writer(csv_file)
 
         async_gen = database.iterate(query)
         if (row := await anext(async_gen, None)) is None:
             return
 
-        headers = [key for key in dict(row).keys()]
+        headers = [key for key in dict(row)]
         csv_writer.writerow(headers)
 
         csv_writer.writerow(_filtered_row(row))

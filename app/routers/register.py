@@ -1,7 +1,9 @@
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Annotated, Iterable
+from typing import Annotated
 from uuid import UUID, uuid4
 
+from datastar_py import attribute_generator as data
 from datastar_py.fastapi import DatastarResponse
 from datastar_py.sse import ServerSentEventGenerator as SSE
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
@@ -77,7 +79,7 @@ class OrderSession:
 def page_register(req: Request) -> HTMLElement:
     return page_layout(
         req,
-        div(id="register", data_on_load="@post('/register')", class_="hidden"),
+        div(data.init("@post('/register')"), id="register", class_="hidden"),
         "新規注文 - murchace",
     )
 
@@ -91,7 +93,10 @@ def register(
         )[
             [
                 figure(
-                    data_on_click=f"@post('/register/items?product_id={product.product_id}')",
+                    data.on(
+                        "click",
+                        f"@post('/register/items?product_id={product.product_id}')",
+                    ),
                     class_="flex flex-col border-4 border-gray-200 rounded-md transition-colors ease-in-out active:bg-gray-100",
                 )[
                     img(
@@ -112,7 +117,7 @@ def register(
                     class_="px-2 py-1 rounded-sm bg-gray-300 hidden lg:inline-block",
                 )["ホーム"],
                 button(
-                    data_on_click="@delete('/register/items')",
+                    data.on("click", "@delete('/register/items')"),
                     class_="text-white px-2 py-1 rounded-sm bg-red-600 hidden sm:inline-block",
                     tabindex="0",
                 )["全消去"],
@@ -132,7 +137,7 @@ def order_session(session: OrderSession) -> Element:
             )[p(class_="sm:flex-1")[product.name], div[product.price_str()]],
             div(class_="flex items-center")[
                 button(
-                    data_on_click=f"@delete('/register/items/{item_id}')",
+                    data.on("click", f"@delete('/register/items/{item_id}')"),
                     class_="font-bold text-white bg-red-600 px-2 rounded-sm",
                 )["X"]
             ],
@@ -151,7 +156,7 @@ def order_session(session: OrderSession) -> Element:
                 f"合計: {session.total_price_str()}"
             ],
             button(
-                data_on_click="@get('/register/confirm-modal')",
+                data.on("click", "@get('/register/confirm-modal')"),
                 class_="basis-1/4 lg:text-xl text-center text-white p-2 rounded-sm bg-blue-600 disabled:cursor-not-allowed disabled:text-gray-700 disabled:bg-gray-100",
                 disabled=True if session.total_count == 0 else None,
             )["確定"],
@@ -185,7 +190,7 @@ def confirm_modal(session: OrderSession) -> Element:
                     ),
                 ],
                 button(
-                    data_on_click="@post('/register')",
+                    data.on("click", "@post('/register')"),
                     class_="w-full py-4 text-center text-xl font-semibold text-white bg-blue-600 rounded-sm",
                 )["確認"],
                 button(
@@ -219,7 +224,7 @@ def issued_modal(order_id: int, session: OrderSession) -> Element:
                     ),
                 ],
                 button(
-                    data_on_click="@post('/register')",
+                    data.on("click", "@post('/register')"),
                     class_="w-full py-4 text-center text-xl font-semibold text-white bg-green-600 rounded-sm",
                 )["新規"],
                 a(

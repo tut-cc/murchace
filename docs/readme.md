@@ -114,7 +114,7 @@ UI は基本 htpy (HTML) で記述します。
 ## VSCode の拡張機能一覧
 
 - [charliermarsh.ruff](https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff): 高速な Python LSP
-- [ms-pyright.pyright](https://marketplace.visualstudio.com/items?itemName=ms-pyright.pyright): Python の型チェックに特化した LSP (VSCode の場合は Pylance でも可)
+- [astral-sh.ty](https://marketplace.visualstudio.com/items?itemName=astral-sh.ty): Python の型チェックに特化した LSP
 - [ms-python.debugpy](https://marketplace.visualstudio.com/items?itemName=ms-python.debugpy): Python のデバッグサポート
 - [bradlc.vscode-tailwindcss](https://marketplace.visualstudio.com/items?itemName=bradlc.vscode-tailwindcss): Tailwind CSS の LSP
 
