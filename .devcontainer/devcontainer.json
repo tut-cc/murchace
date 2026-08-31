@@ -15,7 +15,7 @@
                 "github.vscode-pull-request-github",
                 "eamodio.gitlens",
                 "charliermarsh.ruff",
-                "ms-pyright.pyright",
+                "astral-sh.ty",
                 "ms-python.debugpy",
                 "bradlc.vscode-tailwindcss",
                 "ms-azuretools.vscode-docker"
