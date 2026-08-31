@@ -26,7 +26,7 @@ def task__tailwind_install() -> TaskDict:
     }
 
 
-TAILWIND_INPUT = Path("app/input.css")
+TAILWIND_INPUT = Path("murchace/input.css")
 assert TAILWIND_INPUT.exists()
 CMD_FMT = [BINARY_PATH, "--optimize", "-i", TAILWIND_INPUT]
 CMD_MIN = CMD_FMT + ["--minify"]

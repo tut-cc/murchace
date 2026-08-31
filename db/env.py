@@ -15,7 +15,7 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-from app import store  # noqa: E402
+from murchace import store  # noqa: E402
 
 target_metadata = store.Base.metadata
 

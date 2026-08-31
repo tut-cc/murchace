@@ -39,7 +39,7 @@ UV_RUN = ["uv", "run", "--frozen"]
 
 UVICORN_CMD = [
     *UV_RUN,
-    *["uvicorn", "--port", "8000", "--workers", "4", "app.main:app"],
+    *["uvicorn", "--port", "8000", "--workers", "4", "murchace.main:app"],
 ]
 
 
@@ -58,12 +58,7 @@ def task_serve() -> Generator[TaskDict]:
 def task_dev() -> TaskDict:
     """Setup development environment."""
 
-    return {"actions": None, "task_dep": ["_uv_sync", "_tailwind_install"]}
-
-
-def task__uv_sync() -> TaskDict:
-    cmd = ["uv", "sync", "--frozen"]
-    return {"file_dep": ["pyproject.toml"], "actions": [cmd], "targets": ["uv.lock"]}
+    return {"actions": None, "task_dep": ["_tailwind_install"]}
 
 
 def task_watch() -> Generator[TaskDict]:

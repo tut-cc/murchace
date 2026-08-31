@@ -86,6 +86,7 @@ Python のパッケージマネージャ [uv](https://github.com/astral-sh/uv) �
 
 ```console
 $ git clone tut-cc/murchace.git && cd murchace
+$ uv sync --frozen
 $ uv run --frozen doit dev
 $ source .venv/bin/activate
 ```
