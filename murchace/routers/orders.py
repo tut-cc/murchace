@@ -2,6 +2,7 @@ import asyncio
 from collections.abc import AsyncIterable, Awaitable, Callable, Mapping
 from datetime import datetime
 from functools import partial
+from pathlib import Path
 from typing import Any, Literal
 
 import sqlalchemy
@@ -57,6 +58,10 @@ def link_selected(href: str, text: str) -> Element:
     )[text]
 
 
+with open(Path(__file__).parent / "notif-ringtone.js", encoding="utf-8") as f:
+    _notif_ringtone_script = script[Markup(f.read())]
+
+
 def notif_ringtone(req: Request) -> list[Element]:
     return [
         Element("notif-ringtone")(
@@ -65,37 +70,7 @@ def notif_ringtone(req: Request) -> list[Element]:
             data.on("playing", "$_notifRingtone = false"),
             src=str(req.url_for("static", path="notification-1.mp3")),
         ),
-        script[
-            Markup(
-                """
-            class NotifRingtone extends HTMLElement {
-              constructor() {
-                super()
-                this.audio = new Audio()
-              }
-              static get observedAttributes() {
-                  return ["notification", "src"]
-              }
-              attributeChangedCallback(name, oldValue, newValue) {
-                if (name === "notification" && newValue) {
-                  this.audio.muted = false
-                  this.audio.play()
-                  this.dispatchEvent(new CustomEvent('playing'))
-                } else if (name === 'src') {
-                  this.audio.src = newValue
-                  this.audio.load()
-                  this.audio.muted = true
-                  // Load audio in the background on a screen touch to
-                  // circumvent the autoplay policy on iOS.
-                  // Details: https://stackoverflow.com/a/10448078
-                  document.addEventListener('touchstart', () => this.audio.play(), {once: true})
-                }
-              }
-            }
-            customElements.define("notif-ringtone", NotifRingtone)
-            """
-            )
-        ],
+        _notif_ringtone_script,
     ]
 
 
