@@ -6,15 +6,18 @@ from typing import Any
 import sqlalchemy.sql.expression as sae
 from databases import Database
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.schema import ForeignKey
 from sqlalchemy.sql.sqltypes import String
 
 from .base import Base
+from .category import Category
 
 
 class Product(Base):
     __tablename__ = "products"
 
     product_id: Mapped[int]
+    category_id: Mapped[int] = mapped_column(ForeignKey(Category.category_id))
     name: Mapped[str] = mapped_column(String(length=40))
     filename: Mapped[str] = mapped_column(String(length=100))
     price: Mapped[int]
@@ -70,6 +73,14 @@ class Table:
 
     async def select_all(self) -> list[Product]:
         query = sae.select(Product).order_by(Product.product_id.asc())
+        return [Product(**m) async for m in self._db.iterate(query)]
+
+    async def by_category_ids(self, category_ids: list[int]) -> list[Product]:
+        query = (
+            sae.select(Product)
+            .where(Product.category_id.in_(category_ids))
+            .order_by(Product.product_id.asc())
+        )
         return [Product(**m) async for m in self._db.iterate(query)]
 
     async def by_product_id(self, product_id: int) -> Product | None:
