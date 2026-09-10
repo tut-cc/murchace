@@ -6,7 +6,7 @@ from uuid import UUID, uuid4
 from datastar_py import attribute_generator as data
 from datastar_py.fastapi import DatastarResponse
 from datastar_py.sse import ServerSentEventGenerator as SSE
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import HTMLResponse
 from htpy import (
     Element,
@@ -138,8 +138,8 @@ def order_session(session: OrderSession) -> Element:
             div(class_="flex items-center")[
                 button(
                     data.on("click", f"@delete('/register/items/{item_id}')"),
-                    class_="font-bold text-white bg-red-600 px-2 rounded-sm",
-                )["X"]
+                    class_="font-bold text-white text-2xl bg-red-600 px-2 rounded-sm",
+                )["✕"]
             ],
         ]
 
@@ -176,9 +176,13 @@ def confirm_modal(session: OrderSession) -> Element:
         )[
             div(
                 id="order-confirm-modal",
-                class_="mx-auto w-1/3 h-4/5 p-4 flex flex-col gap-y-2 rounded-lg bg-white animate-[scale-50_150ms_ease-in]",
+                class_="mx-auto w-5/6 md:w-2/3 xl:w-1/3 h-4/5 p-4 flex flex-col gap-y-2 rounded-lg bg-white relative animate-[scale-50_150ms_ease-in]",
                 onclick="event.stopPropagation()",
             )[
+                button(
+                    class_="absolute top-0 right-0 px-4 py-3 text-3xl font-bold bg-transparent rounded-tr-lg",
+                    onclick="window['order-modal'].remove()",
+                )["✕"],
                 article(
                     class_="grow min-h-0 flex flex-col gap-y-2 px-3 text-center text-lg"
                 )[
@@ -193,10 +197,6 @@ def confirm_modal(session: OrderSession) -> Element:
                     data.on("click", "@post('/register')"),
                     class_="w-full py-4 text-center text-xl font-semibold text-white bg-blue-600 rounded-sm",
                 )["確認"],
-                button(
-                    class_="w-full py-4 text-center text-xl font-semibold bg-white border border-gray-300 rounded-sm",
-                    onclick="window['order-modal'].remove()",
-                )["閉じる"],
             ]
         ]
     ]
@@ -211,7 +211,7 @@ def issued_modal(order_id: int, session: OrderSession) -> Element:
             aria_modal="true",
         )[
             div(
-                class_="mx-auto w-1/3 h-4/5 p-4 flex flex-col gap-y-2 rounded-lg bg-white animate-[scale-95_150ms_ease-in]"
+                class_="mx-auto w-5/6 md:w-2/3 xl:w-1/3 h-4/5 p-4 flex flex-col gap-y-2 rounded-lg bg-white animate-[scale-95_150ms_ease-in]"
             )[
                 article(
                     class_="grow min-h-0 flex flex-col gap-y-2 px-3 text-center text-lg"
@@ -276,7 +276,7 @@ def error_modal(message: str) -> Element:
         )[
             div(
                 id="order-error-modal",
-                class_="mx-auto w-1/3 h-4/5 p-4 flex flex-col gap-y-2 rounded-lg bg-white [.datastar-settling_&]:scale-50 transition-transform duration-150",
+                class_="mx-auto w-5/6 md:w-2/3 xl:w-1/3 h-4/5 p-4 flex flex-col gap-y-2 rounded-lg bg-white [.datastar-settling_&]:scale-50 transition-transform duration-150",
             )[
                 article(
                     class_="grow min-h-0 flex flex-col gap-y-2 px-3 text-center text-lg"
@@ -306,12 +306,16 @@ SessionDeps = Annotated[OrderSession, Depends(order_session_dep)]
 
 @router.get("/register", response_class=HTMLResponse)
 async def instruct_creation_of_new_session_or_get_existing_session(
-    request: Request, session_key: Annotated[UUID | None, Cookie()] = None
+    request: Request,
+    session_key: Annotated[UUID | None, Cookie()] = None,
+    c: Annotated[list[int] | None, Query()] = None,  # category
 ):
     if session_key is None or (session := order_sessions.get(session_key)) is None:
         return HTMLResponse(page_register(request))
 
-    products = await ProductTable.select_all()
+    products = await (
+        ProductTable.by_category_ids(c) if c is not None else ProductTable.select_all()
+    )
     return HTMLResponse(register(request, products, session))
 
 

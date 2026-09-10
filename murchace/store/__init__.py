@@ -6,7 +6,7 @@ import sqlalchemy.sql.expression as sa_exp
 from databases import Database
 from sqlalchemy.sql.functions import func as sa_func
 
-from . import order, ordered_item, product
+from . import category, order, ordered_item, product
 from .base import Base
 from .order import ModifiedFlag, Order
 from .ordered_item import OrderedItem
@@ -15,6 +15,7 @@ from .product import Product
 DATABASE_URL = "sqlite:///db/app.db"
 database = Database(DATABASE_URL)
 
+CategoryTable = category.Table(database)
 ProductTable = product.Table(database)
 OrderedItemTable = ordered_item.Table(database)
 OrderTable = order.Table(database)
@@ -87,6 +88,7 @@ async def _startup_db() -> None:
         query = str(schema.compile())
         await database.execute(query)
 
+    await CategoryTable.ainit()
     await ProductTable.ainit()
     await OrderedItemTable.ainit()
 

@@ -279,6 +279,7 @@ async def new_product(
 ):
     new_product = Product(
         product_id=product_id,
+        category_id=1,  # TODO: implement category form
         name=name,
         filename=filename,
         price=price,
@@ -309,6 +310,7 @@ async def update_product(
 ):
     new_product = Product(
         product_id=product_id,
+        category_id=1,  # TODO: implement category form
         name=name,
         filename=filename,
         price=price,
