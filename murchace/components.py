@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi import Request
 from htpy import Element, HTMLElement, Node, body, head, html, link, meta, script
 from htpy import title as title_elt
@@ -30,30 +32,11 @@ def page_layout(
     ]
 
 
+with open(Path(__file__).parent / "hhmmss-clock.js", encoding="utf-8") as f:
+    _clock_script = script[Markup(f.read())]
+
+
 clock: list[Element] = [
-    Element("hh-mm-ss-clock")(class_="font-mono")["XX:XX:XX"],
-    script[
-        Markup(
-            """
-                (() => {
-                  class Clock extends HTMLElement {
-                    connectedCallback() {
-                      this.updateClock()
-                      setTimeout(
-                        () => {
-                          setInterval(() => this.updateClock(), 1000)
-                          this.updateClock()
-                        },
-                        1000 - new Date().getMilliseconds()
-                      )
-                    }
-                    updateClock() {
-                      this.textContent = new Date().toTimeString().split(' ')[0]
-                    }
-                  }
-                  customElements.define('hh-mm-ss-clock', Clock)
-                })()
-            """
-        )
-    ],
+    Element("hhmmss-clock")(class_="font-mono")["XX:XX:XX"],
+    _clock_script,
 ]
