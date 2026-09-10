@@ -37,8 +37,8 @@ def page_index(request: Request) -> HTMLElement:
     inner = div(
         class_="w-full h-dvh px-16 py-8 grid grid-cols-1 lg:grid-cols-2 gap-12 text-4xl"
     )[
-        _link_box("/register", "新しい注文"),
-        _link_box("/orders/incoming", "確定注文一覧"),
+        _link_box("/register", "新規注文"),
+        _link_box("/orders", "注文一覧"),
         _link_box("/wait-estimates", "予測待ち時間"),
         _link_box("/stat", "統計情報"),
         _link_box("/products", "商品編集（実装中）"),
