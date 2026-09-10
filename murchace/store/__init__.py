@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 import sqlalchemy
 import sqlalchemy.orm as sa_orm
-import sqlalchemy.sql.expression as sae
+import sqlalchemy.sql.expression as sa_exp
 from databases import Database
 from sqlalchemy.sql.functions import func as sa_func
 
@@ -22,10 +22,10 @@ OrderTable = order.Table(database)
 
 async def delete_product(product_id: int):
     async with database.transaction():
-        query = sae.delete(Product).where(Product.product_id == product_id)
+        query = sa_exp.delete(Product).where(Product.product_id == product_id)
         await database.execute(query)
 
-        query = sae.delete(OrderedItem).where(OrderedItem.product_id == product_id)
+        query = sa_exp.delete(OrderedItem).where(OrderedItem.product_id == product_id)
         await database.execute(query)
 
 
@@ -33,7 +33,7 @@ async def delete_product(product_id: int):
 def unixepoch(attr: sa_orm.Mapped) -> sqlalchemy.Label:
     colname = attr.label(None)  # Fully resolved name in the `table.field` format
     alias = getattr(attr, "name")  # noqa: B009
-    return sae.literal_column(f"unixepoch({colname})").label(alias)
+    return sa_exp.literal_column(f"unixepoch({colname})").label(alias)
 
 
 async def supply_and_complete_order_if_done(order_id: int, product_id: int) -> bool:
@@ -41,10 +41,10 @@ async def supply_and_complete_order_if_done(order_id: int, product_id: int) -> b
         await OrderedItemTable._supply(order_id, product_id)
 
         update_query = (
-            sae.update(Order)
+            sa_exp.update(Order)
             .where(
                 (Order.order_id == order_id)
-                & sae.select(
+                & sa_exp.select(
                     sa_func.count(OrderedItem.item_no)
                     == sa_func.count(OrderedItem.supplied_at)
                 )
