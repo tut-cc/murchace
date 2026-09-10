@@ -81,7 +81,7 @@ def _to_time(unix_epoch: int) -> str:
 # This function exists to reduce code duplication, at the cost of terrible
 # organization of control flows.
 #
-# It abstracts out the 2-dimenstional row-by-row extraction loop. But in doing
+# It abstracts out the 2-dimensional row-by-row extraction loop. But in doing
 # so, the caller must ensure that the outer loop variables and callbacks
 # intertwines oh-so perfectly in a very subtle way. This leads to the
 # `asyncio.Lock` workarounds for avoiding race conditions between tasks. I
@@ -90,7 +90,7 @@ def _to_time(unix_epoch: int) -> str:
 # If anything, I think the loop should be handled on the caller side rather
 # than managing the loop deep in the call stack. Also, it would be nice to be
 # able to cache the constructed object so that only one connection needs to
-# construct the object and let the others waiting for it.
+# construct the object and let the others wait for it.
 async def _agen_query_executor[T](
     query: str,
     unique_key: Literal["order_id", "product_id"],

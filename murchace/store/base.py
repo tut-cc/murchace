@@ -6,7 +6,7 @@ class Base(MappedAsDataclass, DeclarativeBase):
     id: Mapped[int | None] = mapped_column(kw_only=True, default=None, primary_key=True)
 
 
-# Let SQLAlchemy generate constraint names to support downgrading forgeign keys
+# Let SQLAlchemy generate constraint names to support downgrading foreign keys
 # Also see: https://alembic.sqlalchemy.org/en/latest/naming.html
 Base.metadata.naming_convention = MetaData(
     naming_convention={
