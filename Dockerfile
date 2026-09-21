@@ -1,4 +1,4 @@
-FROM almalinux:10-minimal
+FROM almalinux:9-minimal
 
 ENV TZ=Asia/Tokyo
 WORKDIR /usr/local/bin
