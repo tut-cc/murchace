@@ -1,4 +1,4 @@
-FROM almalinux:10
+FROM almalinux:9
 
 ENV TZ=Asia/Tokyo
 
