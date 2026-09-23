@@ -13,7 +13,9 @@ class ReceiptPrinterQueue:
     Serializes all print jobs to prevent port 9100 connection collisions.
     """
 
-    def __init__(self, host: str = RECEIPT_PRINTER_HOST, port: int = RECEIPT_PRINTER_PORT):
+    def __init__(
+        self, host: str = RECEIPT_PRINTER_HOST, port: int = RECEIPT_PRINTER_PORT
+    ):
         self.host = host
         self.port = port
         self.queue: asyncio.Queue[ReceiptData] = asyncio.Queue()
@@ -34,7 +36,11 @@ class ReceiptPrinterQueue:
             return False
 
         self.queue.put_nowait(receipt)
-        logger.info("Enqueued receipt print job for order #%d (queue size: %d)", receipt.order_id, self.queue.qsize())
+        logger.info(
+            "Enqueued receipt print job for order #%d (queue size: %d)",
+            receipt.order_id,
+            self.queue.qsize(),
+        )
         return True
 
     def start(self) -> None:
@@ -42,7 +48,9 @@ class ReceiptPrinterQueue:
         if self._worker_task is None or self._worker_task.done():
             self._running = True
             self._worker_task = asyncio.create_task(self._worker_loop())
-            logger.info("Receipt printer worker started (target: %s:%d)", self.host, self.port)
+            logger.info(
+                "Receipt printer worker started (target: %s:%d)", self.host, self.port
+            )
 
     async def stop(self) -> None:
         """Stop worker and wait for pending jobs or timeout."""
@@ -76,7 +84,12 @@ class ReceiptPrinterQueue:
                 self.queue.task_done()
 
     def _print_job(self, receipt: ReceiptData) -> None:
-        logger.info("Connecting to printer %s:%d for order #%d...", self.host, self.port, receipt.order_id)
+        logger.info(
+            "Connecting to printer %s:%d for order #%d...",
+            self.host,
+            self.port,
+            receipt.order_id,
+        )
         # Instantiate network printer for this single serialized job
         printer = JapaneseNetworkPrinter(
             host=self.host,

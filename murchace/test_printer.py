@@ -79,12 +79,15 @@ async def test_printer_queue_serialization():
     queue = ReceiptPrinterQueue(host="192.168.1.100", port=9100)
 
     printed_orders = []
+
     # Mock _print_job to simulate print latency and record order
     async def fake_worker_job(receipt: ReceiptData):
         await asyncio.sleep(0.01)
         printed_orders.append(receipt.order_id)
 
-    with patch.object(queue, "_print_job", side_effect=lambda r: printed_orders.append(r.order_id)):
+    with patch.object(
+        queue, "_print_job", side_effect=lambda r: printed_orders.append(r.order_id)
+    ):
         queue.start()
 
         # Enqueue 5 orders concurrently
