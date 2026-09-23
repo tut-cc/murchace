@@ -28,6 +28,9 @@ from htpy import (
 )
 
 from ..components import clock, page_layout
+from ..env import RECEIPT_STORE_NAME
+from ..printer import ReceiptData, ReceiptItem
+from ..printer_queue import printer_queue
 from ..store import OrderedItemTable, OrderTable, Product, ProductTable
 
 router = APIRouter()
@@ -361,6 +364,25 @@ async def _place_order(session: SessionDeps) -> Response:
     order_id = await OrderedItemTable.issue(product_ids)
     # TODO: add a branch for out of stock error
     await OrderTable.insert(order_id)
+
+    # Enqueue receipt for printing
+    receipt_items = [
+        ReceiptItem(
+            name=cp.name,
+            count=cp.count,
+            unit_price_str=cp.price,
+        )
+        for cp in session.counted_products.values()
+    ]
+    receipt_data = ReceiptData(
+        order_id=order_id,
+        items=receipt_items,
+        total_count=session.total_count,
+        total_price_str=session.total_price_str(),
+        store_name=RECEIPT_STORE_NAME,
+    )
+    printer_queue.enqueue(receipt_data)
+
     fragment = issued_modal(order_id, session)
     return DatastarResponse(SSE.patch_elements(fragment))
 
