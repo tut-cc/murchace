@@ -5,6 +5,8 @@ from datetime import UTC, datetime
 
 from escpos.printer import Network
 
+from .store import Product
+
 # ESC/POS Commands for Japanese (Kanji mode)
 # FS & : Select Kanji mode
 # FS . : Cancel Kanji mode
@@ -38,7 +40,7 @@ def pad_line(left: str, right: str, total_width: int = 42) -> str:
 class ReceiptItem:
     name: str
     count: int
-    unit_price_str: str
+    price: int
 
 
 @dataclass
@@ -46,7 +48,7 @@ class ReceiptData:
     order_id: int
     items: Sequence[ReceiptItem]
     total_count: int
-    total_price_str: str
+    total_price: int
     store_name: str = "murchace"
     ordered_at: datetime | None = None
 
@@ -103,14 +105,18 @@ def format_and_print_receipt(
     # Items
     for item in receipt.items:
         left_text = item.name
-        right_text = f"{item.unit_price_str} x {item.count}"
+        right_text = f"{Product.to_price_str(item.price)} x {item.count}"
         line = pad_line(left_text, right_text, total_width=paper_width)
         printer.text_ja(f"{line}\n")
 
     printer.text_ja("-" * paper_width + "\n")
 
     # Total Count & Total Price
-    total_line = pad_line(f"合計 ({receipt.total_count}点)", receipt.total_price_str, total_width=paper_width)
+    total_line = pad_line(
+        f"合計 ({receipt.total_count}点)",
+        Product.to_price_str(receipt.total_price),
+        total_width=paper_width,
+    )
     printer.set(align="left", bold=True, double_height=True)
     printer.text_ja(f"{total_line}\n\n")
 
