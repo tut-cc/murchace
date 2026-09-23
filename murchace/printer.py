@@ -99,7 +99,7 @@ def format_and_print_receipt(
     # Date and Time
     now = receipt.ordered_at or datetime.now(UTC).astimezone()
     printer.set(align="left", bold=False, normal_textsize=True)
-    printer.text_ja(f"日時: {now.strftime('%Y-%m-%d %H:%M:%S')}\n")
+    printer.text_ja(f"{now.strftime('%Y-%m-%d %H:%M:%S')}\n")
     printer.text_ja("-" * paper_width + "\n")
 
     # Items
