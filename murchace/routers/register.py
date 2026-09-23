@@ -30,6 +30,9 @@ from markupsafe import Markup
 from sqlalchemy.sql.functions import func as sa_func
 
 from ..components import clock, page_layout
+from ..env import RECEIPT_STORE_NAME
+from ..printer import ReceiptData, ReceiptItem
+from ..printer_queue import printer_queue
 from ..store import (
     ModifiedFlag,
     Order,
@@ -323,9 +326,30 @@ async def place_order(request: Request):
 
         OrderTable.modified_flag_bc.send(ModifiedFlag.INCOMING)
 
-        return DatastarResponse(
-            [
-                SSE.patch_signals({"items": []}),
-                SSE.patch_elements(issued_modal(order_id, items)),
-            ]
+    # Enqueue receipt for printing
+    receipt_items = [
+        ReceiptItem(
+            name=item["name"],
+            count=item["count"],
+            price=item["price"],
         )
+        for item in items
+    ]
+    total_count = sum((item["count"] for item in items), 0)
+    total_price = sum((item["price"] for item in items), 0)
+    assert isinstance(total_count, int) and isinstance(total_price, int)
+    receipt_data = ReceiptData(
+        order_id=order_id,
+        items=receipt_items,
+        total_count=total_count,
+        total_price=total_price,
+        store_name=RECEIPT_STORE_NAME,
+    )
+    printer_queue.enqueue(receipt_data)
+
+    return DatastarResponse(
+        [
+            SSE.patch_signals({"items": []}),
+            SSE.patch_elements(issued_modal(order_id, items)),
+        ]
+    )

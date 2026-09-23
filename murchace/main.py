@@ -7,6 +7,7 @@ from htpy import Element, HTMLElement, a, div, p
 
 from .components import page_layout
 from .env import DEBUG
+from .printer_queue import printer_queue
 from .routers import orders, products, register, stat
 from .store import startup_and_shutdown_db
 
@@ -17,7 +18,9 @@ from .store import startup_and_shutdown_db
 async def lifespan(_: FastAPI):
     startup_db, shutdown_db = startup_and_shutdown_db
     await startup_db()
+    printer_queue.start()
     yield
+    await printer_queue.stop()
     await shutdown_db()
 
 
