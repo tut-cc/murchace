@@ -362,10 +362,10 @@ async def _place_order(session: SessionDeps, queue: PrinterQueueDeps) -> Respons
     product_ids = [item.product_id for item in session.items.values()]
     order_id = await OrderedItemTable.issue(product_ids)
     # TODO: add a branch for out of stock error
-    await OrderTable.insert(order_id)
+    ordered_at = await OrderTable.insert(order_id)
 
-    # Enqueue receipt for printing
-    queue.enqueue(build_receipt_data(order_id, session))
+    # Enqueue receipt for printing (ordered_at from DB ensures accurate timestamp)
+    queue.enqueue(build_receipt_data(order_id, session, ordered_at=ordered_at))
 
     fragment = issued_modal(order_id, session)
     return DatastarResponse(SSE.patch_elements(fragment))
