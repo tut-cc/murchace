@@ -1,9 +1,12 @@
+import logging
 import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from escpos.printer import Network
+
+logger = logging.getLogger(__name__)
 
 # ESC/POS Commands for Japanese (Kanji mode)
 # FS & : Select Kanji mode
@@ -48,6 +51,8 @@ class ReceiptData:
     total_count: int
     total_price_str: str
     store_name: str = "murchace"
+    store_address: str = ""
+    logo_path: str = ""
     ordered_at: datetime | None = None
 
 
@@ -86,21 +91,39 @@ def format_and_print_receipt(
     # Reset printer
     printer.hw("INIT")
 
-    # Header / Store Name
+    # 1. Store Logo (if configured and file exists)
+    if receipt.logo_path:
+        try:
+            printer.set(align="center")
+            printer.image(receipt.logo_path)
+            printer.text_ja("\n")
+        except (OSError, ValueError) as exc:
+            logger.warning(
+                "Failed to print logo image '%s': %s", receipt.logo_path, exc
+            )
+
+    # 2. Store Name (Center, Bold, Double size)
     printer.set(align="center", bold=True, double_height=True, double_width=True)
     printer.text_ja(f"{receipt.store_name}\n")
 
-    # Order Number
-    printer.set(align="center", bold=True, double_height=True, double_width=True)
-    printer.text_ja(f"\n注文番号 #{receipt.order_id}\n\n")
+    # 3. Store Address (Center, Normal text)
+    if receipt.store_address:
+        printer.set(align="center", bold=False, normal_textsize=True)
+        printer.text_ja(f"{receipt.store_address}\n")
 
-    # Date and Time
+    printer.text_ja("\n")
+
+    # 4. Date and Time (Right aligned)
     now = receipt.ordered_at or datetime.now(UTC).astimezone()
+    date_str = now.strftime("%Y-%m-%d %H:%M:%S")
+    printer.set(align="right", bold=False, normal_textsize=True)
+    printer.text_ja(f"{date_str}\n")
+
+    # 5. Divider
     printer.set(align="left", bold=False, normal_textsize=True)
-    printer.text_ja(f"{now.strftime('%Y-%m-%d %H:%M:%S')}\n")
     printer.text_ja("-" * paper_width + "\n")
 
-    # Items
+    # 6. Items
     for item in receipt.items:
         left_text = item.name
         right_text = f"{item.unit_price_str} x {item.count}"
@@ -109,18 +132,22 @@ def format_and_print_receipt(
 
     printer.text_ja("-" * paper_width + "\n")
 
-    # Total Count & Total Price
+    # 7. Total Count & Total Price
     total_line = pad_line(
         f"合計 ({receipt.total_count}点)",
         receipt.total_price_str,
         total_width=paper_width,
     )
     printer.set(align="left", bold=True, double_height=True)
-    printer.text_ja(f"{total_line}\n\n")
+    printer.text_ja(f"{total_line}\n")
 
-    # Footer
-    printer.set(align="center", bold=False, normal_textsize=True)
-    printer.text_ja("ご利用ありがとうございました\n\n\n")
+    # 8. Divider before Order Number
+    printer.set(align="left", bold=False, normal_textsize=True)
+    printer.text_ja("-" * paper_width + "\n\n")
 
-    # Cut paper
+    # 9. Order Number (Center, Bold, Double size)
+    printer.set(align="center", bold=True, double_height=True, double_width=True)
+    printer.text_ja(f"注文番号 #{receipt.order_id}\n\n")
+
+    # 10. Cut paper
     printer.cut()

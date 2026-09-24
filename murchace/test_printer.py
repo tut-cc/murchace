@@ -57,6 +57,7 @@ def test_format_and_print_receipt():
         total_count=3,
         total_price_str="¥1,200",
         store_name="テスト店舗",
+        store_address="東京都渋谷区神南1-2-3",
         ordered_at=datetime(2026, 9, 23, 12, 0, 0, tzinfo=UTC),
     )
 
@@ -67,6 +68,13 @@ def test_format_and_print_receipt():
     assert printer.set.called
     assert printer.text_ja.called
     printer.cut.assert_called_once()
+
+    # Check right alignment was used for datetime
+    printer.set.assert_any_call(align="right", bold=False, normal_textsize=True)
+    # Check order number printed
+    printed_texts = [call[0][0] for call in printer.text_ja.call_args_list]
+    assert any("注文番号 #42" in text for text in printed_texts)
+    assert any("東京都渋谷区神南1-2-3" in text for text in printed_texts)
 
 
 @pytest.fixture

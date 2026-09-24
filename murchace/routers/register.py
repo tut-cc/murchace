@@ -28,7 +28,7 @@ from htpy import (
 )
 
 from ..components import clock, page_layout
-from ..env import RECEIPT_STORE_NAME
+from ..env import RECEIPT_LOGO_PATH, RECEIPT_STORE_ADDRESS, RECEIPT_STORE_NAME
 from ..printer import ReceiptData, ReceiptItem
 from ..printer_queue import printer_queue
 from ..store import OrderedItemTable, OrderTable, Product, ProductTable
@@ -380,6 +380,8 @@ async def _place_order(session: SessionDeps) -> Response:
         total_count=session.total_count,
         total_price_str=session.total_price_str(),
         store_name=RECEIPT_STORE_NAME,
+        store_address=RECEIPT_STORE_ADDRESS,
+        logo_path=RECEIPT_LOGO_PATH,
     )
     printer_queue.enqueue(receipt_data)
 
