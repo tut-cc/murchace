@@ -318,7 +318,7 @@ async def place_order(request: Request, queue: PrinterQueueDeps):
             .returning(Order.order_id, Order.ordered_at)
         )
         assert order_row is not None, "INSERT ... RETURNING returned no row"
-        order_id, _ = order_row["order_id"], order_row["ordered_at"]
+        order_id, ordered_at = order_row["order_id"], order_row["ordered_at"]
 
         await database.execute_many(
             sa_exp.insert(OrderedItem).values(order_id=order_id),
@@ -328,7 +328,7 @@ async def place_order(request: Request, queue: PrinterQueueDeps):
         OrderTable.modified_flag_bc.send(ModifiedFlag.INCOMING)
 
     # Enqueue receipt for printing
-    queue.enqueue(build_receipt_data(order_id, items))
+    queue.enqueue(build_receipt_data(order_id, items, ordered_at=ordered_at))
 
     return DatastarResponse(
         [
