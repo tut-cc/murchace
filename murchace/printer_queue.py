@@ -20,7 +20,6 @@ class ReceiptPrinterQueue:
         self.port = port
         self.queue: asyncio.Queue[ReceiptData] = asyncio.Queue()
         self._worker_task: asyncio.Task | None = None
-        self._running = False
 
     @property
     def is_configured(self) -> bool:
@@ -46,7 +45,6 @@ class ReceiptPrinterQueue:
     def start(self) -> None:
         """Start the background printing worker."""
         if self._worker_task is None or self._worker_task.done():
-            self._running = True
             self._worker_task = asyncio.create_task(self._worker_loop())
             logger.info(
                 "Receipt printer worker started (target: %s:%d)", self.host, self.port
@@ -62,7 +60,6 @@ class ReceiptPrinterQueue:
                 "Timed out waiting for print queue to drain; %d job(s) may be lost",
                 self.queue.qsize(),
             )
-        self._running = False
         if self._worker_task and not self._worker_task.done():
             self._worker_task.cancel()
             try:
@@ -72,7 +69,7 @@ class ReceiptPrinterQueue:
         logger.info("Receipt printer worker stopped")
 
     async def _worker_loop(self) -> None:
-        while self._running:
+        while True:
             try:
                 receipt = await self.queue.get()
             except asyncio.CancelledError:
