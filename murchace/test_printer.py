@@ -1,4 +1,3 @@
-import asyncio
 from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
@@ -8,6 +7,7 @@ from murchace.printer import (
     FS_AND,
     FS_C_SJIS,
     JapaneseNetworkPrinter,
+    PrinterProtocol,
     ReceiptData,
     ReceiptItem,
     format_and_print_receipt,
@@ -47,7 +47,7 @@ def test_japanese_network_printer_kanji_methods():
 
 
 def test_format_and_print_receipt():
-    printer = MagicMock(spec=JapaneseNetworkPrinter)
+    printer = MagicMock(spec=PrinterProtocol)
     receipt = ReceiptData(
         order_id=42,
         items=[
@@ -88,11 +88,6 @@ async def test_printer_queue_serialization():
 
     printed_orders = []
 
-    # Mock _print_job to simulate print latency and record order
-    async def fake_worker_job(receipt: ReceiptData):
-        await asyncio.sleep(0.01)
-        printed_orders.append(receipt.order_id)
-
     with patch.object(
         queue, "_print_job", side_effect=lambda r: printed_orders.append(r.order_id)
     ):
@@ -109,10 +104,8 @@ async def test_printer_queue_serialization():
                 )
             )
 
-        # Wait until all jobs are processed
-        while len(printed_orders) < 5:
-            await asyncio.sleep(0.02)
-
+        # Wait until all jobs are processed without busy-waiting
+        await queue.queue.join()
         await queue.stop()
 
     assert printed_orders == [1, 2, 3, 4, 5]
