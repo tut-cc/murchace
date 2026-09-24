@@ -30,7 +30,7 @@ from markupsafe import Markup
 from sqlalchemy.sql.functions import func as sa_func
 
 from ..components import clock, page_layout
-from ..env import RECEIPT_STORE_NAME
+from ..env import RECEIPT_LOGO_PATH, RECEIPT_STORE_ADDRESS, RECEIPT_STORE_NAME
 from ..printer import ReceiptData, ReceiptItem
 from ..printer_queue import printer_queue
 from ..store import (
@@ -344,6 +344,8 @@ async def place_order(request: Request):
         total_count=total_count,
         total_price=total_price,
         store_name=RECEIPT_STORE_NAME,
+        store_address=RECEIPT_STORE_ADDRESS,
+        logo_path=RECEIPT_LOGO_PATH,
     )
     printer_queue.enqueue(receipt_data)
 
