@@ -3,6 +3,7 @@ import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Protocol
 
 from escpos.printer import Network
 
@@ -15,6 +16,20 @@ logger = logging.getLogger(__name__)
 FS_AND = b"\x1c\x26"
 FS_DOT = b"\x1c\x2e"
 FS_C_SJIS = b"\x1c\x43\x01"
+
+
+class PrinterProtocol(Protocol):
+    """Structural interface for the printer used by :func:`format_and_print_receipt`.
+
+    Decouples the formatting logic from the concrete :class:`JapaneseNetworkPrinter`
+    implementation, making it easy to substitute mocks or alternative backends.
+    """
+
+    def hw(self, hw: str) -> None: ...
+    def set(self, **kwargs) -> None: ...
+    def text_ja(self, text: str) -> None: ...
+    def image(self, path: str) -> None: ...
+    def cut(self) -> None: ...
 
 
 def get_display_width(text: str) -> int:
@@ -83,7 +98,7 @@ class JapaneseNetworkPrinter(Network):
 
 
 def format_and_print_receipt(
-    printer: JapaneseNetworkPrinter,
+    printer: PrinterProtocol,
     receipt: ReceiptData,
     paper_width: int = 42,
 ) -> None:
