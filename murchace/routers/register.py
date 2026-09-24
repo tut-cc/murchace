@@ -30,9 +30,7 @@ from markupsafe import Markup
 from sqlalchemy.sql.functions import func as sa_func
 
 from ..components import clock, page_layout
-from ..env import RECEIPT_LOGO_PATH, RECEIPT_STORE_ADDRESS, RECEIPT_STORE_NAME
-from ..printer import ReceiptData, ReceiptItem
-from ..printer_queue import printer_queue
+from ..receipt_service import PrinterQueueDeps, build_receipt_data
 from ..store import (
     ModifiedFlag,
     Order,
@@ -285,7 +283,7 @@ async def get_confirm_dialog(request: Request):
 
 
 @router.post("/register")
-async def place_order(request: Request):
+async def place_order(request: Request, queue: PrinterQueueDeps):
     if isinstance(items := parse_items(await read_signals(request)), str):
         return DatastarResponse(SSE.patch_elements(error_modal(items)))
 
@@ -327,27 +325,7 @@ async def place_order(request: Request):
         OrderTable.modified_flag_bc.send(ModifiedFlag.INCOMING)
 
     # Enqueue receipt for printing
-    receipt_items = [
-        ReceiptItem(
-            name=item["name"],
-            count=item["count"],
-            price=item["price"],
-        )
-        for item in items
-    ]
-    total_count = sum((item["count"] for item in items), 0)
-    total_price = sum((item["price"] for item in items), 0)
-    assert isinstance(total_count, int) and isinstance(total_price, int)
-    receipt_data = ReceiptData(
-        order_id=order_id,
-        items=receipt_items,
-        total_count=total_count,
-        total_price=total_price,
-        store_name=RECEIPT_STORE_NAME,
-        store_address=RECEIPT_STORE_ADDRESS,
-        logo_path=RECEIPT_LOGO_PATH,
-    )
-    printer_queue.enqueue(receipt_data)
+    queue.enqueue(build_receipt_data(order_id, items))
 
     return DatastarResponse(
         [
