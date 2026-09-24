@@ -53,7 +53,15 @@ class ReceiptPrinterQueue:
             )
 
     async def stop(self) -> None:
-        """Stop worker and wait for pending jobs or timeout."""
+        """Stop worker after draining all pending jobs (up to 10 s timeout)."""
+        # Drain the queue before cancelling so no jobs are silently discarded
+        try:
+            await asyncio.wait_for(self.queue.join(), timeout=10.0)
+        except asyncio.TimeoutError:
+            logger.warning(
+                "Timed out waiting for print queue to drain; %d job(s) may be lost",
+                self.queue.qsize(),
+            )
         self._running = False
         if self._worker_task and not self._worker_task.done():
             self._worker_task.cancel()
@@ -61,7 +69,7 @@ class ReceiptPrinterQueue:
                 await self._worker_task
             except asyncio.CancelledError:
                 pass
-            logger.info("Receipt printer worker stopped")
+        logger.info("Receipt printer worker stopped")
 
     async def _worker_loop(self) -> None:
         while self._running:
