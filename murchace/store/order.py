@@ -39,9 +39,17 @@ class Table:
     def __init__(self, database: Database):
         self._db = database
 
-    async def insert(self, order_id: int) -> None:
-        await self._db.execute(sa_exp.insert(Order), {"order_id": order_id})
+    async def insert(self, order_id: int) -> datetime:
+        """Insert a new order and return the DB-generated ordered_at timestamp."""
+        query = (
+            sa_exp.insert(Order)
+            .values(order_id=order_id)
+            .returning(Order.ordered_at)
+        )
+        row = await self._db.fetch_one(query)
+        assert row is not None, "INSERT ... RETURNING returned no row"
         self.modified_flag_bc.send(ModifiedFlag.INCOMING)
+        return row._mapping["ordered_at"]
 
     @staticmethod
     def _update(order_id: int) -> sa_exp.Update:
