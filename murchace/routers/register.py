@@ -312,11 +312,14 @@ async def place_order(request: Request, queue: PrinterQueueDeps):
         max_order_id_p1 = sa_exp.select(
             sa_func.coalesce(sa_func.max(Order.order_id), 0) + 1
         ).scalar_subquery()
-        order_id: int = await database.fetch_val(
+        order_row = await database.fetch_one(
             sa_exp.insert(Order)
             .values(order_id=max_order_id_p1)
-            .returning(Order.order_id)
+            .returning(Order.order_id, Order.ordered_at)
         )
+        assert order_row is not None, "INSERT ... RETURNING returned no row"
+        order_id, _ = order_row["order_id"], order_row["ordered_at"]
+
         await database.execute_many(
             sa_exp.insert(OrderedItem).values(order_id=order_id),
             [{"item_no": i, "product_id": pid} for i, pid in enumerate(product_ids)],
