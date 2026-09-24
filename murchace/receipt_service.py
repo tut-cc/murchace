@@ -1,5 +1,6 @@
 """Receipt service: builds ReceiptData from an order session and enqueues printing."""
 
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import Depends, Request
@@ -21,11 +22,16 @@ def build_receipt_data(
     order_id: int,
     items: list,
     *,
+    ordered_at: datetime | None = None,
     store_name: str = RECEIPT_STORE_NAME,
     store_address: str = RECEIPT_STORE_ADDRESS,
     logo_path: str = RECEIPT_LOGO_PATH,
 ) -> ReceiptData:
-    """Construct a :class:`ReceiptData` from an order session."""
+    """Construct a :class:`ReceiptData` from an order session.
+
+    *ordered_at* should be the exact DB-recorded time rather than the print time
+    of the receipt.
+    """
     receipt_items = [
         ReceiptItem(
             name=item["name"],
@@ -42,6 +48,7 @@ def build_receipt_data(
         items=receipt_items,
         total_count=total_count,
         total_price=total_price,
+        ordered_at=ordered_at,
         store_name=store_name,
         store_address=store_address,
         logo_path=logo_path,
