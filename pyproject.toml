@@ -14,6 +14,7 @@ dependencies = [
     "datastar-py>=1.0.2",
     "htpy>=26.5.1",
     "python-escpos>=3.1",
+    "python-dotenv>=1.1.1",
 ]
 
 [dependency-groups]
