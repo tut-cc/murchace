@@ -28,9 +28,7 @@ from htpy import (
 )
 
 from ..components import clock, page_layout
-from ..env import RECEIPT_LOGO_PATH, RECEIPT_STORE_ADDRESS, RECEIPT_STORE_NAME
-from ..printer import ReceiptData, ReceiptItem
-from ..printer_queue import printer_queue
+from ..receipt_service import PrinterQueueDeps, build_receipt_data
 from ..store import OrderedItemTable, OrderTable, Product, ProductTable
 
 router = APIRouter()
@@ -333,6 +331,7 @@ async def get_confirm_dialog(session: SessionDeps):
 
 @router.post("/register")
 async def create_new_session_or_place_order(
+    queue: PrinterQueueDeps,
     session_key: Annotated[UUID | None, Cookie()] = None,
 ):
     if session_key is None or (session := order_sessions.get(session_key)) is None:
@@ -348,7 +347,7 @@ async def create_new_session_or_place_order(
         return DatastarResponse(SSE.patch_elements(fragment))
 
     order_sessions.pop(session_key)
-    res = await _place_order(session)
+    res = await _place_order(session, queue)
     res.delete_cookie(SESSION_COOKIE_KEY)
     return res
 
@@ -359,31 +358,14 @@ def _create_new_session() -> UUID:
     return session_key
 
 
-async def _place_order(session: SessionDeps) -> Response:
+async def _place_order(session: SessionDeps, queue: PrinterQueueDeps) -> Response:
     product_ids = [item.product_id for item in session.items.values()]
     order_id = await OrderedItemTable.issue(product_ids)
     # TODO: add a branch for out of stock error
     await OrderTable.insert(order_id)
 
     # Enqueue receipt for printing
-    receipt_items = [
-        ReceiptItem(
-            name=cp.name,
-            count=cp.count,
-            unit_price_str=cp.price,
-        )
-        for cp in session.counted_products.values()
-    ]
-    receipt_data = ReceiptData(
-        order_id=order_id,
-        items=receipt_items,
-        total_count=session.total_count,
-        total_price_str=session.total_price_str(),
-        store_name=RECEIPT_STORE_NAME,
-        store_address=RECEIPT_STORE_ADDRESS,
-        logo_path=RECEIPT_LOGO_PATH,
-    )
-    printer_queue.enqueue(receipt_data)
+    queue.enqueue(build_receipt_data(order_id, session))
 
     fragment = issued_modal(order_id, session)
     return DatastarResponse(SSE.patch_elements(fragment))
