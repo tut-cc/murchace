@@ -108,6 +108,3 @@ class ReceiptPrinterQueue:
         finally:
             printer.close()
 
-
-# Global singleton instance
-printer_queue = ReceiptPrinterQueue()
