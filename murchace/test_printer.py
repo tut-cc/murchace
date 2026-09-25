@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -121,3 +121,90 @@ def test_printer_queue_skips_when_host_unconfigured():
     )
     assert queue.enqueue(receipt) is False
     assert queue.queue.empty()
+
+
+# ---------------------------------------------------------------------------
+# B: Retry logic tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_retry_succeeds_on_second_attempt():
+    """_print_with_retry should succeed after one initial failure."""
+    from murchace.printer_queue import _RETRY_DELAYS  # noqa: F401
+
+    queue = ReceiptPrinterQueue(host="192.168.1.100", port=9100)
+    receipt = ReceiptData(order_id=99, items=[], total_count=1, total_price_str="¥100")
+
+    call_count = 0
+
+    def flaky_print_job(r):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            raise OSError("Connection refused")
+
+    with (
+        patch.object(queue, "_print_job", side_effect=flaky_print_job),
+        patch("asyncio.sleep"),  # skip real delays in tests
+    ):
+        await queue._print_with_retry(receipt)
+
+    assert call_count == 2  # 1 failure + 1 success
+
+
+@pytest.mark.anyio
+async def test_retry_exhausted_logs_error():
+    """After all attempts fail, an error is logged and no exception propagates."""
+    from murchace.printer_queue import _RETRY_DELAYS
+
+    queue = ReceiptPrinterQueue(host="192.168.1.100", port=9100)
+    receipt = ReceiptData(order_id=7, items=[], total_count=1, total_price_str="¥100")
+    max_attempts = len(_RETRY_DELAYS) + 1
+
+    with (
+        patch.object(queue, "_print_job", side_effect=OSError("unreachable")),
+        patch("asyncio.sleep"),
+        patch("murchace.printer_queue.logger") as mock_logger,
+    ):
+        # Should not raise
+        await queue._print_with_retry(receipt)
+
+    # Verify error-level log was emitted once at the end
+    mock_logger.error.assert_called_once()
+    # Per attempt: 1 "Retrying…" warning (attempts 2..N) + 1 "attempt N failed" warning
+    # Total: (max_attempts - 1) retrying msgs + max_attempts failure msgs
+    expected_warnings = (max_attempts - 1) + max_attempts
+    assert mock_logger.warning.call_count == expected_warnings
+
+
+# ---------------------------------------------------------------------------
+# C: Environment-variable wiring tests
+# ---------------------------------------------------------------------------
+
+
+def test_print_job_uses_configured_timeout_and_paper_width():
+    """_print_job must pass timeout and paper_width from env to the printer."""
+    queue = ReceiptPrinterQueue(
+        host="192.168.1.100",
+        port=9100,
+        timeout=5,
+        paper_width=48,
+    )
+    receipt = ReceiptData(order_id=3, items=[], total_count=0, total_price_str="¥0")
+
+    fake_printer = MagicMock()
+
+    with (
+        patch(
+            "murchace.printer_queue.JapaneseNetworkPrinter",
+            return_value=fake_printer,
+        ) as mock_cls,
+        patch("murchace.printer_queue.format_and_print_receipt") as mock_fmt,
+    ):
+        queue._print_job(receipt)
+
+    # timeout must come from queue.timeout, not hard-coded
+    mock_cls.assert_called_once_with(host="192.168.1.100", port=9100, timeout=5)
+    # paper_width must be forwarded to format_and_print_receipt
+    mock_fmt.assert_called_once_with(fake_printer, receipt, paper_width=48)
