@@ -114,14 +114,14 @@ def register(
             div(class_="flex flex-row py-2 justify-around items-center text-xl")[
                 a(
                     href="/",
-                    class_="px-2 py-1 rounded-sm bg-gray-300 hidden lg:inline-block",
+                    class_="cursor-pointer px-2 py-1 rounded-sm bg-gray-300 hidden lg:inline-block",
                 )["ホーム"],
                 button(
                     data.on("click", "@delete('/register/items')"),
                     class_="text-white px-2 py-1 rounded-sm bg-red-600 hidden sm:inline-block",
                     tabindex="0",
                 )["全消去"],
-                div(class_="text-xl hidden md:inline-block")[clock],
+                div(class_="hidden md:inline-block")[clock],
             ],
             order_session(session),
         ],
