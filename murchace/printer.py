@@ -3,7 +3,6 @@ import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
 from zoneinfo import ZoneInfo
 
 from escpos.escpos import Escpos
@@ -98,12 +97,10 @@ class JapanesePrinter(Escpos):
 
 class JapaneseNetworkPrinter(JapanesePrinter, Network):
     """Network printer with Japanese Kanji support."""
-    pass
 
 
 class JapaneseDummyPrinter(JapanesePrinter, Dummy):
     """Dummy printer for testing with Japanese Kanji support."""
-    pass
 
 
 def format_and_print_receipt(

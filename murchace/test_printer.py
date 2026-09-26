@@ -7,9 +7,9 @@ from murchace.printer import (
     ESC_R_JAPAN,
     FS_AND,
     FS_C_SJIS,
+    JapaneseDummyPrinter,
     JapaneseNetworkPrinter,
     JapanesePrinter,
-    JapaneseDummyPrinter,
     ReceiptData,
     ReceiptItem,
     format_and_print_receipt,
@@ -47,6 +47,17 @@ def test_japanese_network_printer_kanji_methods():
     printer.text_ja("テスト注文 ¥500")
     # Last call should be CP932 encoded bytes with ¥ replaced by \
     assert printer._raw.call_args_list[-1][0][0] == "テスト注文 \\500".encode("cp932")
+
+
+def test_japanese_dummy_printer():
+    printer = JapaneseDummyPrinter()
+    printer.enable_kanji()
+    printer.text_ja("テスト注文 ¥500")
+
+    assert ESC_R_JAPAN in printer.output
+    assert FS_AND in printer.output
+    assert FS_C_SJIS in printer.output
+    assert "テスト注文 \\500".encode("cp932") in printer.output
 
 
 def test_format_and_print_receipt():
