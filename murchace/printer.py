@@ -29,6 +29,7 @@ class PrinterProtocol(Protocol):
 
     def hw(self, hw: str) -> None: ...
     def set(self, **kwargs) -> None: ...
+    def enable_kanji(self) -> None: ...
     def text_ja(self, text: str) -> None: ...
     def image(self, path: str) -> None: ...
     def cut(self) -> None: ...
@@ -96,8 +97,10 @@ class JapaneseNetworkPrinter(Network):
         Print Japanese text safely using CP932 encoding.
         Bypasses standard python-escpos code page switching.
         Replaces U+00A5 (Yen sign) with '\\' (0x5C) which displays as Yen in Japan char set.
+
+        .. note::
+            Call :meth:`enable_kanji` once after printer initialisation before using this method.
         """
-        self.enable_kanji()
         normalized = text.replace("\u00a5", "\\")
         encoded = normalized.encode("cp932", errors="replace")
         self._raw(encoded)
@@ -109,8 +112,9 @@ def format_and_print_receipt(
     paper_width: int = 42,
 ) -> None:
     """Send formatted receipt commands to the printer."""
-    # Reset printer
+    # Reset printer and enable Japanese Kanji mode once for this receipt
     printer.hw("INIT")
+    printer.enable_kanji()
 
     # 1. Store Logo (if configured and file exists)
     if receipt.logo_path:
