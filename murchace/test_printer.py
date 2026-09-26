@@ -77,6 +77,23 @@ def test_format_and_print_receipt():
     printed_texts = [call[0][0] for call in printer.text_ja.call_args_list]
     assert any("注文番号 #42" in text for text in printed_texts)
     assert any("東京都渋谷区神南1-2-3" in text for text in printed_texts)
+    # 12:00:00 UTC must be converted to 21:00:00 JST
+    assert any("2026-09-23 21:00:00" in text for text in printed_texts)
+
+
+def test_format_and_print_receipt_naive_datetime_converted_to_jst():
+    """DB (SQLite CURRENT_TIMESTAMP) returns naive datetime in UTC, which must be converted to JST."""
+    printer = MagicMock(spec=PrinterProtocol)
+    receipt = ReceiptData(
+        order_id=1,
+        items=[],
+        total_count=0,
+        total_price_str="¥0",
+        ordered_at=datetime(2026, 9, 23, 12, 0, 0),  # noqa: DTZ001 — test naive UTC from SQLite
+    )
+    format_and_print_receipt(printer, receipt, paper_width=34)
+    printed_texts = [call[0][0] for call in printer.text_ja.call_args_list]
+    assert any("2026-09-23 21:00:00" in text for text in printed_texts)
 
 
 @pytest.fixture
