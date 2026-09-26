@@ -45,7 +45,7 @@ murchace は注文確定時にネットワーク経由（ESC/POS）でレシー�
 | `MURCHACE_RECEIPT_PRINTER_HOST` | *(空文字)* | レシートプリンターの IP アドレス（未指定の場合は印刷をスキップ） |
 | `MURCHACE_RECEIPT_PRINTER_PORT` | `9100` | プリンターの RAW ポート番号 |
 | `MURCHACE_RECEIPT_PRINTER_TIMEOUT` | `10` | プリンターへの接続タイムアウト秒数 |
-| `MURCHACE_RECEIPT_PAPER_WIDTH` | `42` | 用紙幅（半角文字数）。58mm 幅用紙の場合は `42`、80mm 幅の場合は `48` 程度が目安 |
+| `MURCHACE_RECEIPT_PAPER_WIDTH` | `34` | 用紙幅（半角文字数）。58mm 幅用紙の場合は `34`（TM-T70Ⅱ等）、80mm 幅の場合は `48` 程度が目安 |
 | `MURCHACE_RECEIPT_STORE_NAME` | `murchace` | レシート上部に印字される店舗名 |
 | `MURCHACE_RECEIPT_STORE_ADDRESS` | *(空文字・印字なし)* | レシート上部に印字される店舗住所 |
 | `MURCHACE_RECEIPT_LOGO_PATH` | *(空文字・印字なし)* | 印字するロゴ画像のパス（未指定または見つからない場合はスキップ） |
