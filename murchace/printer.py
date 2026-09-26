@@ -114,9 +114,10 @@ class JapaneseNetworkPrinter(Network):
         Bypasses standard python-escpos code page switching.
         Replaces U+00A5 (Yen sign) with '\\' (0x5C) which displays as Yen in Japan char set.
 
-        .. note::
-            Call :meth:`enable_kanji` once after printer initialisation before using this method.
+        Calls :meth:`enable_kanji` before each block because intermediate
+        :meth:`set` calls may send codepage commands that reset kanji mode.
         """
+        self.enable_kanji()
         normalized = text.replace("\u00a5", "\\")
         encoded = normalized.encode("cp932", errors="replace")
         self._raw(encoded)
