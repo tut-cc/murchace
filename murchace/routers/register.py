@@ -1,3 +1,4 @@
+from datetime import UTC
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -321,6 +322,8 @@ async def place_order(request: Request, queue: PrinterQueueDeps):
             detail = "INSERT ... RETURNING returned no row"
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=detail)
         order_id, ordered_at = order_row["order_id"], order_row["ordered_at"]
+        if ordered_at.tzinfo is None:
+            ordered_at = ordered_at.replace(tzinfo=UTC)
 
         await database.execute_many(
             sa_exp.insert(OrderedItem).values(order_id=order_id),
