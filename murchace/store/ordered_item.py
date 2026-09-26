@@ -24,15 +24,26 @@ class OrderedItem(Base):
 
 
 class Table:
-    _last_order_id: int | None
     _db: Database
 
     def __init__(self, database: Database):
         self._db = database
 
     async def ainit(self) -> None:
-        query = sa_func.max(OrderedItem.order_id).select()
-        self._last_order_id = await self._db.fetch_val(query)
+        await self._db.execute("""
+            CREATE TABLE IF NOT EXISTS order_sequence (
+                order_id INTEGER PRIMARY KEY AUTOINCREMENT
+            )
+        """)
+        count = await self._db.fetch_val("SELECT COUNT(*) FROM order_sequence")
+        if count == 0:
+            query = sa_func.coalesce(sa_func.max(OrderedItem.order_id), 0)
+            max_id = await self._db.fetch_val(sa_exp.select(query))
+            if max_id and max_id > 0:
+                await self._db.execute(
+                    "INSERT INTO order_sequence (order_id) VALUES (:max_id)",
+                    {"max_id": max_id},
+                )
 
     async def select_all(self) -> list[OrderedItem]:
         query = sa_exp.select(OrderedItem)
@@ -43,12 +54,11 @@ class Table:
         return [OrderedItem(**m) async for m in self._db.iterate(query)]
 
     async def issue(self, product_ids: list[int]) -> int:
-        order_id = (self._last_order_id or 0) + 1
+        order_id = await self._db.execute("INSERT INTO order_sequence DEFAULT VALUES")
         await self._db.execute_many(
             sa_exp.insert(OrderedItem).values(order_id=order_id),
             [{"item_no": i, "product_id": pid} for i, pid in enumerate(product_ids)],
         )
-        self._last_order_id = order_id
         return order_id
 
     async def _supply(self, order_id: int, product_id: int):
