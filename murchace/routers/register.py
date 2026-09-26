@@ -1,12 +1,11 @@
-from collections.abc import Iterable
-from dataclasses import dataclass
-from typing import Annotated
-from uuid import UUID, uuid4
+from pathlib import Path
+from typing import Annotated, Any
 
+import sqlalchemy.sql.expression as sa_exp
 from datastar_py import attribute_generator as data
-from datastar_py.fastapi import DatastarResponse
+from datastar_py.fastapi import DatastarResponse, read_signals
 from datastar_py.sse import ServerSentEventGenerator as SSE
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import HTMLResponse
 from htpy import (
     Element,
@@ -23,80 +22,63 @@ from htpy import (
     li,
     main,
     p,
+    script,
     span,
     ul,
 )
+from markupsafe import Markup
+from sqlalchemy.sql.functions import func as sa_func
 
 from ..components import clock, page_layout
-from ..store import OrderedItemTable, OrderTable, Product, ProductTable
+from ..store import (
+    ModifiedFlag,
+    Order,
+    OrderedItem,
+    OrderTable,
+    Product,
+    ProductTable,
+    database,
+)
 
 router = APIRouter()
 
 
-@dataclass
-class OrderSession:
-    @dataclass
-    class CountedProduct:
-        name: str
-        price: str
-        count: int = 1
-
-    items: dict[UUID, Product]
-    counted_products: dict[int, CountedProduct]
-    total_count: int = 0
-    total_price: int = 0
-
-    def clear(self):
-        self.total_count = 0
-        self.total_price = 0
-        self.items = {}
-        self.counted_products = {}
-
-    def total_price_str(self) -> str:
-        return Product.to_price_str(self.total_price)
-
-    def add(self, p: Product):
-        self.total_count += 1
-        self.total_price += p.price
-        self.items[uuid4()] = p
-        if p.product_id in self.counted_products:
-            self.counted_products[p.product_id].count += 1
-        else:
-            counted_product = self.CountedProduct(name=p.name, price=p.price_str())
-            self.counted_products[p.product_id] = counted_product
-
-    def delete(self, item_id: UUID):
-        if item_id in self.items:
-            self.total_count -= 1
-            product = self.items.pop(item_id)
-            self.total_price -= product.price
-            if self.counted_products[product.product_id].count == 1:
-                self.counted_products.pop(product.product_id)
-            else:
-                self.counted_products[product.product_id].count -= 1
+with open(Path(__file__).parent / "register-items.js", encoding="utf-8") as f:
+    _register_items_script = script[Markup(f.read())]
+    register_items = Element("register-items")
 
 
-def page_register(req: Request) -> HTMLElement:
+def page_register(req: Request, products: list[Product]) -> HTMLElement:
     return page_layout(
         req,
-        div(data.init("@post('/register')"), id="register", class_="hidden"),
+        register(req, products),
         "新規注文 - murchace",
+        head_section=[_register_items_script],
     )
 
 
-def register(
-    req: Request, products: list[Product], session: OrderSession
-) -> HTMLElement:
-    inner = div(id="register", class_="h-dvh flex flex-row")[
+def register(req: Request, products: list[Product]) -> HTMLElement:
+    inner = div(
+        data.signals({"items": []}).ifmissing,
+        {"data-persist": "items"},
+        data.computed(
+            totalCount="$items.reduce((acc, item) => acc + item.count, 0)",
+            totalPriceStr="new Intl.NumberFormat('ja-JP', {style: 'currency', currency: 'JPY'}).format($items.reduce((sum, item) => sum + item.count * item.price, 0))",
+        ),
+        id="register",
+        class_="h-dvh flex flex-row",
+    )[
         main(
-            class_="w-1/2 lg:w-4/6 h-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-6 auto-cols-max auto-rows-min gap-2 py-2 pl-10 pr-6 overflow-y-auto"
+            id="products",
+            class_="w-1/2 lg:w-4/6 h-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-6 auto-cols-max auto-rows-min gap-2 py-2 pl-10 pr-6 overflow-y-auto",
         )[
             [
                 figure(
                     data.on(
                         "click",
-                        f"@post('/register/items?product_id={product.product_id}')",
+                        f'$items = $items.at(-1)?.name === el.dataset.productName ? [...$items.slice(0, -1), {{...$items.at(-1), count: $items.at(-1).count + 1}}] : [...$items, {{"productId": {product.product_id}, "name": el.dataset.productName, "count": 1, "price": {product.price}}}]',
                     ),
+                    data_product_name=product.name,
                     class_="flex flex-col border-4 border-gray-200 rounded-md transition-colors ease-in-out active:bg-gray-100",
                 )[
                     img(
@@ -117,55 +99,48 @@ def register(
                     class_="cursor-pointer px-2 py-1 rounded-sm bg-gray-300 hidden lg:inline-block",
                 )["ホーム"],
                 button(
-                    data.on("click", "@delete('/register/items')"),
-                    class_="text-white px-2 py-1 rounded-sm bg-red-600 hidden sm:inline-block",
+                    data.on("click", "$items = []"),
+                    data.attr(disabled="$items.length === 0"),
+                    class_="hidden sm:inline-block text-white px-2 py-1 rounded-sm bg-red-600 disabled:cursor-not-allowed disabled:text-gray-700 disabled:bg-gray-100",
                     tabindex="0",
                 )["全消去"],
                 div(class_="hidden md:inline-block")[clock],
             ],
-            order_session(session),
+            items(),
         ],
     ]
     return page_layout(req, inner, "新規注文 - murchace")
 
 
-def order_session(session: OrderSession) -> Element:
-    def item(item_id: UUID, product: Product):
-        return li(id=f"item-{item_id}", class_="flex justify-between")[
-            div(
-                class_="overflow-x-auto whitespace-nowrap sm:flex sm:flex-1 sm:justify-between p-4"
-            )[p(class_="sm:flex-1")[product.name], div[product.price_str()]],
-            div(class_="flex items-center")[
-                button(
-                    data.on("click", f"@delete('/register/items/{item_id}')"),
-                    class_="font-bold text-white text-2xl bg-red-600 px-2 rounded-sm",
-                )["✕"]
-            ],
-        ]
-
-    return div(id="order-session", class_="min-h-0 pt-2 flex flex-col")[
+def items() -> Element:
+    return div(id="items", class_="min-h-0 pt-2 flex flex-col")[
         # `flex-col-reverse` lets the browser to pin scroll to bottom
         div(class_="flex flex-col-reverse overflow-y-auto")[
-            ul(class_="text-lg divide-y-4 divide-gray-200")[
-                [item(item_id, product) for item_id, product in session.items.items()]
-            ]
+            register_items(
+                data.attr(items="$items"),
+                data.on(
+                    "delete-item", "$items = [...$items.toSpliced(evt.detail.index, 1)]"
+                ),
+            ),
         ],
         div(class_="flex flex-row p-2 items-center")[
-            div(class_="basis-1/4 text-right lg:text-2xl")[f"{session.total_count} 点"],
+            div(class_="basis-1/4 text-right lg:text-2xl")[
+                span(data.text("$totalCount")), span[" 点"]
+            ],
             div(class_="basis-2/4 text-center lg:text-2xl")[
-                f"合計: {session.total_price_str()}"
+                span["合計: "], span(data.text("$totalPriceStr"))
             ],
             button(
                 data.on("click", "@get('/register/confirm-modal')"),
+                data.attr(disabled="$items.length === 0"),
                 class_="basis-1/4 lg:text-xl text-center text-white p-2 rounded-sm bg-blue-600 disabled:cursor-not-allowed disabled:text-gray-700 disabled:bg-gray-100",
-                disabled=True if session.total_count == 0 else None,
             )["確定"],
             div(id="order-modal-container"),
         ],
     ]
 
 
-def confirm_modal(session: OrderSession) -> Element:
+def confirm_modal(items: list[dict[str, int | str]]) -> Element:
     return div(id="order-modal-container")[
         div(
             id="order-modal",
@@ -185,14 +160,7 @@ def confirm_modal(session: OrderSession) -> Element:
                 )["✕"],
                 article(
                     class_="grow min-h-0 flex flex-col gap-y-2 px-3 text-center text-lg"
-                )[
-                    h2(class_="font-semibold")["注文の確定"],
-                    _total(
-                        session.counted_products.values(),
-                        session.total_count,
-                        session.total_price_str(),
-                    ),
-                ],
+                )[h2(class_="font-semibold")["注文の確定"], _total(items)],
                 button(
                     data.on("click", "@post('/register')"),
                     class_="w-full py-4 text-center text-xl font-semibold text-white bg-blue-600 rounded-sm",
@@ -202,7 +170,7 @@ def confirm_modal(session: OrderSession) -> Element:
     ]
 
 
-def issued_modal(order_id: int, session: OrderSession) -> Element:
+def issued_modal(order_id: int, items: list[dict[str, int | str]]) -> Element:
     return div(id="order-modal-container")[
         div(
             id="order-modal",
@@ -215,16 +183,9 @@ def issued_modal(order_id: int, session: OrderSession) -> Element:
             )[
                 article(
                     class_="grow min-h-0 flex flex-col gap-y-2 px-3 text-center text-lg"
-                )[
-                    h2(class_="font-semibold")[f"注文番号 #{order_id}"],
-                    _total(
-                        session.counted_products.values(),
-                        session.total_count,
-                        session.total_price_str(),
-                    ),
-                ],
+                )[h2(class_="font-semibold")[f"注文番号 #{order_id}"], _total(items)],
                 button(
-                    data.on("click", "@post('/register')"),
+                    data.on("click", "window['order-modal'].remove()"),
                     class_="w-full py-4 text-center text-xl font-semibold text-white bg-green-600 rounded-sm",
                 )["新規"],
                 a(
@@ -236,22 +197,22 @@ def issued_modal(order_id: int, session: OrderSession) -> Element:
     ]
 
 
-def _total(
-    counted_products: Iterable[OrderSession.CountedProduct],
-    total_count: int,
-    total_price: str,
-) -> list[Element]:
+def _total(items: list[dict[str, int | str]]) -> list[Element]:
+    total_count = sum((item["count"] for item in items), 0)
+    total_price = sum((item["price"] for item in items), 0)
+    assert isinstance(total_price, int)
+
     return [
         ul(class_="grow flex flex-col overflow-y-auto")[
-            (
+            [
                 li(class_="flex flex-row items-start gap-x-2")[
-                    span(class_="break-words")[counted_product.name],
+                    span(class_="break-words")[item["name"]],
                     span(class_="ml-auto whitespace-nowrap")[
-                        f"{counted_product.price} x {counted_product.count}"
+                        f"{Product.to_price_str(item['price'])} x {item['count']}"  # ty: ignore[invalid-argument-type]
                     ],
                 ]
-                for counted_product in counted_products
-            )
+                for item in items
+            ]
         ],
         div[
             p(class_="flex flex-row")[
@@ -260,7 +221,7 @@ def _total(
             ],
             p(class_="flex flex-row")[
                 span(class_="break-words")["合計金額"],
-                span(class_="ml-auto")[total_price],
+                span(class_="ml-auto")[Product.to_price_str(total_price)],
             ],
         ],
     ]
@@ -282,131 +243,89 @@ def error_modal(message: str) -> Element:
                     class_="grow min-h-0 flex flex-col gap-y-2 px-3 text-center text-lg"
                 )[h2(class_="font-semibold text-red-500")["エラー"], p[message]],
                 button(
+                    data.on("click", "$items = []; window.location.reload()"),
                     class_="w-full py-4 text-center text-xl font-semibold bg-white border border-gray-300 rounded-sm",
-                    onclick="window['order-modal'].remove()",
-                )["閉じる"],
+                )["リロードする"],
             ]
         ]
     ]
 
 
-# NOTE: Do NOT store this data in database because the data is transient and should be kept in memory
-order_sessions: dict[UUID, OrderSession] = {}
-SESSION_COOKIE_KEY = "session_key"
-
-
-async def order_session_dep(session_key: Annotated[UUID, Cookie()]) -> OrderSession:
-    if (order_session := order_sessions.get(session_key)) is None:
-        raise HTTPException(status_code=404, detail=f"Session {session_key} not found")
-    return order_session
-
-
-SessionDeps = Annotated[OrderSession, Depends(order_session_dep)]
-
-
 @router.get("/register", response_class=HTMLResponse)
-async def instruct_creation_of_new_session_or_get_existing_session(
+async def get_register(
     request: Request,
-    session_key: Annotated[UUID | None, Cookie()] = None,
     c: Annotated[list[int] | None, Query()] = None,  # category
 ):
-    if session_key is None or (session := order_sessions.get(session_key)) is None:
-        return HTMLResponse(page_register(request))
-
     products = await (
         ProductTable.by_category_ids(c) if c is not None else ProductTable.select_all()
     )
-    return HTMLResponse(register(request, products, session))
+    return HTMLResponse(page_register(request, products))
+
+
+def parse_items(signals: dict[str, Any] | None) -> list | str:
+    if signals is None:
+        return "シグナルが見つかりません"
+    if (items := signals.get("items")) is None:
+        return "items属性が見つかりません"
+    if not isinstance(items, list):
+        return "itemsがlistではありません"
+    if len(items) == 0:
+        return "商品が選択されていません"
+    return items
 
 
 @router.get("/register/confirm-modal")
-async def get_confirm_dialog(session: SessionDeps):
-    if session.total_count == 0:
-        fragment = error_modal("商品が選択されていません")
-    else:
-        fragment = confirm_modal(session)
-    return DatastarResponse(SSE.patch_elements(fragment))
+async def get_confirm_dialog(request: Request):
+    if isinstance(items := parse_items(await read_signals(request)), str):
+        return DatastarResponse(SSE.patch_elements(error_modal(items)))
+    return DatastarResponse(SSE.patch_elements(confirm_modal(items)))
 
 
 @router.post("/register")
-async def create_new_session_or_place_order(
-    session_key: Annotated[UUID | None, Cookie()] = None,
-):
-    if session_key is None or (session := order_sessions.get(session_key)) is None:
-        session_key = _create_new_session()
+async def place_order(request: Request):
+    if isinstance(items := parse_items(await read_signals(request)), str):
+        return DatastarResponse(SSE.patch_elements(error_modal(items)))
 
-        res = DatastarResponse(SSE.execute_script("location.reload()"))
-        res.headers["location"] = "/register"
-        res.set_cookie(SESSION_COOKIE_KEY, str(session_key))
-        return res
+    # We modify order tables all in one transaction. If `POST /register` happens
+    # fast enough then the first mutating query (database.fetch_val in this
+    # case) will throw sqlite3.OperationalError with "database is locked"
+    # message. This rarely happens in practice but even if it does a user just
+    # receives no feedback and so they can issue another database transaction.
+    # TODO: We should give users a small feedback about database lock in some
+    # way.
+    async with database.transaction():
+        # We reject order issuance when product name and price do not match up
+        product_map = {p.product_id: p for p in await ProductTable.select_all()}
+        product_ids: list[int] = []
+        for item in items:
+            product = product_map[item["productId"]]
+            if product.name != item["name"]:
+                err_msg = f"商品名が異なります: {product.name} != {item['name']}"
+                return DatastarResponse(SSE.patch_elements(error_modal(err_msg)))
+            if product.price != item["price"]:
+                err_msg = f"値段が異なります: {product.price} != {item['price']}"
+                return DatastarResponse(SSE.patch_elements(error_modal(err_msg)))
+            for _ in range(item["count"]):
+                product_ids.append(item["productId"])
 
-    if session.total_count == 0:
-        fragment = error_modal("商品が選択されていません")
-        return DatastarResponse(SSE.patch_elements(fragment))
+        max_order_id_p1 = sa_exp.select(
+            sa_func.coalesce(sa_func.max(Order.order_id), 0) + 1
+        ).scalar_subquery()
+        order_id: int = await database.fetch_val(
+            sa_exp.insert(Order)
+            .values(order_id=max_order_id_p1)
+            .returning(Order.order_id)
+        )
+        await database.execute_many(
+            sa_exp.insert(OrderedItem).values(order_id=order_id),
+            [{"item_no": i, "product_id": pid} for i, pid in enumerate(product_ids)],
+        )
 
-    order_sessions.pop(session_key)
-    res = await _place_order(session)
-    res.delete_cookie(SESSION_COOKIE_KEY)
-    return res
+        OrderTable.modified_flag_bc.send(ModifiedFlag.INCOMING)
 
-
-def _create_new_session() -> UUID:
-    session_key = uuid4()
-    order_sessions[session_key] = OrderSession(items={}, counted_products={})
-    return session_key
-
-
-async def _place_order(session: SessionDeps) -> Response:
-    product_ids = [item.product_id for item in session.items.values()]
-    order_id = await OrderedItemTable.issue(product_ids)
-    # TODO: add a branch for out of stock error
-    await OrderTable.insert(order_id)
-    fragment = issued_modal(order_id, session)
-    return DatastarResponse(SSE.patch_elements(fragment))
-
-
-@router.post("/register/items")
-async def add_session_item(session: SessionDeps, product_id: int) -> Response:
-    if (product := await ProductTable.by_product_id(product_id)) is None:
-        raise HTTPException(status_code=404, detail=f"Product {product_id} not found")
-
-    session.add(product)
-    fragment = order_session(session)
-    return DatastarResponse(SSE.patch_elements(fragment))
-
-
-@router.delete("/register/items/{item_id}")
-async def delete_session_item(session: SessionDeps, item_id: UUID):
-    session.delete(item_id)
-    fragment = order_session(session)
-    return DatastarResponse(SSE.patch_elements(fragment))
-
-
-@router.delete("/register/items")
-async def clear_session_items(session: SessionDeps) -> Response:
-    session.clear()
-    fragment = order_session(session)
-    return DatastarResponse(SSE.patch_elements(fragment))
-
-
-# TODO: add proper path operation for order deferral
-# # TODO: Store this data in database
-# deferred_order_sessions: dict[int, OrderSession] = {}
-#
-#
-# @router.post("/register/deferred")
-# async def post_defer_session(request: Request, session_key: Annotated[UUID, Cookie()]):
-#     order_session = await order_session_dep(session_key)
-#     if order_session in deferred_order_sessions:
-#         raise HTTPException(
-#             status_code=status.HTTP_409_CONFLICT,
-#             detail=f"Deferred session already exists",
-#         )
-#     deferred_order_sessions.append(order_sessions.pop(session_key))
-#     # TODO: respond with a message about the success of the deferral action
-#     # message = "注文を保留しました"
-#     # res = HTMLResponse(
-#     #     tmp_session(request, OrderSession(), message=message)
-#     # )
-#     # res.delete_cookie(SESSION_COOKIE_KEY)
-#     # return res
+        return DatastarResponse(
+            [
+                SSE.patch_signals({"items": []}),
+                SSE.patch_elements(issued_modal(order_id, items)),
+            ]
+        )

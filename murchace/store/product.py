@@ -32,6 +32,8 @@ class Product(Base):
 
 
 class Table:
+    _db: Database
+
     def __init__(self, database: Database):
         self._db = database
 

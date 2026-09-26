@@ -90,7 +90,6 @@ async def _startup_db() -> None:
 
     await CategoryTable.ainit()
     await ProductTable.ainit()
-    await OrderedItemTable.ainit()
 
 
 async def _shutdown_db() -> None:

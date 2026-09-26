@@ -34,14 +34,11 @@ class ModifiedFlag(Flag):
 
 
 class Table:
+    _db: Database
     modified_flag_bc = Broadcaster(ModifiedFlag.ORIGINAL)
 
     def __init__(self, database: Database):
         self._db = database
-
-    async def insert(self, order_id: int) -> None:
-        await self._db.execute(sa_exp.insert(Order), {"order_id": order_id})
-        self.modified_flag_bc.send(ModifiedFlag.INCOMING)
 
     @staticmethod
     def _update(order_id: int) -> sa_exp.Update:
