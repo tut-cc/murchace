@@ -28,6 +28,7 @@ from htpy import (
 )
 
 from ..components import clock, page_layout
+from ..receipt_service import PrinterQueueDeps, build_receipt_data
 from ..store import OrderedItemTable, OrderTable, Product, ProductTable
 
 router = APIRouter()
@@ -330,6 +331,7 @@ async def get_confirm_dialog(session: SessionDeps):
 
 @router.post("/register")
 async def create_new_session_or_place_order(
+    queue: PrinterQueueDeps,
     session_key: Annotated[UUID | None, Cookie()] = None,
 ):
     if session_key is None or (session := order_sessions.get(session_key)) is None:
@@ -345,7 +347,7 @@ async def create_new_session_or_place_order(
         return DatastarResponse(SSE.patch_elements(fragment))
 
     order_sessions.pop(session_key)
-    res = await _place_order(session)
+    res = await _place_order(session, queue)
     res.delete_cookie(SESSION_COOKIE_KEY)
     return res
 
@@ -356,11 +358,15 @@ def _create_new_session() -> UUID:
     return session_key
 
 
-async def _place_order(session: SessionDeps) -> Response:
+async def _place_order(session: SessionDeps, queue: PrinterQueueDeps) -> Response:
     product_ids = [item.product_id for item in session.items.values()]
     order_id = await OrderedItemTable.issue(product_ids)
     # TODO: add a branch for out of stock error
-    await OrderTable.insert(order_id)
+    ordered_at = await OrderTable.insert(order_id)
+
+    # Enqueue receipt for printing (ordered_at from DB ensures accurate timestamp)
+    queue.enqueue(build_receipt_data(order_id, session, ordered_at=ordered_at))
+
     fragment = issued_modal(order_id, session)
     return DatastarResponse(SSE.patch_elements(fragment))
 

@@ -7,6 +7,7 @@ from htpy import Element, HTMLElement, a, div, p
 
 from .components import page_layout
 from .env import DEBUG
+from .printer_queue import ReceiptPrinterQueue
 from .routers import orders, products, register, stat
 from .store import startup_and_shutdown_db
 
@@ -14,10 +15,13 @@ from .store import startup_and_shutdown_db
 # https://stackoverflow.com/a/65270864
 # https://fastapi.tiangolo.com/advanced/events/
 @asynccontextmanager
-async def lifespan(_: FastAPI):
+async def lifespan(app: FastAPI):
     startup_db, shutdown_db = startup_and_shutdown_db
     await startup_db()
+    app.state.printer_queue = ReceiptPrinterQueue()
+    app.state.printer_queue.start()
     yield
+    await app.state.printer_queue.stop()
     await shutdown_db()
 
 
