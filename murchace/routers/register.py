@@ -5,7 +5,7 @@ import sqlalchemy.sql.expression as sa_exp
 from datastar_py import attribute_generator as data
 from datastar_py.fastapi import DatastarResponse, read_signals
 from datastar_py.sse import ServerSentEventGenerator as SSE
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse
 from htpy import (
     Element,
@@ -312,12 +312,14 @@ async def place_order(request: Request, queue: PrinterQueueDeps):
         max_order_id_p1 = sa_exp.select(
             sa_func.coalesce(sa_func.max(Order.order_id), 0) + 1
         ).scalar_subquery()
-        order_row = await database.fetch_one(
+        maybe_order_row = await database.fetch_one(
             sa_exp.insert(Order)
             .values(order_id=max_order_id_p1)
             .returning(Order.order_id, Order.ordered_at)
         )
-        assert order_row is not None, "INSERT ... RETURNING returned no row"
+        if (order_row := maybe_order_row) is None:
+            detail = "INSERT ... RETURNING returned no row"
+            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=detail)
         order_id, ordered_at = order_row["order_id"], order_row["ordered_at"]
 
         await database.execute_many(
