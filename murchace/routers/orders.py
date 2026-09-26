@@ -202,12 +202,12 @@ async def get_order_filter():
                 fieldset(
                     class_="grow min-h-0 grid grid-cols-1 md:grid-cols-4 gap-y-2 px-3 text-center text-lg"
                 )[
-                    div["カード"],
+                    div["表示方式"],
                     div(
                         class_="md:col-span-3 flex flex-col md:flex-row gap-x-4 md:ml-2"
                     )[
-                        radio("商品", data.bind("_filterCard"), value="item"),
-                        radio("注文", data.bind("_filterCard"), value="order"),
+                        radio("商品ごと", data.bind("_filterCard"), value="item"),
+                        radio("注文ごと", data.bind("_filterCard"), value="order"),
                     ],
                     div["状態"],
                     div(
@@ -289,15 +289,16 @@ def page_orders(req: Request) -> HTMLElement:
         header(
             class_="sticky z-10 inset-0 w-full px-16 py-3 flex items-center gap-3 border-b border-gray-500 bg-white text-2xl"
         )[
-            a(href="/", class_="cursor-pointer px-2 py-1 rounded-sm bg-gray-300")[
-                "ホーム"
-            ],
+            a(
+                href="/",
+                class_="cursor-pointer px-2 py-1 rounded-sm bg-gray-300 hidden lg:inline-block",
+            )["ホーム"],
             div(class_="grow"),
             button(
                 data.on("click", "@get('/order-filter')"),
                 class_="cursor-pointer px-2 py-1 rounded-sm bg-gray-300",
             )["フィルタ"],
-            clock,
+            div(class_="hidden md:inline-block")[clock],
         ],
         elm_order_filter_container,
         elm_main_units,
