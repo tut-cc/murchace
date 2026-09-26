@@ -73,7 +73,7 @@ class ReceiptPrinterQueue:
         # Drain the queue before cancelling so no jobs are silently discarded
         try:
             await asyncio.wait_for(self.queue.join(), timeout=10.0)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(
                 "Timed out waiting for print queue to drain; %d job(s) may be lost",
                 self.queue.qsize(),
@@ -127,7 +127,7 @@ class ReceiptPrinterQueue:
                 # Run blocking socket I/O off the event loop thread
                 await asyncio.to_thread(self._print_job, receipt)
                 return  # success — stop retrying
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — any print failure should be retried
                 last_exc = exc
                 logger.warning(
                     "Print attempt %d/%d failed for order #%d: %s",
