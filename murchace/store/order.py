@@ -42,9 +42,7 @@ class Table:
     async def insert(self, order_id: int) -> datetime:
         """Insert a new order and return the DB-generated ordered_at timestamp."""
         query = (
-            sa_exp.insert(Order)
-            .values(order_id=order_id)
-            .returning(Order.ordered_at)
+            sa_exp.insert(Order).values(order_id=order_id).returning(Order.ordered_at)
         )
         row = await self._db.fetch_one(query)
         if row is None:

@@ -110,9 +110,7 @@ class ReceiptPrinterQueue:
         max_attempts = len(_RETRY_DELAYS) + 1
         last_exc: BaseException | None = None
 
-        for attempt, delay in enumerate(
-            [0.0, *_RETRY_DELAYS], start=1
-        ):
+        for attempt, delay in enumerate([0.0, *_RETRY_DELAYS], start=1):
             if delay:
                 logger.warning(
                     "Retrying print for order #%d (attempt %d/%d) in %.0f s …",
