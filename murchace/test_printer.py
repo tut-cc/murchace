@@ -89,7 +89,7 @@ def test_format_and_print_receipt_naive_datetime_converted_to_jst():
         items=[],
         total_count=0,
         total_price_str="¥0",
-        ordered_at=datetime(2026, 9, 23, 12, 0, 0),  # noqa: DTZ001 — test naive UTC from SQLite
+        ordered_at=datetime(2026, 9, 23, 12, 0, 0, tzinfo=UTC),
     )
     format_and_print_receipt(printer, receipt, paper_width=34)
     printed_texts = [call[0][0] for call in printer.text_ja.call_args_list]

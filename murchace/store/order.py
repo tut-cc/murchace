@@ -48,7 +48,10 @@ class Table:
         if row is None:
             raise RuntimeError("INSERT ... RETURNING returned no row")
         self.modified_flag_bc.send(ModifiedFlag.INCOMING)
-        return row._mapping["ordered_at"]
+        dt = row._mapping["ordered_at"]
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        return dt
 
     @staticmethod
     def _update(order_id: int) -> sa_exp.Update:

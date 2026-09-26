@@ -144,9 +144,6 @@ def format_and_print_receipt(
 
     # 4. Date and Time (Right aligned, JST)
     ordered_at = receipt.ordered_at or datetime.now(UTC)
-    if ordered_at.tzinfo is None:
-        # DB (SQLite CURRENT_TIMESTAMP) stores UTC without tzinfo
-        ordered_at = ordered_at.replace(tzinfo=UTC)
     now = ordered_at.astimezone(JST)
     date_str = now.strftime("%Y-%m-%d %H:%M:%S")
     printer.set(align="right", bold=False, normal_textsize=True)
