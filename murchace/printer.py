@@ -4,6 +4,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Protocol
+from zoneinfo import ZoneInfo
 
 from escpos.printer import Network
 
@@ -18,6 +19,8 @@ ESC_R_JAPAN = b"\x1b\x52\x08"
 FS_AND = b"\x1c\x26"
 FS_DOT = b"\x1c\x2e"
 FS_C_SJIS = b"\x1c\x43\x01"
+
+JST = ZoneInfo("Asia/Tokyo")
 
 
 class PrinterProtocol(Protocol):
@@ -139,8 +142,12 @@ def format_and_print_receipt(
 
     printer.text_ja("\n")
 
-    # 4. Date and Time (Right aligned)
-    now = receipt.ordered_at or datetime.now(UTC).astimezone()
+    # 4. Date and Time (Right aligned, JST)
+    ordered_at = receipt.ordered_at or datetime.now(UTC)
+    if ordered_at.tzinfo is None:
+        # DB (SQLite CURRENT_TIMESTAMP) stores UTC without tzinfo
+        ordered_at = ordered_at.replace(tzinfo=UTC)
+    now = ordered_at.astimezone(JST)
     date_str = now.strftime("%Y-%m-%d %H:%M:%S")
     printer.set(align="right", bold=False, normal_textsize=True)
     printer.text_ja(f"{date_str}\n")
