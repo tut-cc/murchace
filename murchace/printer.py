@@ -3,10 +3,11 @@ import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Protocol
+from typing import Any
 from zoneinfo import ZoneInfo
 
-from escpos.printer import Network
+from escpos.escpos import Escpos
+from escpos.printer import Dummy, Network
 
 logger = logging.getLogger(__name__)
 
@@ -21,21 +22,6 @@ FS_DOT = b"\x1c\x2e"
 FS_C_SJIS = b"\x1c\x43\x01"
 
 JST = ZoneInfo("Asia/Tokyo")
-
-
-class PrinterProtocol(Protocol):
-    """Structural interface for the printer used by :func:`format_and_print_receipt`.
-
-    Decouples the formatting logic from the concrete :class:`JapaneseNetworkPrinter`
-    implementation, making it easy to substitute mocks or alternative backends.
-    """
-
-    def hw(self, hw: str) -> None: ...
-    def set(self, *args: Any, **kwargs: Any) -> None: ...
-    def enable_kanji(self) -> None: ...
-    def text_ja(self, text: str) -> None: ...
-    def image(self, img_source: Any) -> None: ...
-    def cut(self) -> None: ...
 
 
 def get_display_width(text: str) -> int:
@@ -77,9 +63,9 @@ class ReceiptData:
     ordered_at: datetime | None = None
 
 
-class JapaneseNetworkPrinter(Network):
+class JapanesePrinter(Escpos):
     """
-    Network printer subclass with Epson TM series Japanese Kanji support.
+    Base class with Epson TM series Japanese Kanji support.
     Uses Shift_JIS (CP932) encoding with Kanji mode enabled.
     """
 
@@ -110,8 +96,18 @@ class JapaneseNetworkPrinter(Network):
         self._raw(encoded)
 
 
+class JapaneseNetworkPrinter(JapanesePrinter, Network):
+    """Network printer with Japanese Kanji support."""
+    pass
+
+
+class JapaneseDummyPrinter(JapanesePrinter, Dummy):
+    """Dummy printer for testing with Japanese Kanji support."""
+    pass
+
+
 def format_and_print_receipt(
-    printer: PrinterProtocol,
+    printer: JapanesePrinter,
     receipt: ReceiptData,
     paper_width: int = 42,
 ) -> None:

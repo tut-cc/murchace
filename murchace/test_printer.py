@@ -8,7 +8,8 @@ from murchace.printer import (
     FS_AND,
     FS_C_SJIS,
     JapaneseNetworkPrinter,
-    PrinterProtocol,
+    JapanesePrinter,
+    JapaneseDummyPrinter,
     ReceiptData,
     ReceiptItem,
     format_and_print_receipt,
@@ -49,7 +50,7 @@ def test_japanese_network_printer_kanji_methods():
 
 
 def test_format_and_print_receipt():
-    printer = MagicMock(spec=PrinterProtocol)
+    printer = MagicMock(spec=JapanesePrinter)
     receipt = ReceiptData(
         order_id=42,
         items=[
@@ -83,7 +84,7 @@ def test_format_and_print_receipt():
 
 def test_format_and_print_receipt_naive_datetime_converted_to_jst():
     """DB (SQLite CURRENT_TIMESTAMP) returns naive datetime in UTC, which must be converted to JST."""
-    printer = MagicMock(spec=PrinterProtocol)
+    printer = MagicMock(spec=JapanesePrinter)
     receipt = ReceiptData(
         order_id=1,
         items=[],
