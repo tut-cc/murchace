@@ -34,7 +34,7 @@ class PrinterProtocol(Protocol):
     def set(self, *args: Any, **kwargs: Any) -> None: ...
     def enable_kanji(self) -> None: ...
     def text_ja(self, text: str) -> None: ...
-    def image(self, img_source: str) -> None: ...
+    def image(self, img_source: Any) -> None: ...
     def cut(self) -> None: ...
 
 
@@ -123,10 +123,22 @@ def format_and_print_receipt(
     # 1. Store Logo (if configured and file exists)
     if receipt.logo_path:
         try:
+            from PIL import Image
+
+            img = Image.open(receipt.logo_path)
+
+            # Approximate max pixels based on paper width (e.g. 34 chars -> ~384px)
+            max_pixels = paper_width * 11
+            if img.width > max_pixels:
+                ratio = max_pixels / img.width
+                new_size = (int(img.width * ratio), int(img.height * ratio))
+                resample = getattr(Image, "Resampling", Image).LANCZOS  # type: ignore
+                img = img.resize(new_size, resample)
+
             printer.set(align="center")
-            printer.image(receipt.logo_path)
+            printer.image(img)
             printer.text_ja("\n")
-        except (OSError, ValueError) as exc:
+        except (OSError, ValueError, ImportError) as exc:
             logger.warning(
                 "Failed to print logo image '%s': %s", receipt.logo_path, exc
             )
