@@ -47,7 +47,8 @@ class Table:
             .returning(Order.ordered_at)
         )
         row = await self._db.fetch_one(query)
-        assert row is not None, "INSERT ... RETURNING returned no row"
+        if row is None:
+            raise RuntimeError("INSERT ... RETURNING returned no row")
         self.modified_flag_bc.send(ModifiedFlag.INCOMING)
         return row._mapping["ordered_at"]
 
