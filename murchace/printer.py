@@ -129,11 +129,8 @@ def format_and_print_receipt(
 
             # Approximate max pixels based on paper width (e.g. 34 chars -> ~384px)
             max_pixels = paper_width * 11
-            if img.width > max_pixels:
-                ratio = max_pixels / img.width
-                new_size = (int(img.width * ratio), int(img.height * ratio))
-                resample = getattr(Image, "Resampling", Image).LANCZOS  # type: ignore
-                img = img.resize(new_size, resample)
+            resample = getattr(Image, "Resampling", Image).LANCZOS  # type: ignore
+            img.thumbnail((max_pixels, img.height), resample)
 
             printer.set(align="center")
             printer.image(img)
