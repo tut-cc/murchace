@@ -74,6 +74,8 @@ async def supply_all_and_complete(order_id: int):
 
 async def _startup_db() -> None:
     await database.connect()
+    await database.execute("PRAGMA journal_mode=WAL")
+    await database.execute("PRAGMA busy_timeout=5000")
 
     # from alembic.config import Config
     # from alembic import command
