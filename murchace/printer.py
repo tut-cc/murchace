@@ -3,7 +3,7 @@ import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Protocol
+from typing import Any, Protocol
 
 from escpos.printer import Network
 
@@ -28,23 +28,7 @@ class PrinterProtocol(Protocol):
     """
 
     def hw(self, hw: str) -> None: ...
-    def set(
-        self,
-        align: str | None = None,
-        font: str | None = None,
-        bold: bool | None = None,
-        underline: int | None = None,
-        width: int | None = None,
-        height: int | None = None,
-        density: int | None = None,
-        invert: bool | None = None,
-        smooth: bool | None = None,
-        flip: bool | None = None,
-        normal_textsize: bool | None = None,
-        double_width: bool | None = None,
-        double_height: bool | None = None,
-        custom_size: bool | None = None,
-    ) -> None: ...
+    def set(self, *args: Any, **kwargs: Any) -> None: ...
     def enable_kanji(self) -> None: ...
     def text_ja(self, text: str) -> None: ...
     def image(self, img_source: str) -> None: ...
