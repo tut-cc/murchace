@@ -1,9 +1,10 @@
 from datetime import UTC, datetime
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from murchace.printer import (
+    ESC_R_JAPAN,
     FS_AND,
     FS_C_SJIS,
     JapaneseNetworkPrinter,
@@ -38,12 +39,13 @@ def test_japanese_network_printer_kanji_methods():
     printer._raw = MagicMock()
 
     printer.enable_kanji()
-    assert printer._raw.call_args_list[0][0][0] == FS_AND
-    assert printer._raw.call_args_list[1][0][0] == FS_C_SJIS
+    assert printer._raw.call_args_list[0][0][0] == ESC_R_JAPAN
+    assert printer._raw.call_args_list[1][0][0] == FS_AND
+    assert printer._raw.call_args_list[2][0][0] == FS_C_SJIS
 
-    printer.text_ja("テスト注文")
-    # Last call should be CP932 encoded bytes
-    assert printer._raw.call_args_list[-1][0][0] == "テスト注文".encode("cp932")
+    printer.text_ja("テスト注文 ¥500")
+    # Last call should be CP932 encoded bytes with ¥ replaced by \
+    assert printer._raw.call_args_list[-1][0][0] == "テスト注文 \\500".encode("cp932")
 
 
 def test_format_and_print_receipt():

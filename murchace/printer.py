@@ -10,9 +10,11 @@ from escpos.printer import Network
 logger = logging.getLogger(__name__)
 
 # ESC/POS Commands for Japanese (Kanji mode)
+# ESC R n : Select international character set (8: Japan, maps 0x5C to Yen sign)
 # FS & : Select Kanji mode
 # FS . : Cancel Kanji mode
 # FS C n : Select Kanji code system (0: JIS, 1: Shift_JIS)
+ESC_R_JAPAN = b"\x1b\x52\x08"
 FS_AND = b"\x1c\x26"
 FS_DOT = b"\x1c\x2e"
 FS_C_SJIS = b"\x1c\x43\x01"
@@ -78,7 +80,9 @@ class JapaneseNetworkPrinter(Network):
     """
 
     def enable_kanji(self) -> None:
-        """Enable Kanji (Shift_JIS) mode on Epson TM series."""
+        """Enable Kanji (Shift_JIS) mode and Japan international character set on Epson TM series."""
+        # Select Japan international character set (maps 0x5C to Yen sign)
+        self._raw(ESC_R_JAPAN)
         # Enable Kanji mode and select Shift_JIS code system
         self._raw(FS_AND)
         self._raw(FS_C_SJIS)
@@ -91,9 +95,11 @@ class JapaneseNetworkPrinter(Network):
         """
         Print Japanese text safely using CP932 encoding.
         Bypasses standard python-escpos code page switching.
+        Replaces U+00A5 (Yen sign) with '\\' (0x5C) which displays as Yen in Japan char set.
         """
         self.enable_kanji()
-        encoded = text.encode("cp932", errors="replace")
+        normalized = text.replace("\u00a5", "\\")
+        encoded = normalized.encode("cp932", errors="replace")
         self._raw(encoded)
 
 
