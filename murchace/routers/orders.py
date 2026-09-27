@@ -476,6 +476,8 @@ async def item_unit_stream(
     async with OrderTable.modified_flag_bc.attach_receiver() as flag_rx:
         while True:
             flag = await flag_rx.recv()
+            for extra in flag_rx.drain():
+                flag |= extra
             new_order = flag & (ModifiedFlag.INCOMING | ModifiedFlag.PUT_BACK)
             ordered_items = await load_items(query)
             yield SSE.patch_elements(item_stream_component(req, ordered_items))
@@ -662,6 +664,8 @@ async def order_unit_stream(filter: OrderFilter) -> AsyncIterable[DatastarEvent]
     async with OrderTable.modified_flag_bc.attach_receiver() as flag_rx:
         while True:
             flag = await flag_rx.recv()
+            for extra in flag_rx.drain():
+                flag |= extra
             new_order = flag & (ModifiedFlag.INCOMING | ModifiedFlag.PUT_BACK)
             orders = await load_orders(query)
             yield SSE.patch_elements(order_stream_component(orders))

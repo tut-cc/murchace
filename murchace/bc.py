@@ -3,50 +3,43 @@
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
-from typing import ClassVar
-
-
-# A wrapper class to pass any type of values by reference
-@dataclass
-class Slot[T]:
-    value: T
 
 
 class Receiver[T]:
-    shared: Slot[T]
-    modified: asyncio.Event
+    _queue: asyncio.Queue[T]
 
-    def __init__(self, slot: Slot[T], modified: asyncio.Event):
-        self.shared = slot
-        self.modified = modified
+    def __init__(self, queue: asyncio.Queue[T]):
+        self._queue = queue
 
     async def recv(self) -> T:
-        await self.modified.wait()
-        self.modified.clear()
-        return self.shared.value
+        return await self._queue.get()
+
+    def drain(self) -> list[T]:
+        items: list[T] = []
+        while not self._queue.empty():
+            try:
+                items.append(self._queue.get_nowait())
+            except asyncio.QueueEmpty:
+                break
+        return items
 
 
-# A multi-producer multi-consumer channel that can send and receive ephemeral
-# messages. The term "ephemeral" means that producers and consumers do not care
-# if any previously sent messages are dropped. That means, there is no queuing
-# going on in the central broadcaster object.
 class Broadcaster[T]:
-    shared: Slot[T]
-    modified_events: ClassVar[list[asyncio.Event]] = []
+    _receivers: set[Receiver[T]]
 
-    def __init__(self, default: T):
-        self.shared = Slot(default)
+    def __init__(self, default: T | None = None):
+        self._receivers = set()
 
-    def send(self, value: T):
-        for modified_event in self.modified_events:
-            modified_event.set()
-        self.shared.value = value
+    def send(self, value: T) -> None:
+        for rx in list(self._receivers):
+            rx._queue.put_nowait(value)
 
     @asynccontextmanager
     async def attach_receiver(self) -> AsyncIterator[Receiver[T]]:
-        modified = asyncio.Event()
-        rx = Receiver(self.shared, modified)
-        self.modified_events.append(modified)
-        yield rx
-        self.modified_events.remove(modified)
+        queue: asyncio.Queue[T] = asyncio.Queue()
+        rx = Receiver(queue)
+        self._receivers.add(rx)
+        try:
+            yield rx
+        finally:
+            self._receivers.discard(rx)
