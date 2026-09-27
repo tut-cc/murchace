@@ -1,3 +1,8 @@
+import asyncio
+import logging
+import os
+import sqlite3
+from contextlib import suppress
 from datetime import UTC, datetime
 
 import sqlalchemy
@@ -6,7 +11,7 @@ import sqlalchemy.sql.expression as sa_exp
 from databases import Database
 from sqlalchemy.sql.functions import func as sa_func
 
-from . import category, order, ordered_item, product
+from . import broadcast_event, category, order, ordered_item, product
 from .base import Base
 from .order import ModifiedFlag, Order
 from .ordered_item import OrderedItem
@@ -19,6 +24,11 @@ CategoryTable = category.Table(database)
 ProductTable = product.Table(database)
 OrderedItemTable = ordered_item.Table(database)
 OrderTable = order.Table(database)
+BroadcastEventTable = broadcast_event.Table(database)
+
+_logger = logging.getLogger(__name__)
+
+_poll_task: asyncio.Task[None] | None = None
 
 
 async def delete_product(product_id: int):
@@ -72,6 +82,28 @@ async def supply_all_and_complete(order_id: int):
     OrderTable.modified_flag_bc.send(ModifiedFlag.SUPPLIED | ModifiedFlag.RESOLVED)
 
 
+async def poll_broadcast_events() -> None:
+    pid = os.getpid()
+    last_id = await BroadcastEventTable.get_latest_id()
+    try:
+        while True:
+            await asyncio.sleep(0.05)
+            try:
+                events = await BroadcastEventTable.fetch_after(last_id)
+                for event in events:
+                    last_id = event.id
+                    if event.worker_pid != pid:
+                        OrderTable.modified_flag_bc.send_local(ModifiedFlag(event.flag))
+                if events and last_id > 100:
+                    await BroadcastEventTable.prune(last_id - 100)
+            except asyncio.CancelledError:
+                raise
+            except sqlite3.Error as e:
+                _logger.warning("Error polling broadcast events: %s", e)
+    except asyncio.CancelledError:
+        pass
+
+
 async def _startup_db() -> None:
     await database.connect()
 
@@ -92,8 +124,24 @@ async def _startup_db() -> None:
     await ProductTable.ainit()
     await OrderedItemTable.ainit()
 
+    async def _publish_broadcast_event(flag: ModifiedFlag) -> None:
+        await BroadcastEventTable.insert(flag.value)
+
+    OrderTable.modified_flag_bc.set_publish_hook(_publish_broadcast_event)
+
+    global _poll_task
+    _poll_task = asyncio.create_task(poll_broadcast_events())
+
 
 async def _shutdown_db() -> None:
+    global _poll_task
+    if _poll_task is not None:
+        _poll_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await _poll_task
+        _poll_task = None
+
+    OrderTable.modified_flag_bc.set_publish_hook(None)
     await database.disconnect()
 
 

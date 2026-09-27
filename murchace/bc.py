@@ -1,8 +1,9 @@
 # Best-effort asynchronous broadcast channel
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable, Coroutine
 from contextlib import asynccontextmanager
+from typing import Any
 
 
 class Receiver[T]:
@@ -26,13 +27,29 @@ class Receiver[T]:
 
 class Broadcaster[T]:
     _receivers: set[Receiver[T]]
+    _publish_hook: Callable[[T], Coroutine[Any, Any, None]] | None
 
     def __init__(self, default: T | None = None):
         self._receivers = set()
+        self._publish_hook = None
 
-    def send(self, value: T) -> None:
+    def set_publish_hook(
+        self, hook: Callable[[T], Coroutine[Any, Any, None]] | None
+    ) -> None:
+        self._publish_hook = hook
+
+    def send_local(self, value: T) -> None:
         for rx in list(self._receivers):
             rx._queue.put_nowait(value)
+
+    def send(self, value: T) -> None:
+        self.send_local(value)
+        if self._publish_hook is not None:
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(self._publish_hook(value))
+            except RuntimeError:
+                pass
 
     @asynccontextmanager
     async def attach_receiver(self) -> AsyncIterator[Receiver[T]]:
