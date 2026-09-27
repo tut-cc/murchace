@@ -1,3 +1,6 @@
+import base64
+import binascii
+import json
 from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Annotated
@@ -55,15 +58,18 @@ class OrderSession:
     def total_price_str(self) -> str:
         return Product.to_price_str(self.total_price)
 
-    def add(self, p: Product):
+    def add(self, p: Product, item_id: UUID | None = None) -> UUID:
+        if item_id is None:
+            item_id = uuid4()
         self.total_count += 1
         self.total_price += p.price
-        self.items[uuid4()] = p
+        self.items[item_id] = p
         if p.product_id in self.counted_products:
             self.counted_products[p.product_id].count += 1
         else:
             counted_product = self.CountedProduct(name=p.name, price=p.price_str())
             self.counted_products[p.product_id] = counted_product
+        return item_id
 
     def delete(self, item_id: UUID):
         if item_id in self.items:
@@ -290,15 +296,60 @@ def error_modal(message: str) -> Element:
     ]
 
 
-# NOTE: Do NOT store this data in database because the data is transient and should be kept in memory
-order_sessions: dict[UUID, OrderSession] = {}
-SESSION_COOKIE_KEY = "session_key"
+SESSION_COOKIE_KEY = "order_session"
 
 
-async def order_session_dep(session_key: Annotated[UUID, Cookie()]) -> OrderSession:
-    if (order_session := order_sessions.get(session_key)) is None:
-        raise HTTPException(status_code=404, detail=f"Session {session_key} not found")
-    return order_session
+def encode_session(session: OrderSession) -> str:
+    """Serialize the OrderSession into a URL-safe base64 string.
+
+    The session is stored as a JSON array of `[item_id_str, product_id]` pairs.
+    """
+    raw = [[str(item_id), p.product_id] for item_id, p in session.items.items()]
+    return base64.urlsafe_b64encode(json.dumps(raw).encode()).decode()
+
+
+async def restore_session(raw: str | None) -> OrderSession | None:
+    """Deserialize a URL-safe base64 string back into an OrderSession.
+
+    Fetches the necessary products from the database to reconstruct the session.
+    """
+    if raw is None:
+        return None
+    try:
+        decoded = base64.urlsafe_b64decode(raw.encode()).decode()
+        data = json.loads(decoded)
+        if not isinstance(data, list):
+            return None
+    except (ValueError, binascii.Error, json.JSONDecodeError, UnicodeDecodeError):
+        return None
+
+    session = OrderSession(items={}, counted_products={})
+    product_cache: dict[int, Product | None] = {}
+    for item in data:
+        if not (isinstance(item, (list, tuple)) and len(item) == 2):
+            continue
+        try:
+            item_id = UUID(str(item[0]))
+            product_id = int(item[1])
+        except (ValueError, TypeError, AttributeError):
+            continue
+        if product_id not in product_cache:
+            product_cache[product_id] = await ProductTable.by_product_id(product_id)
+        if (product := product_cache[product_id]) is not None:
+            session.add(product, item_id=item_id)
+    return session
+
+
+async def order_session_dep(
+    order_session: Annotated[str | None, Cookie(alias=SESSION_COOKIE_KEY)] = None,
+) -> OrderSession:
+    """Dependency injection to extract and validate the current OrderSession."""
+    if (
+        order_session is None
+        or (session := await restore_session(order_session)) is None
+    ):
+        raise HTTPException(status_code=404, detail="Order session not found")
+    return session
 
 
 SessionDeps = Annotated[OrderSession, Depends(order_session_dep)]
@@ -307,10 +358,13 @@ SessionDeps = Annotated[OrderSession, Depends(order_session_dep)]
 @router.get("/register", response_class=HTMLResponse)
 async def instruct_creation_of_new_session_or_get_existing_session(
     request: Request,
-    session_key: Annotated[UUID | None, Cookie()] = None,
+    order_session: Annotated[str | None, Cookie(alias=SESSION_COOKIE_KEY)] = None,
     c: Annotated[list[int] | None, Query()] = None,  # category
 ):
-    if session_key is None or (session := order_sessions.get(session_key)) is None:
+    if (
+        order_session is None
+        or (session := await restore_session(order_session)) is None
+    ):
         return HTMLResponse(page_register(request))
 
     products = await (
@@ -330,30 +384,27 @@ async def get_confirm_dialog(session: SessionDeps):
 
 @router.post("/register")
 async def create_new_session_or_place_order(
-    session_key: Annotated[UUID | None, Cookie()] = None,
+    order_session: Annotated[str | None, Cookie(alias=SESSION_COOKIE_KEY)] = None,
 ):
-    if session_key is None or (session := order_sessions.get(session_key)) is None:
-        session_key = _create_new_session()
+    if (
+        order_session is None
+        or (session := await restore_session(order_session)) is None
+    ):
+        new_session = OrderSession(items={}, counted_products={})
 
         res = DatastarResponse(SSE.execute_script("location.reload()"))
         res.headers["location"] = "/register"
-        res.set_cookie(SESSION_COOKIE_KEY, str(session_key))
+        res.set_cookie(SESSION_COOKIE_KEY, encode_session(new_session), samesite="lax")
         return res
 
     if session.total_count == 0:
         fragment = error_modal("商品が選択されていません")
         return DatastarResponse(SSE.patch_elements(fragment))
 
-    order_sessions.pop(session_key)
     res = await _place_order(session)
     res.delete_cookie(SESSION_COOKIE_KEY)
+    res.delete_cookie("session_key")
     return res
-
-
-def _create_new_session() -> UUID:
-    session_key = uuid4()
-    order_sessions[session_key] = OrderSession(items={}, counted_products={})
-    return session_key
 
 
 async def _place_order(session: SessionDeps) -> Response:
@@ -372,21 +423,27 @@ async def add_session_item(session: SessionDeps, product_id: int) -> Response:
 
     session.add(product)
     fragment = order_session(session)
-    return DatastarResponse(SSE.patch_elements(fragment))
+    res = DatastarResponse(SSE.patch_elements(fragment))
+    res.set_cookie(SESSION_COOKIE_KEY, encode_session(session), samesite="lax")
+    return res
 
 
 @router.delete("/register/items/{item_id}")
-async def delete_session_item(session: SessionDeps, item_id: UUID):
+async def delete_session_item(session: SessionDeps, item_id: UUID) -> Response:
     session.delete(item_id)
     fragment = order_session(session)
-    return DatastarResponse(SSE.patch_elements(fragment))
+    res = DatastarResponse(SSE.patch_elements(fragment))
+    res.set_cookie(SESSION_COOKIE_KEY, encode_session(session), samesite="lax")
+    return res
 
 
 @router.delete("/register/items")
 async def clear_session_items(session: SessionDeps) -> Response:
     session.clear()
     fragment = order_session(session)
-    return DatastarResponse(SSE.patch_elements(fragment))
+    res = DatastarResponse(SSE.patch_elements(fragment))
+    res.set_cookie(SESSION_COOKIE_KEY, encode_session(session), samesite="lax")
+    return res
 
 
 # TODO: add proper path operation for order deferral
