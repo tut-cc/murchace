@@ -1,5 +1,6 @@
-(() => {
-  class HHMMSSClock extends HTMLElement {
+customElements.define(
+  "hhmmss-clock",
+  class extends HTMLElement {
     connectedCallback() {
       this.updateClock();
       setTimeout(() => {
@@ -10,6 +11,5 @@
     updateClock() {
       this.textContent = new Date().toTimeString().split(" ")[0];
     }
-  }
-  customElements.define("hhmmss-clock", HHMMSSClock);
-})();
+  },
+);
