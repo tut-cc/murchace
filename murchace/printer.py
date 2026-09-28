@@ -1,14 +1,18 @@
 import logging
 import unicodedata
-from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 from escpos.escpos import Escpos
 from escpos.printer import Dummy, Network
 
+from .env import RECEIPT_LOGO_PATH, RECEIPT_STORE_ADDRESS, RECEIPT_STORE_NAME
 from .store import Product
+
+if TYPE_CHECKING:
+    from .routers.register import Register
 
 logger = logging.getLogger(__name__)
 
@@ -46,22 +50,17 @@ def pad_line(left: str, right: str, total_width: int = 42) -> str:
 
 
 @dataclass
-class ReceiptItem:
-    name: str
-    count: int
-    price: int
-
-
-@dataclass
 class ReceiptData:
     order_id: int
-    items: Sequence[ReceiptItem]
-    total_count: int
-    total_price: int
-    store_name: str = "murchace"
-    store_address: str = ""
-    logo_path: str = ""
+    register: "Register"
     ordered_at: datetime | None = None
+    store_name: str = RECEIPT_STORE_NAME
+    store_address: str = RECEIPT_STORE_ADDRESS
+    logo_path: str = RECEIPT_LOGO_PATH
+    """
+    This should be the exact DB-recorded time rather than the print time
+    of the receipt.
+    """
 
 
 class JapanesePrinter(Escpos):
@@ -106,9 +105,7 @@ class JapaneseDummyPrinter(JapanesePrinter, Dummy):
 
 
 def format_and_print_receipt(
-    printer: JapanesePrinter,
-    receipt: ReceiptData,
-    paper_width: int = 42,
+    printer: JapanesePrinter, receipt: ReceiptData, paper_width: int = 42
 ) -> None:
     """Send formatted receipt commands to the printer."""
     # Reset printer and enable Japanese Kanji mode once for this receipt
@@ -158,7 +155,7 @@ def format_and_print_receipt(
     printer.text_ja("-" * paper_width + "\n")
 
     # 6. Items
-    for item in receipt.items:
+    for item in receipt.register.items:
         left_text = item.name
         right_text = f"{Product.to_price_str(item.price)} x {item.count}"
         line = pad_line(left_text, right_text, total_width=paper_width)
@@ -168,8 +165,8 @@ def format_and_print_receipt(
 
     # 7. Total Count & Total Price
     total_line = pad_line(
-        f"合計 ({receipt.total_count}点)",
-        Product.to_price_str(receipt.total_price),
+        f"合計 ({receipt.register.total_count}点)",
+        Product.to_price_str(receipt.register.total_price),
         total_width=paper_width,
     )
     printer.set(align="left", bold=True, double_height=True)

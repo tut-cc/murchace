@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from murchace.printer import (
+from .printer import (
     ESC_R_JAPAN,
     FS_AND,
     FS_C_SJIS,
@@ -11,12 +11,12 @@ from murchace.printer import (
     JapaneseNetworkPrinter,
     JapanesePrinter,
     ReceiptData,
-    ReceiptItem,
     format_and_print_receipt,
     get_display_width,
     pad_line,
 )
-from murchace.printer_queue import ReceiptPrinterQueue
+from .printer_queue import ReceiptPrinterQueue
+from .routers.register import Register
 
 
 def test_get_display_width():
@@ -64,12 +64,14 @@ def test_format_and_print_receipt():
     printer = MagicMock(spec=JapanesePrinter)
     receipt = ReceiptData(
         order_id=42,
-        items=[
-            ReceiptItem(name="焼きそば", count=2, price=500),
-            ReceiptItem(name="コーラ", count=1, price=200),
-        ],
-        total_count=3,
-        total_price=1200,
+        register=Register(
+            items=[
+                Register.Item(product_id=1, name="焼きそば", count=2, price=500),
+                Register.Item(product_id=2, name="コーラ", count=1, price=200),
+            ],
+            total_count=3,
+            total_price=1200,
+        ),
         store_name="テスト店舗",
         store_address="東京都渋谷区神南1-2-3",
         ordered_at=datetime(2026, 9, 23, 12, 0, 0, tzinfo=UTC),
@@ -98,9 +100,7 @@ def test_format_and_print_receipt_naive_datetime_converted_to_jst():
     printer = MagicMock(spec=JapanesePrinter)
     receipt = ReceiptData(
         order_id=1,
-        items=[],
-        total_count=0,
-        total_price=0,
+        register=Register(items=[], total_count=0, total_price=0),
         ordered_at=datetime(2026, 9, 23, 12, 0, 0, tzinfo=UTC),
     )
     format_and_print_receipt(printer, receipt, paper_width=34)
@@ -129,9 +129,7 @@ async def test_printer_queue_serialization():
             queue.enqueue(
                 ReceiptData(
                     order_id=i,
-                    items=[],
-                    total_count=1,
-                    total_price=100,
+                    register=Register(items=[], total_count=1, total_price=100),
                 )
             )
 
@@ -145,10 +143,7 @@ async def test_printer_queue_serialization():
 def test_printer_queue_skips_when_host_unconfigured():
     queue = ReceiptPrinterQueue(host="")
     receipt = ReceiptData(
-        order_id=1,
-        items=[],
-        total_count=1,
-        total_price=100,
+        order_id=1, register=Register(items=[], total_count=1, total_price=100)
     )
     assert queue.enqueue(receipt) is False
     assert queue.queue.empty()
@@ -165,11 +160,13 @@ async def test_retry_succeeds_on_second_attempt():
     from murchace.printer_queue import _RETRY_DELAYS  # noqa: F401
 
     queue = ReceiptPrinterQueue(host="192.168.1.100", port=9100)
-    receipt = ReceiptData(order_id=99, items=[], total_count=1, total_price=100)
+    receipt = ReceiptData(
+        order_id=99, register=Register(items=[], total_count=1, total_price=100)
+    )
 
     call_count = 0
 
-    def flaky_print_job(r):
+    def flaky_print_job(_):
         nonlocal call_count
         call_count += 1
         if call_count == 1:
@@ -190,7 +187,9 @@ async def test_retry_exhausted_logs_error():
     from murchace.printer_queue import _RETRY_DELAYS
 
     queue = ReceiptPrinterQueue(host="192.168.1.100", port=9100)
-    receipt = ReceiptData(order_id=7, items=[], total_count=1, total_price=100)
+    receipt = ReceiptData(
+        order_id=7, register=Register(items=[], total_count=1, total_price=100)
+    )
     max_attempts = len(_RETRY_DELAYS) + 1
 
     with (
@@ -222,7 +221,9 @@ def test_print_job_uses_configured_timeout_and_paper_width():
         timeout=5,
         paper_width=48,
     )
-    receipt = ReceiptData(order_id=3, items=[], total_count=0, total_price=0)
+    receipt = ReceiptData(
+        order_id=3, register=Register(items=[], total_count=0, total_price=0)
+    )
 
     fake_printer = MagicMock()
 

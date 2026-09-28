@@ -1,5 +1,8 @@
 import asyncio
 import logging
+from typing import Annotated
+
+from fastapi import Depends, Request
 
 from .env import (
     RECEIPT_PAPER_WIDTH,
@@ -164,3 +167,11 @@ class ReceiptPrinterQueue:
             logger.info("Successfully printed receipt for order #%d", receipt.order_id)
         finally:
             printer.close()
+
+
+def get_printer_queue(request: Request) -> ReceiptPrinterQueue:
+    """FastAPI dependency that returns the app-level :class:`ReceiptPrinterQueue`."""
+    return request.app.state.printer_queue
+
+
+PrinterQueueDeps = Annotated[ReceiptPrinterQueue, Depends(get_printer_queue)]
