@@ -7,9 +7,16 @@ from htpy import Element, HTMLElement, a, div, p
 
 from .components import page_layout
 from .env import DEBUG
+from .ipc_bus import AsyncIPCBus
+from .ipc_bus import router as ipc_bus_router
 from .printer_queue import ReceiptPrinterQueue
 from .routers import orders, products, register, stat
 from .store import startup_and_shutdown_db
+
+
+def handle_parent_exit(app: FastAPI):
+    if not app.state.orchestrator_task.done():
+        app.state.orchestrator_task.cancel()
 
 
 # https://stackoverflow.com/a/65270864
@@ -18,9 +25,13 @@ from .store import startup_and_shutdown_db
 async def lifespan(app: FastAPI):
     startup_db, shutdown_db = startup_and_shutdown_db
     await startup_db()
+
+    app.state.ipc_bus = AsyncIPCBus()
+    app.state.ipc_bus.start()
     app.state.printer_queue = ReceiptPrinterQueue()
     app.state.printer_queue.start()
     yield
+    await app.state.ipc_bus.cancel()
     await app.state.printer_queue.stop()
     await shutdown_db()
 
@@ -62,3 +73,5 @@ app.include_router(products.router)
 app.include_router(register.router)
 app.include_router(orders.router)
 app.include_router(stat.router)
+
+app.include_router(ipc_bus_router)
