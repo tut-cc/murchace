@@ -1,5 +1,6 @@
-(() => {
-  class NotifRingtone extends HTMLElement {
+customElements.define(
+  "notif-ringtone",
+  class extends HTMLElement {
     constructor() {
       super();
       this.audio = new Audio();
@@ -24,6 +25,5 @@
         });
       }
     }
-  }
-  customElements.define("notif-ringtone", NotifRingtone);
-})();
+  },
+);
