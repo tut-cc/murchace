@@ -39,7 +39,18 @@ UV_RUN = ["uv", "run", "--frozen"]
 
 UVICORN_CMD = [
     *UV_RUN,
-    *["uvicorn", "--port", "8000", "--workers", "4", "murchace.main:app"],
+    *[
+        "uvicorn",
+        "--port",
+        "8000",
+        "--workers",
+        "4",
+        # Shutdown forcefully when SSE clients are still connected.
+        # https://github.com/fastapi/fastapi/discussions/14001#discussioncomment-14705381
+        "--timeout-graceful-shutdown",
+        "5",
+        "murchace.main:app",
+    ],
 ]
 
 

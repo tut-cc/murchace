@@ -10,3 +10,4 @@ wheels/
 /.doit.db
 /static/stat.csv
 .env
+.murchace.sock
