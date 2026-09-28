@@ -1,6 +1,7 @@
+from dataclasses import dataclass
 from datetime import UTC
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Self
 
 import sqlalchemy.sql.expression as sa_exp
 from datastar_py import attribute_generator as data
@@ -31,7 +32,8 @@ from markupsafe import Markup
 from sqlalchemy.sql.functions import func as sa_func
 
 from ..components import clock, page_layout
-from ..receipt_service import PrinterQueueDeps, build_receipt_data
+from ..printer import ReceiptData
+from ..printer_queue import PrinterQueueDeps
 from ..store import (
     ModifiedFlag,
     Order,
@@ -43,6 +45,57 @@ from ..store import (
 )
 
 router = APIRouter()
+
+
+@dataclass
+class Register:
+    @dataclass
+    class Item:
+        product_id: int
+        name: str
+        count: int
+        price: int
+
+        @classmethod
+        def parse_signal(cls: type[Self], item: dict) -> Self | str:
+            return (
+                "productIdがみつかりません"
+                if (product_id := item.get("productId")) is None
+                else "nameがみつかりません"
+                if (name := item.get("name")) is None
+                else "countが見つかりません"
+                if (count := item.get("count")) is None
+                else "priceが見つかりません"
+                if (price := item.get("price")) is None
+                else cls(product_id=product_id, name=name, count=count, price=price)
+            )
+
+    items: list[Item]
+    total_count: int
+    total_price: int
+
+    @classmethod
+    def parse_signal(cls: type[Self], signals: dict[str, Any] | None) -> Self | str:
+        if signals is None:
+            return "シグナルが見つかりません"
+        if (items_signal := signals.get("items")) is None:
+            return "items属性が見つかりません"
+        if not isinstance(items_signal, list):
+            return "itemsがlistではありません"
+        if len(items_signal) == 0:
+            return "商品が選択されていません"
+
+        items = []
+        total_count = total_price = 0
+        for item in items_signal:
+            if not isinstance(item, dict):
+                return "itemがdictではありません"
+            if isinstance(item := cls.Item.parse_signal(item), str):
+                return item
+            items.append(item)
+            total_count += item.count
+            total_price += item.count * item.price
+        return cls(items=items, total_count=total_count, total_price=total_price)
 
 
 with open(Path(__file__).parent / "register-items.js", encoding="utf-8") as f:
@@ -142,7 +195,7 @@ def items() -> Element:
     ]
 
 
-def confirm_modal(items: list[dict[str, int | str]]) -> Element:
+def confirm_modal(register: Register) -> Element:
     return div(id="order-modal-container")[
         div(
             id="order-modal",
@@ -162,7 +215,7 @@ def confirm_modal(items: list[dict[str, int | str]]) -> Element:
                 )["✕"],
                 article(
                     class_="grow min-h-0 flex flex-col gap-y-2 px-3 text-center text-lg"
-                )[h2(class_="font-semibold")["注文の確定"], _total(items)],
+                )[h2(class_="font-semibold")["注文の確定"], _total(register)],
                 button(
                     data.on("click", "@post('/register')"),
                     class_="w-full py-4 text-center text-xl font-semibold text-white bg-blue-600 rounded-sm",
@@ -172,7 +225,7 @@ def confirm_modal(items: list[dict[str, int | str]]) -> Element:
     ]
 
 
-def issued_modal(order_id: int, items: list[dict[str, int | str]]) -> Element:
+def issued_modal(order_id: int, register: Register) -> Element:
     return div(id="order-modal-container")[
         div(
             id="order-modal",
@@ -185,7 +238,10 @@ def issued_modal(order_id: int, items: list[dict[str, int | str]]) -> Element:
             )[
                 article(
                     class_="grow min-h-0 flex flex-col gap-y-2 px-3 text-center text-lg"
-                )[h2(class_="font-semibold")[f"注文番号 #{order_id}"], _total(items)],
+                )[
+                    h2(class_="font-semibold")[f"注文番号 #{order_id}"],
+                    _total(register),
+                ],
                 button(
                     data.on("click", "window['order-modal'].remove()"),
                     class_="w-full py-4 text-center text-xl font-semibold text-white bg-green-600 rounded-sm",
@@ -199,31 +255,27 @@ def issued_modal(order_id: int, items: list[dict[str, int | str]]) -> Element:
     ]
 
 
-def _total(items: list[dict[str, int | str]]) -> list[Element]:
-    total_count = sum((item["count"] for item in items), 0)
-    total_price = sum((item["price"] for item in items), 0)
-    assert isinstance(total_price, int)
-
+def _total(register: Register) -> list[Element]:
     return [
         ul(class_="grow flex flex-col overflow-y-auto")[
             [
                 li(class_="flex flex-row items-start gap-x-2")[
-                    span(class_="break-words")[item["name"]],
+                    span(class_="break-words")[item.name],
                     span(class_="ml-auto whitespace-nowrap")[
-                        f"{Product.to_price_str(item['price'])} x {item['count']}"  # ty: ignore[invalid-argument-type]
+                        f"{Product.to_price_str(item.price)} x {item.count}"
                     ],
                 ]
-                for item in items
+                for item in register.items
             ]
         ],
         div[
             p(class_="flex flex-row")[
                 span["計"],
-                span(class_="ml-auto whitespace-nowrap")[f"{total_count} 点"],
+                span(class_="ml-auto whitespace-nowrap")[f"{register.total_count} 点"],
             ],
             p(class_="flex flex-row")[
                 span(class_="break-words")["合計金額"],
-                span(class_="ml-auto")[Product.to_price_str(total_price)],
+                span(class_="ml-auto")[Product.to_price_str(register.total_price)],
             ],
         ],
     ]
@@ -264,29 +316,17 @@ async def get_register(
     return HTMLResponse(page_register(request, products))
 
 
-def parse_items(signals: dict[str, Any] | None) -> list | str:
-    if signals is None:
-        return "シグナルが見つかりません"
-    if (items := signals.get("items")) is None:
-        return "items属性が見つかりません"
-    if not isinstance(items, list):
-        return "itemsがlistではありません"
-    if len(items) == 0:
-        return "商品が選択されていません"
-    return items
-
-
 @router.get("/register/confirm-modal")
 async def get_confirm_dialog(request: Request):
-    if isinstance(items := parse_items(await read_signals(request)), str):
-        return DatastarResponse(SSE.patch_elements(error_modal(items)))
-    return DatastarResponse(SSE.patch_elements(confirm_modal(items)))
+    if isinstance(register := Register.parse_signal(await read_signals(request)), str):
+        return DatastarResponse(SSE.patch_elements(error_modal(register)))
+    return DatastarResponse(SSE.patch_elements(confirm_modal(register)))
 
 
 @router.post("/register")
 async def place_order(request: Request, queue: PrinterQueueDeps):
-    if isinstance(items := parse_items(await read_signals(request)), str):
-        return DatastarResponse(SSE.patch_elements(error_modal(items)))
+    if isinstance(register := Register.parse_signal(await read_signals(request)), str):
+        return DatastarResponse(SSE.patch_elements(error_modal(register)))
 
     # We modify order tables all in one transaction. If `POST /register` happens
     # fast enough then the first mutating query (database.fetch_val in this
@@ -299,16 +339,16 @@ async def place_order(request: Request, queue: PrinterQueueDeps):
         # We reject order issuance when product name and price do not match up
         product_map = {p.product_id: p for p in await ProductTable.select_all()}
         product_ids: list[int] = []
-        for item in items:
-            product = product_map[item["productId"]]
-            if product.name != item["name"]:
-                err_msg = f"商品名が異なります: {product.name} != {item['name']}"
+        for item in register.items:
+            product = product_map[item.product_id]
+            if product.name != item.name:
+                err_msg = f"商品名が異なります: {product.name} != {item.name}"
                 return DatastarResponse(SSE.patch_elements(error_modal(err_msg)))
-            if product.price != item["price"]:
-                err_msg = f"値段が異なります: {product.price} != {item['price']}"
+            if product.price != item.price:
+                err_msg = f"値段が異なります: {product.price} != {item.price}"
                 return DatastarResponse(SSE.patch_elements(error_modal(err_msg)))
-            for _ in range(item["count"]):
-                product_ids.append(item["productId"])
+            for _ in range(item.count):
+                product_ids.append(item.product_id)
 
         max_order_id_p1 = sa_exp.select(
             sa_func.coalesce(sa_func.max(Order.order_id), 0) + 1
@@ -333,11 +373,13 @@ async def place_order(request: Request, queue: PrinterQueueDeps):
         OrderTable.modified_flag_bc.send(ModifiedFlag.INCOMING)
 
     # Enqueue receipt for printing
-    queue.enqueue(build_receipt_data(order_id, items, ordered_at=ordered_at))
+    queue.enqueue(
+        ReceiptData(order_id=order_id, register=register, ordered_at=ordered_at)
+    )
 
     return DatastarResponse(
         [
             SSE.patch_signals({"items": []}),
-            SSE.patch_elements(issued_modal(order_id, items)),
+            SSE.patch_elements(issued_modal(order_id, register)),
         ]
     )
