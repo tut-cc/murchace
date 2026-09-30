@@ -32,17 +32,10 @@ from markupsafe import Markup
 from sqlalchemy.sql.functions import func as sa_func
 
 from ..components import clock, page_layout
+from ..ipc_bus import IPCDeps
 from ..printer import ReceiptData
 from ..printer_queue import PrinterQueueDeps
-from ..store import (
-    ModifiedFlag,
-    Order,
-    OrderedItem,
-    OrderTable,
-    Product,
-    ProductTable,
-    database,
-)
+from ..store import Order, OrderedItem, Product, ProductTable, database
 
 router = APIRouter()
 
@@ -324,7 +317,7 @@ async def get_confirm_dialog(request: Request):
 
 
 @router.post("/register")
-async def place_order(request: Request, queue: PrinterQueueDeps):
+async def place_order(request: Request, ipc: IPCDeps, queue: PrinterQueueDeps):
     if isinstance(register := Register.parse_signal(await read_signals(request)), str):
         return DatastarResponse(SSE.patch_elements(error_modal(register)))
 
@@ -370,7 +363,7 @@ async def place_order(request: Request, queue: PrinterQueueDeps):
             [{"item_no": i, "product_id": pid} for i, pid in enumerate(product_ids)],
         )
 
-        OrderTable.modified_flag_bc.send(ModifiedFlag.INCOMING)
+        await ipc.publish("order.modified", True)
 
     # Enqueue receipt for printing
     queue.enqueue(
