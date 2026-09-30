@@ -1,12 +1,10 @@
 from datetime import UTC, datetime
-from enum import Flag, auto
 
 import sqlalchemy.sql.expression as sa_exp
 from databases import Database
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql.sqltypes import DateTime
 
-from ..bc import Broadcaster
 from .base import Base
 
 
@@ -25,17 +23,8 @@ class Order(Base):
     )
 
 
-class ModifiedFlag(Flag):
-    ORIGINAL = auto()
-    INCOMING = auto()
-    SUPPLIED = auto()
-    RESOLVED = auto()
-    PUT_BACK = auto()
-
-
 class Table:
     _db: Database
-    modified_flag_bc = Broadcaster(ModifiedFlag.ORIGINAL)
 
     def __init__(self, database: Database):
         self._db = database
@@ -47,7 +36,6 @@ class Table:
     async def cancel(self, order_id: int) -> None:
         values = {"canceled_at": datetime.now(UTC), "completed_at": None}
         await self._db.execute(self._update(order_id), values)
-        self.modified_flag_bc.send(ModifiedFlag.RESOLVED)
 
     async def _complete(self, order_id: int) -> None:
         """
@@ -60,7 +48,6 @@ class Table:
     async def reset(self, order_id: int) -> None:
         values = {"canceled_at": None, "completed_at": None}
         await self._db.execute(self._update(order_id), values)
-        self.modified_flag_bc.send(ModifiedFlag.PUT_BACK)
 
     async def by_order_id(self, order_id: int) -> Order | None:
         query = sa_exp.select(Order).where(Order.order_id == order_id)

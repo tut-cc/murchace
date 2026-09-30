@@ -40,6 +40,7 @@ from markupsafe import Markup
 from sqlalchemy.sql.functions import func as sa_func
 
 from ..components import clock, page_layout
+from ..ipc_bus import IPCDeps
 from ..store import (
     CategoryTable,
     Order,
@@ -51,7 +52,6 @@ from ..store import (
     supply_and_complete_order_if_done,
     unixepoch,
 )
-from ..store.order import ModifiedFlag
 
 router = APIRouter()
 
@@ -371,20 +371,16 @@ def item_stream_component(req: Request, ordered_items: list[ordered_item_t]) -> 
 
 
 @router.get("/orders/stream")
-async def get_orders_stream(request: Request):
+async def get_orders_stream(request: Request, ipc: IPCDeps):
     signals = await read_signals(request)
     assert signals is not None
 
-    print("signals:", signals)
-    # statuses = signals["filterStatuses"]
-    # is_incoming = "unprocessed" in statuses and not (
-    #     "canceled" in statuses or "completed" in statuses
-    # )
     filter = OrderFilter.parse_from_signals(signals)
+    # is_incoming = filter.status_flag == OrderFilter.StatusFlag.unprocessed
     if filter.card == "item":
-        return DatastarResponse(item_unit_stream(request, filter))
+        return DatastarResponse(item_unit_stream(request, ipc, filter))
     elif filter.card == "order":
-        return DatastarResponse(order_unit_stream(filter))
+        return DatastarResponse(order_unit_stream(ipc, filter))
 
 
 def _items_loader() -> Callable[[sa_exp.Select], Awaitable[list[ordered_item_t]]]:
@@ -468,19 +464,18 @@ def query_items(filter: OrderFilter) -> sa_exp.Select:
 
 
 async def item_unit_stream(
-    req: Request, filter: OrderFilter
+    req: Request, ipc: IPCDeps, filter: OrderFilter
 ) -> AsyncIterable[DatastarEvent]:
     query = query_items(filter)
 
     ordered_items = await load_items(query)
     yield SSE.patch_elements(item_stream_component(req, ordered_items))
-    async with OrderTable.modified_flag_bc.attach_receiver() as flag_rx:
+    async with ipc.subscribe("order.modified") as sub:
         while True:
-            flag = await flag_rx.recv()
-            new_order = flag & (ModifiedFlag.INCOMING | ModifiedFlag.PUT_BACK)
+            is_incoming = await sub.get()
             ordered_items = await load_items(query)
             yield SSE.patch_elements(item_stream_component(req, ordered_items))
-            if new_order:
+            if is_incoming:
                 yield SSE.patch_signals({"_notifRingtone": "true"})
 
 
@@ -655,24 +650,26 @@ def query_orders(filter: OrderFilter) -> sa_exp.Select:
     )
 
 
-async def order_unit_stream(filter: OrderFilter) -> AsyncIterable[DatastarEvent]:
+async def order_unit_stream(
+    ipc: IPCDeps, filter: OrderFilter
+) -> AsyncIterable[DatastarEvent]:
     query = query_orders(filter)
 
     orders = await load_orders(query)
     yield SSE.patch_elements(order_stream_component(orders))
-    async with OrderTable.modified_flag_bc.attach_receiver() as flag_rx:
+    async with ipc.subscribe("order.modified") as sub:
         while True:
-            flag = await flag_rx.recv()
-            new_order = flag & (ModifiedFlag.INCOMING | ModifiedFlag.PUT_BACK)
+            is_incoming = await sub.get()
             orders = await load_orders(query)
             yield SSE.patch_elements(order_stream_component(orders))
-            if new_order:
+            if is_incoming:
                 yield SSE.patch_signals({"_notifRingtone": "true"})
 
 
 @router.post("/orders/{order_id}/products/{product_id}/supplied-at")
-async def supply_products(order_id: int, product_id: int):
+async def supply_products(ipc: IPCDeps, order_id: int, product_id: int):
     completed = await supply_and_complete_order_if_done(order_id, product_id)
+    await ipc.publish("order.modified", False)
     if completed:
         id = f"#product-{product_id}"
     else:
@@ -681,17 +678,20 @@ async def supply_products(order_id: int, product_id: int):
 
 
 @router.delete("/orders/{order_id}/resolved-at")
-async def reset(order_id: int):
+async def reset(ipc: IPCDeps, order_id: int):
     await OrderTable.reset(order_id)
+    await ipc.publish("order.modified", False)
     return DatastarResponse(SSE.remove_elements(f"#order-{order_id}"))
 
 
 @router.post("/orders/{order_id}/completed-at")
-async def complete(order_id: int):
+async def complete(ipc: IPCDeps, order_id: int):
     await supply_all_and_complete(order_id)
+    await ipc.publish("order.modified", False)
     return DatastarResponse(SSE.remove_elements(f"#order-{order_id}"))
 
 
 @router.post("/orders/{order_id}/canceled-at")
-async def cancel(order_id: int):
+async def cancel(ipc: IPCDeps, order_id: int):
     await OrderTable.cancel(order_id)
+    await ipc.publish("order.modified", False)

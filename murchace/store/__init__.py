@@ -8,7 +8,7 @@ from sqlalchemy.sql.functions import func as sa_func
 
 from . import category, order, ordered_item, product
 from .base import Base
-from .order import ModifiedFlag, Order
+from .order import Order
 from .ordered_item import OrderedItem
 from .product import Product
 
@@ -58,10 +58,6 @@ async def supply_and_complete_order_if_done(order_id: int, product_id: int) -> b
         values = {"completed_at": datetime.now(UTC)}
         completed: bool | None = await database.fetch_val(update_query, values)
 
-    flag = ModifiedFlag.SUPPLIED
-    if completed is not None:
-        flag |= ModifiedFlag.RESOLVED
-    OrderTable.modified_flag_bc.send(flag)
     return completed is not None
 
 
@@ -69,7 +65,6 @@ async def supply_all_and_complete(order_id: int):
     async with database.transaction():
         await OrderedItemTable._supply_all(order_id)
         await OrderTable._complete(order_id)
-    OrderTable.modified_flag_bc.send(ModifiedFlag.SUPPLIED | ModifiedFlag.RESOLVED)
 
 
 async def _startup_db() -> None:

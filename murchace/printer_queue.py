@@ -174,4 +174,4 @@ def get_printer_queue(request: Request) -> ReceiptPrinterQueue:
     return request.app.state.printer_queue
 
 
-PrinterQueueDeps = Annotated[ReceiptPrinterQueue, Depends(get_printer_queue)]
+type PrinterQueueDeps = Annotated[ReceiptPrinterQueue, Depends(get_printer_queue)]
