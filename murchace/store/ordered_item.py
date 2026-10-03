@@ -1,10 +1,9 @@
-from datetime import UTC, datetime
-
 import sqlalchemy.sql.expression as sa_exp
 from databases import Database
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.schema import ForeignKey
-from sqlalchemy.sql.sqltypes import DateTime
+from sqlalchemy.sql.functions import func as sa_func
+from sqlalchemy.sql.sqltypes import Integer
 
 from .base import Base
 from .order import Order
@@ -17,9 +16,7 @@ class OrderedItem(Base):
     order_id: Mapped[int] = mapped_column(ForeignKey(Order.order_id))
     item_no: Mapped[int]
     product_id: Mapped[int] = mapped_column(ForeignKey(Product.product_id))
-    supplied_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), default=None
-    )
+    supplied_at: Mapped[int | None] = mapped_column(Integer, default=None)
 
 
 class Table:
@@ -40,7 +37,7 @@ class Table:
         query = sa_exp.update(OrderedItem).where(
             (OrderedItem.order_id == order_id) & (OrderedItem.product_id == product_id)
         )
-        await self._db.execute(query, {"supplied_at": datetime.now(UTC)})
+        await self._db.execute(query, {"supplied_at": sa_func.unixepoch()})
 
     async def _supply_all(self, order_id: int):
         """
@@ -48,7 +45,7 @@ class Table:
         `orders` table should be updated as well.
         """
         query = sa_exp.update(OrderedItem).where(OrderedItem.order_id == order_id)
-        await self._db.execute(query, {"supplied_at": datetime.now(UTC)})
+        await self._db.execute(query, {"supplied_at": sa_func.unixepoch()})
 
     # NOTE: this function needs authorization since it destroys all receipts
     # async def clear(self) -> None:

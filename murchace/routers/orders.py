@@ -40,6 +40,7 @@ from pydantic import BaseModel, BeforeValidator, Field
 from sqlalchemy.sql.functions import func as sa_func
 
 from ..components import clock, page_layout
+from ..env import LOCAL_TZINFO
 from ..ipc_bus import IPCDeps
 from ..store import (
     CategoryTable,
@@ -50,7 +51,6 @@ from ..store import (
     database,
     supply_all_and_complete,
     supply_and_complete_order_if_done,
-    unixepoch,
 )
 
 router = APIRouter()
@@ -84,7 +84,9 @@ def notif_ringtone(req: Request) -> list[Element]:
 
 def _to_time(unix_epoch: int | None) -> str | None:
     return (
-        datetime.fromtimestamp(unix_epoch).strftime("%H:%M:%S") if unix_epoch else None  # noqa: DTZ006
+        datetime.fromtimestamp(unix_epoch, tz=LOCAL_TZINFO).strftime("%H:%M:%S")
+        if unix_epoch
+        else None
     )
 
 
@@ -168,7 +170,8 @@ class OrderFilter(BaseModel):
 
 elm_order_filter_container = div(
     "#order-filter-container",
-    data.signals(OrderFilter.default_signals).ifmissing,
+    # I suspect that ty is choking up on SignalValue = ... | list["SignalValue"] | ...
+    data.signals(OrderFilter.default_signals).ifmissing,  # ty: ignore[invalid-argument-type]
     {"data-persist": ",".join(OrderFilter.default_signals.keys())},
 )
 
@@ -447,7 +450,7 @@ def query_items(filter: OrderFilter) -> sa_exp.Select:
         .select_from(sa_exp.join(OrderedItem, Product))
         .add_columns(Product.name, Product.filename)
         .join(Order)
-        .add_columns(unixepoch(Order.ordered_at), unixepoch(OrderedItem.supplied_at))
+        .add_columns(Order.ordered_at, OrderedItem.supplied_at)
         .where(filter.status_flag.column() & filter.by_category_ids())
         .order_by(
             OrderedItem.order_id.asc()
@@ -630,12 +633,12 @@ def query_orders(filter: OrderFilter) -> sa_exp.Select:
             if filter.status_flag == OrderFilter.StatusFlag.unprocessed
             else Order.order_id.desc()
         )
-        .add_columns(unixepoch(Order.ordered_at))
+        .add_columns(Order.ordered_at)
         .where(filter.status_flag.column())
-        .add_columns(unixepoch(Order.canceled_at), unixepoch(Order.completed_at))
+        .add_columns(Order.canceled_at, Order.completed_at)
         # Query the list of ordered items
         .select_from(sa_exp.join(Order, OrderedItem))
-        .add_columns(OrderedItem.product_id, unixepoch(OrderedItem.supplied_at))
+        .add_columns(OrderedItem.product_id, OrderedItem.supplied_at)
         .group_by(OrderedItem.product_id)
         .order_by(OrderedItem.id.asc())
         .add_columns(sa_func.count(OrderedItem.product_id).label("count"))

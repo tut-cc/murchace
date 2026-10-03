@@ -1,4 +1,4 @@
-from datetime import UTC
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -32,6 +32,7 @@ from pydantic import BaseModel, Field, computed_field
 from sqlalchemy.sql.functions import func as sa_func
 
 from ..components import clock, page_layout
+from ..env import LOCAL_TZINFO
 from ..ipc_bus import IPCDeps
 from ..printer import ReceiptData
 from ..printer_queue import PrinterQueueDeps
@@ -332,8 +333,6 @@ async def place_order(
             detail = "INSERT ... RETURNING returned no row"
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=detail)
         order_id, ordered_at = order_row["order_id"], order_row["ordered_at"]
-        if ordered_at.tzinfo is None:
-            ordered_at = ordered_at.replace(tzinfo=UTC)
 
         await database.execute_many(
             sa_exp.insert(OrderedItem).values(order_id=order_id),
@@ -344,7 +343,11 @@ async def place_order(
 
     # Enqueue receipt for printing
     queue.enqueue(
-        ReceiptData(order_id=order_id, register=register, ordered_at=ordered_at)
+        ReceiptData(
+            order_id=order_id,
+            register=register,
+            ordered_at=datetime.fromtimestamp(ordered_at, tz=LOCAL_TZINFO),
+        )
     )
 
     return DatastarResponse(

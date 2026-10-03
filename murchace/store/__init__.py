@@ -1,7 +1,4 @@
-from datetime import UTC, datetime
-
 import sqlalchemy
-import sqlalchemy.orm as sa_orm
 import sqlalchemy.sql.expression as sa_exp
 from databases import Database
 from sqlalchemy.sql.functions import func as sa_func
@@ -30,13 +27,6 @@ async def delete_product(product_id: int):
         await database.execute(query)
 
 
-# TODO: there should be a way to use the unixepoch function without this boiler plate
-def unixepoch(attr: sa_orm.Mapped) -> sqlalchemy.Label:
-    colname = attr.label(None)  # Fully resolved name in the `table.field` format
-    alias = getattr(attr, "name")  # noqa: B009
-    return sa_exp.literal_column(f"unixepoch({colname})").label(alias)
-
-
 async def supply_and_complete_order_if_done(order_id: int, product_id: int) -> bool:
     async with database.transaction():
         await OrderedItemTable._supply(order_id, product_id)
@@ -55,7 +45,7 @@ async def supply_and_complete_order_if_done(order_id: int, product_id: int) -> b
             .returning(Order.order_id.isnot(None))
         )
 
-        values = {"completed_at": datetime.now(UTC)}
+        values = {"completed_at": sa_func.unixepoch()}
         completed: bool | None = await database.fetch_val(update_query, values)
 
     return completed is not None

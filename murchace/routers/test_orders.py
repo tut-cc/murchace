@@ -15,8 +15,7 @@ def test_query_items():
     assert format_sql(str(query_items(filter))) == snapshot(
         """\
 SELECT ordered_items.order_id, ordered_items.product_id, count(ordered_items.product_id) AS COUNT,
-       products.name, products.filename, unixepoch(orders.ordered_at) AS ordered_at,
-       unixepoch(ordered_items.supplied_at) AS supplied_at
+       products.name, products.filename, orders.ordered_at, ordered_items.supplied_at
 FROM ordered_items
 JOIN products ON products.product_id = ordered_items.product_id
 JOIN orders ON orders.order_id = ordered_items.order_id
@@ -32,8 +31,7 @@ ORDER BY ordered_items.order_id ASC, ordered_items.product_id ASC\
     filter.all_category = False
     assert format_sql(str(query_items(filter))) == snapshot("""\
 SELECT ordered_items.order_id, ordered_items.product_id, count(ordered_items.product_id) AS COUNT,
-       products.name, products.filename, unixepoch(orders.ordered_at) AS ordered_at,
-       unixepoch(ordered_items.supplied_at) AS supplied_at
+       products.name, products.filename, orders.ordered_at, ordered_items.supplied_at
 FROM ordered_items
 JOIN products ON products.product_id = ordered_items.product_id
 JOIN orders ON orders.order_id = ordered_items.order_id
@@ -56,9 +54,9 @@ def test_query_orders():
     )
     assert format_sql(str(query_orders(filter))) == snapshot(
         """\
-SELECT orders.order_id, unixepoch(orders.ordered_at) AS ordered_at,
-       unixepoch(orders.canceled_at) AS canceled_at, unixepoch(orders.completed_at) AS completed_at, ordered_items.product_id,
-       unixepoch(ordered_items.supplied_at) AS supplied_at, count(ordered_items.product_id) AS COUNT, products.name, products.price
+SELECT orders.order_id, orders.ordered_at, orders.canceled_at, orders.completed_at,
+       ordered_items.product_id, ordered_items.supplied_at, count(ordered_items.product_id) AS COUNT,
+       products.name, products.price
 FROM orders
 JOIN ordered_items ON orders.order_id = ordered_items.order_id
 JOIN products ON products.product_id = ordered_items.product_id
