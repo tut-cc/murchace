@@ -36,7 +36,8 @@ from htpy import (
 from sqlalchemy.sql.functions import func as sa_func
 
 from ..components import clock, page_layout
-from ..store import Order, OrderedItem, Product, database, unixepoch
+from ..env import LOCAL_TZINFO
+from ..store import Order, OrderedItem, Product, database
 
 router = APIRouter()
 
@@ -192,7 +193,7 @@ def wait_estimate_component(estimate: str, waiting_order_count: int) -> Element:
 
 
 def convert_unixepoch_to_localtime(unixepoch_time: int) -> str:
-    local_time = datetime.fromtimestamp(unixepoch_time).astimezone()
+    local_time = datetime.fromtimestamp(unixepoch_time, tz=LOCAL_TZINFO)
     return local_time.strftime("%Y-%m-%d %H:%M:%S")
 
 
@@ -210,8 +211,8 @@ async def export_orders():
     SELECT 
         orders.order_id,
         ordered_items.item_no,
-        unixepoch(orders.ordered_at) AS ordered_at,
-        unixepoch(orders.completed_at) AS completed_at,
+        orders.ordered_at,
+        orders.completed_at,
         ordered_items.product_id,
         products.name,
         products.price
@@ -296,8 +297,8 @@ class AvgServiceTimeQuery:
             .compile()
         )
 
-    _service_time_diff = unixepoch(Order.completed_at) - unixepoch(Order.ordered_at)
-    _elapsed_secs = sa_func.unixepoch() - unixepoch(Order.completed_at)
+    _service_time_diff = Order.completed_at - Order.ordered_at
+    _elapsed_secs = sa_func.unixepoch() - Order.completed_at
     _last_30mins = sa_exp.case(
         (_elapsed_secs / sa_exp.text("60") < sa_exp.text("30"), _service_time_diff)
     )

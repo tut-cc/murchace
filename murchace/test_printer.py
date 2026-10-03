@@ -1,8 +1,9 @@
-from datetime import UTC, datetime
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from .env import LOCAL_TZINFO
 from .printer import (
     ESC_R_JAPAN,
     FS_AND,
@@ -72,7 +73,7 @@ def test_format_and_print_receipt():
         ),
         store_name="テスト店舗",
         store_address="東京都渋谷区神南1-2-3",
-        ordered_at=datetime(2026, 9, 23, 12, 0, 0, tzinfo=UTC),
+        ordered_at=datetime(2026, 9, 23, 21, 0, 0, tzinfo=LOCAL_TZINFO),
     )
 
     format_and_print_receipt(printer, receipt, paper_width=40)
@@ -90,19 +91,6 @@ def test_format_and_print_receipt():
     assert any("注文番号 #42" in text for text in printed_texts)
     assert any("東京都渋谷区神南1-2-3" in text for text in printed_texts)
     # 12:00:00 UTC must be converted to 21:00:00 JST
-    assert any("2026-09-23 21:00:00" in text for text in printed_texts)
-
-
-def test_format_and_print_receipt_naive_datetime_converted_to_jst():
-    """DB (SQLite CURRENT_TIMESTAMP) returns naive datetime in UTC, which must be converted to JST."""
-    printer = MagicMock(spec=JapanesePrinter)
-    receipt = ReceiptData(
-        order_id=1,
-        register=Register(items=[]),
-        ordered_at=datetime(2026, 9, 23, 12, 0, 0, tzinfo=UTC),
-    )
-    format_and_print_receipt(printer, receipt, paper_width=34)
-    printed_texts = [call[0][0] for call in printer.text_ja.call_args_list]
     assert any("2026-09-23 21:00:00" in text for text in printed_texts)
 
 
@@ -124,7 +112,13 @@ async def test_printer_queue_serialization():
 
         # Enqueue 5 orders concurrently
         for i in range(1, 6):
-            queue.enqueue(ReceiptData(order_id=i, register=Register(items=[])))
+            queue.enqueue(
+                ReceiptData(
+                    order_id=i,
+                    register=Register(items=[]),
+                    ordered_at=datetime.now(tz=LOCAL_TZINFO),
+                )
+            )
 
         # Wait until all jobs are processed without busy-waiting
         await queue.queue.join()
@@ -135,7 +129,11 @@ async def test_printer_queue_serialization():
 
 def test_printer_queue_skips_when_host_unconfigured():
     queue = ReceiptPrinterQueue(host="")
-    receipt = ReceiptData(order_id=1, register=Register(items=[]))
+    receipt = ReceiptData(
+        order_id=1,
+        register=Register(items=[]),
+        ordered_at=datetime.now(tz=LOCAL_TZINFO),
+    )
     assert queue.enqueue(receipt) is False
     assert queue.queue.empty()
 
@@ -148,10 +146,12 @@ def test_printer_queue_skips_when_host_unconfigured():
 @pytest.mark.anyio
 async def test_retry_succeeds_on_second_attempt():
     """_print_with_retry should succeed after one initial failure."""
-    from murchace.printer_queue import _RETRY_DELAYS  # noqa: F401
-
     queue = ReceiptPrinterQueue(host="192.168.1.100", port=9100)
-    receipt = ReceiptData(order_id=99, register=Register(items=[]))
+    receipt = ReceiptData(
+        order_id=99,
+        register=Register(items=[]),
+        ordered_at=datetime.now(tz=LOCAL_TZINFO),
+    )
 
     call_count = 0
 
@@ -176,7 +176,11 @@ async def test_retry_exhausted_logs_error():
     from murchace.printer_queue import _RETRY_DELAYS
 
     queue = ReceiptPrinterQueue(host="192.168.1.100", port=9100)
-    receipt = ReceiptData(order_id=7, register=Register(items=[]))
+    receipt = ReceiptData(
+        order_id=7,
+        register=Register(items=[]),
+        ordered_at=datetime.now(tz=LOCAL_TZINFO),
+    )
     max_attempts = len(_RETRY_DELAYS) + 1
 
     with (
@@ -203,12 +207,13 @@ async def test_retry_exhausted_logs_error():
 def test_print_job_uses_configured_timeout_and_paper_width():
     """_print_job must pass timeout and paper_width from env to the printer."""
     queue = ReceiptPrinterQueue(
-        host="192.168.1.100",
-        port=9100,
-        timeout=5,
-        paper_width=48,
+        host="192.168.1.100", port=9100, timeout=5, paper_width=48
     )
-    receipt = ReceiptData(order_id=3, register=Register(items=[]))
+    receipt = ReceiptData(
+        order_id=3,
+        register=Register(items=[]),
+        ordered_at=datetime.now(tz=LOCAL_TZINFO),
+    )
 
     fake_printer = MagicMock()
 

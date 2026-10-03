@@ -1,9 +1,8 @@
 import logging
 import unicodedata
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import TYPE_CHECKING
-from zoneinfo import ZoneInfo
 
 from escpos.escpos import Escpos
 from escpos.printer import Dummy, Network
@@ -25,8 +24,6 @@ ESC_R_JAPAN = b"\x1b\x52\x08"
 FS_AND = b"\x1c\x26"
 FS_DOT = b"\x1c\x2e"
 FS_C_SJIS = b"\x1c\x43\x01"
-
-JST = ZoneInfo("Asia/Tokyo")
 
 
 def get_display_width(text: str) -> int:
@@ -53,7 +50,7 @@ def pad_line(left: str, right: str, total_width: int = 42) -> str:
 class ReceiptData:
     order_id: int
     register: "Register"
-    ordered_at: datetime | None = None
+    ordered_at: datetime
     store_name: str = RECEIPT_STORE_NAME
     store_address: str = RECEIPT_STORE_ADDRESS
     logo_path: str = RECEIPT_LOGO_PATH
@@ -143,12 +140,9 @@ def format_and_print_receipt(
 
     printer.text_ja("\n")
 
-    # 4. Date and Time (Right aligned, JST)
-    ordered_at = receipt.ordered_at or datetime.now(UTC)
-    now = ordered_at.astimezone(JST)
-    date_str = now.strftime("%Y-%m-%d %H:%M:%S")
+    # 4. Date and Time (Right aligned)
     printer.set(align="right", bold=False, normal_textsize=True)
-    printer.text_ja(f"{date_str}\n")
+    printer.text_ja(f"{receipt.ordered_at.strftime('%Y-%m-%d %H:%M:%S')}\n")
 
     # 5. Divider
     printer.set(align="left", bold=False, normal_textsize=True)

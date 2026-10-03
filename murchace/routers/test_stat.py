@@ -34,7 +34,7 @@ def test_avg_service_time_query_recent():
     assert format_sql(str(AvgServiceTimeQuery.recent())) == snapshot(
         """\
 SELECT avg(CASE
-               WHEN ((unixepoch() - unixepoch(orders.completed_at)) / CAST(60 AS NUMERIC) < 30) THEN unixepoch(orders.completed_at) - unixepoch(orders.ordered_at)
+               WHEN ((unixepoch() - orders.completed_at) / CAST(60 AS NUMERIC) < 30) THEN orders.completed_at - orders.ordered_at
            END) AS recent
 FROM orders
 WHERE orders.completed_at IS NOT NULL\
@@ -45,9 +45,9 @@ WHERE orders.completed_at IS NOT NULL\
 def test_avg_service_time_query():
     assert format_sql(str(AvgServiceTimeQuery.all_and_recent())) == snapshot(
         """\
-SELECT avg(unixepoch(orders.completed_at) - unixepoch(orders.ordered_at)) AS "all",
+SELECT avg(orders.completed_at - orders.ordered_at) AS "all",
        avg(CASE
-               WHEN ((unixepoch() - unixepoch(orders.completed_at)) / CAST(60 AS NUMERIC) < 30) THEN unixepoch(orders.completed_at) - unixepoch(orders.ordered_at)
+               WHEN ((unixepoch() - orders.completed_at) / CAST(60 AS NUMERIC) < 30) THEN orders.completed_at - orders.ordered_at
            END) AS recent
 FROM orders
 WHERE orders.completed_at IS NOT NULL\

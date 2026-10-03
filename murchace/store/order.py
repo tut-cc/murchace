@@ -1,9 +1,8 @@
-from datetime import UTC, datetime
-
 import sqlalchemy.sql.expression as sa_exp
 from databases import Database
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.sql.sqltypes import DateTime
+from sqlalchemy.sql.functions import func as sa_func
+from sqlalchemy.sql.sqltypes import Integer
 
 from .base import Base
 
@@ -12,15 +11,11 @@ class Order(Base):
     __tablename__ = "orders"
 
     order_id: Mapped[int]
-    ordered_at: Mapped[datetime] = mapped_column(
-        server_default=sa_exp.text("CURRENT_TIMESTAMP")
+    ordered_at: Mapped[int] = mapped_column(
+        server_default=sa_exp.Grouping(sa_func.unixepoch())
     )
-    canceled_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), default=None
-    )
-    completed_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), default=None
-    )
+    canceled_at: Mapped[int | None] = mapped_column(Integer, default=None)
+    completed_at: Mapped[int | None] = mapped_column(Integer, default=None)
 
 
 class Table:
@@ -34,7 +29,7 @@ class Table:
         return sa_exp.update(Order).where(Order.order_id == order_id)
 
     async def cancel(self, order_id: int) -> None:
-        values = {"canceled_at": datetime.now(UTC), "completed_at": None}
+        values = {"canceled_at": sa_func.unixepoch(), "completed_at": None}
         await self._db.execute(self._update(order_id), values)
 
     async def _complete(self, order_id: int) -> None:
@@ -42,7 +37,7 @@ class Table:
         Use `supply_all_and_complete` when the `supplied_at` fields of
         `ordered_items` table should be updated as well.
         """
-        values = {"canceled_at": None, "completed_at": datetime.now(UTC)}
+        values = {"canceled_at": None, "completed_at": sa_func.unixepoch()}
         await self._db.execute(self._update(order_id), values)
 
     async def reset(self, order_id: int) -> None:
