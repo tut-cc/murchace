@@ -1,11 +1,10 @@
-from dataclasses import dataclass
 from datetime import UTC
 from pathlib import Path
-from typing import Annotated, Any, Self
+from typing import Annotated
 
 import sqlalchemy.sql.expression as sa_exp
 from datastar_py import attribute_generator as data
-from datastar_py.fastapi import DatastarResponse, read_signals
+from datastar_py.fastapi import DatastarResponse
 from datastar_py.sse import ServerSentEventGenerator as SSE
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse
@@ -29,6 +28,7 @@ from htpy import (
     ul,
 )
 from markupsafe import Markup
+from pydantic import BaseModel, Field, computed_field
 from sqlalchemy.sql.functions import func as sa_func
 
 from ..components import clock, page_layout
@@ -40,55 +40,24 @@ from ..store import Order, OrderedItem, Product, ProductTable, database
 router = APIRouter()
 
 
-@dataclass
-class Register:
-    @dataclass
-    class Item:
-        product_id: int
+class Register(BaseModel):
+    class Item(BaseModel):
+        product_id: int = Field(alias="productId")
         name: str
         count: int
         price: int
 
-        @classmethod
-        def parse_signal(cls: type[Self], item: dict) -> Self | str:
-            return (
-                "productIdがみつかりません"
-                if (product_id := item.get("productId")) is None
-                else "nameがみつかりません"
-                if (name := item.get("name")) is None
-                else "countが見つかりません"
-                if (count := item.get("count")) is None
-                else "priceが見つかりません"
-                if (price := item.get("price")) is None
-                else cls(product_id=product_id, name=name, count=count, price=price)
-            )
-
     items: list[Item]
-    total_count: int
-    total_price: int
 
-    @classmethod
-    def parse_signal(cls: type[Self], signals: dict[str, Any] | None) -> Self | str:
-        if signals is None:
-            return "シグナルが見つかりません"
-        if (items_signal := signals.get("items")) is None:
-            return "items属性が見つかりません"
-        if not isinstance(items_signal, list):
-            return "itemsがlistではありません"
-        if len(items_signal) == 0:
-            return "商品が選択されていません"
+    @computed_field
+    @property
+    def total_count(self) -> int:
+        return sum(item.count for item in self.items)
 
-        items = []
-        total_count = total_price = 0
-        for item in items_signal:
-            if not isinstance(item, dict):
-                return "itemがdictではありません"
-            if isinstance(item := cls.Item.parse_signal(item), str):
-                return item
-            items.append(item)
-            total_count += item.count
-            total_price += item.count * item.price
-        return cls(items=items, total_count=total_count, total_price=total_price)
+    @computed_field
+    @property
+    def total_price(self) -> int:
+        return sum(item.count * item.price for item in self.items)
 
 
 with open(Path(__file__).parent / "register-items.js", encoding="utf-8") as f:
@@ -179,7 +148,9 @@ def items() -> Element:
                 span["合計: "], span(data.text("$totalPriceStr"))
             ],
             button(
-                data.on("click", "@get('/register/confirm-modal')"),
+                data.on(
+                    "click", "@query('/register/confirm-modal', {payload: $items})"
+                ),
                 data.attr(disabled="$items.length === 0"),
                 class_="basis-1/4 lg:text-xl text-center text-white p-2 rounded-sm bg-blue-600 disabled:cursor-not-allowed disabled:text-gray-700 disabled:bg-gray-100",
             )["確定"],
@@ -210,7 +181,7 @@ def confirm_modal(register: Register) -> Element:
                     class_="grow min-h-0 flex flex-col gap-y-2 px-3 text-center text-lg"
                 )[h2(class_="font-semibold")["注文の確定"], _total(register)],
                 button(
-                    data.on("click", "@post('/register')"),
+                    data.on("click", "@post('/register', {payload: $items})"),
                     class_="w-full py-4 text-center text-xl font-semibold text-white bg-blue-600 rounded-sm",
                 )["確認"],
             ]
@@ -309,17 +280,23 @@ async def get_register(
     return HTMLResponse(page_register(request, products))
 
 
-@router.get("/register/confirm-modal")
-async def get_confirm_dialog(request: Request):
-    if isinstance(register := Register.parse_signal(await read_signals(request)), str):
-        return DatastarResponse(SSE.patch_elements(error_modal(register)))
+@router.api_route("/register/confirm-modal", methods=["QUERY"])
+async def get_confirm_dialog(items: list[Register.Item]):
+    if len(items) == 0:
+        err_msg = "商品が選択されていません"
+        return DatastarResponse(SSE.patch_elements(error_modal(err_msg)))
+    register = Register(items=items)
     return DatastarResponse(SSE.patch_elements(confirm_modal(register)))
 
 
 @router.post("/register")
-async def place_order(request: Request, ipc: IPCDeps, queue: PrinterQueueDeps):
-    if isinstance(register := Register.parse_signal(await read_signals(request)), str):
-        return DatastarResponse(SSE.patch_elements(error_modal(register)))
+async def place_order(
+    items: list[Register.Item], ipc: IPCDeps, queue: PrinterQueueDeps
+):
+    if len(items) == 0:
+        err_msg = "商品が選択されていません"
+        return DatastarResponse(SSE.patch_elements(error_modal(err_msg)))
+    register = Register(items=items)
 
     # We modify order tables all in one transaction. If `POST /register` happens
     # fast enough then the first mutating query (database.fetch_val in this

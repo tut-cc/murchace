@@ -9,13 +9,8 @@ def format_sql(sql: str):
 
 
 def test_query_items():
-    filter = OrderFilter.parse_from_signals(
-        {
-            "filterCard": "item",
-            "filterStatuses": ["unprocessed"],
-            "filterAllCategory": True,
-            "filterCategories": ["1", "2"],
-        }
+    filter = OrderFilter(
+        card="item", statuses=["unprocessed"], allCategory=True, categories=["1", "2"]
     )
     assert format_sql(str(query_items(filter))) == snapshot(
         """\
@@ -53,13 +48,11 @@ ORDER BY ordered_items.product_id ASC, ordered_items.order_id ASC\
 
 
 def test_query_orders():
-    filter = OrderFilter.parse_from_signals(
-        {
-            "filterCard": "order",
-            "filterStatuses": ["unprocessed", "completed"],
-            "filterAllCategory": True,
-            "filterCategories": ["1", "2"],
-        }
+    filter = OrderFilter(
+        card="order",
+        statuses=["unprocessed", "completed"],
+        allCategory=True,
+        categories=["1", "2"],
     )
     assert format_sql(str(query_orders(filter))) == snapshot(
         """\
