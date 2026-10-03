@@ -1,7 +1,21 @@
+from collections.abc import Mapping
 from pathlib import Path
 
 from fastapi import Request
-from htpy import Element, HTMLElement, Node, body, head, html, link, meta, script
+from htpy import (
+    Attribute,
+    Element,
+    HTMLElement,
+    Node,
+    body,
+    div,
+    head,
+    html,
+    link,
+    meta,
+    script,
+    with_children,
+)
 from htpy import title as title_elt
 from markupsafe import Markup
 
@@ -45,3 +59,27 @@ clock: list[Element] = [
     Element("hhmmss-clock")(class_="font-mono")["XX:XX:XX"],
     _clock_script,
 ]
+
+
+@with_children
+def modal(
+    children: Node,
+    *attrs: Mapping[str, Attribute],
+    id: str | None = None,
+    popover: bool = False,
+    **kwargs: Attribute,
+) -> Element:
+    return div(
+        *attrs,
+        class_="z-10 fixed inset-0 w-dvw h-dvh py-4 flex items-center bg-gray-500/75",
+        role="dialog",
+        aria_modal="true",
+        **({"id": id} if id else {}),
+        **({"onclick": "this.remove()"} if popover else {}),
+        **kwargs,
+    )[
+        div(
+            class_="mx-auto w-5/6 md:w-2/3 xl:w-1/3 h-4/5 p-4 flex flex-col gap-y-2 rounded-lg bg-white relative animate-[scale-50_150ms_ease-in]",
+            onclick="event.stopPropagation()",
+        )[children]
+    ]
