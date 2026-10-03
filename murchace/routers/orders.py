@@ -1,16 +1,15 @@
 import asyncio
 import json
 from collections.abc import AsyncIterable, Awaitable, Callable, Mapping
-from dataclasses import dataclass
 from datetime import datetime
 from enum import Flag, auto
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Literal, Self
+from typing import Annotated, Any, ClassVar, Literal, Self
 
 import sqlalchemy.sql.expression as sa_exp
 from datastar_py import attribute_generator as data
-from datastar_py.fastapi import DatastarResponse, read_signals
+from datastar_py.fastapi import DatastarResponse
 from datastar_py.sse import DatastarEvent
 from datastar_py.sse import ServerSentEventGenerator as SSE
 from fastapi import APIRouter, Request
@@ -37,6 +36,7 @@ from htpy import (
     ul,
 )
 from markupsafe import Markup
+from pydantic import BaseModel, BeforeValidator, Field
 from sqlalchemy.sql.functions import func as sa_func
 
 from ..components import clock, page_layout
@@ -88,17 +88,19 @@ def _to_time(unix_epoch: int | None) -> str | None:
     )
 
 
-@dataclass
-class OrderFilter:
+class OrderFilter(BaseModel):
     class StatusFlag(Flag):
         unprocessed = auto()
         canceled = auto()
         completed = auto()
 
         @classmethod
-        def from_list(cls: type[Self], statuses: list[str]) -> Self:
+        def parse(cls: type[Self], value: Any) -> Self:
+            if not isinstance(value, list):
+                raise ValueError("Statuses must be a list of strings")  # noqa: TRY004
+
             res = cls(0)
-            for maybe_keyname in statuses:
+            for maybe_keyname in value:
                 maybe_flag = getattr(cls, maybe_keyname, None)
                 if isinstance(maybe_flag, cls):
                     res |= maybe_flag
@@ -114,20 +116,47 @@ class OrderFilter:
                 clause |= Order.completed_at.is_not(None)
             return clause
 
-    card: Literal["item", "order"]
-    status_flag: StatusFlag
-    all_category: bool
-    category_ids: list[int]
+    def parse_category_ids(value: Any) -> list[int]:
+        if not isinstance(value, list):
+            raise ValueError("Categories must be a list of strings")  # noqa: TRY004
+        return [int(c) for c in value if isinstance(c, str) and c.isdigit()]
 
-    @classmethod
-    def parse_from_signals(cls: type[Self], signals: dict[str, Any]) -> Self:
-        category_ids = [int(c) for c in signals["filterCategories"] if c.isdigit()]
-        return cls(
-            card=signals["filterCard"],
-            status_flag=cls.StatusFlag.from_list(signals["filterStatuses"]),
-            all_category=signals["filterAllCategory"],
-            category_ids=category_ids,
+    card: Literal["item", "order"]
+    status_flag: Annotated[StatusFlag, BeforeValidator(StatusFlag.parse)] = Field(
+        alias="statuses"
+    )
+    all_category: bool = Field(alias="allCategory")
+    category_ids: Annotated[list[int], BeforeValidator(parse_category_ids)] = Field(
+        alias="categories"
+    )
+
+    # TODO: use frozendict() when Python is updated to 3.15
+    default_signals: ClassVar[MappingProxyType[str, str | list[str] | bool]] = (
+        MappingProxyType(
+            {
+                "filterCard": "item",  # or "order"
+                "filterStatuses": ["unprocessed"],
+                "filterAllCategory": True,
+                "filterCategories": [],
+            }
         )
+    )
+    # JavaScript expressions for managing prefixed local variables
+    signal_init: ClassVar[str] = ";".join(
+        f"$_{k}={f'[...${k}]' if isinstance(v, list) else f'${k}'}"
+        for k, v in default_signals.items()
+    )
+    signal_reset: ClassVar[str] = ";".join(
+        f"${k}={json.dumps(v)};$_{k}={json.dumps(v)}"
+        for k, v in default_signals.items()
+    )
+    signal_update: ClassVar[str] = ";".join(
+        f"${k}={f'[...$_{k}]' if isinstance(v, list) else f'$_{k}'}"
+        for k, v in default_signals.items()
+    )
+    signal_payload: ClassVar[str] = (
+        "{card: $filterCard, statuses: $filterStatuses, allCategory: $filterAllCategory, categories: $filterCategories}"
+    )
 
     def by_category_ids(self) -> sa_exp.ColumnElement[bool]:
         return (
@@ -137,33 +166,10 @@ class OrderFilter:
         )
 
 
-# TODO: use frozendict() when Python is updated to 3.15
-default_filter_signals = MappingProxyType(
-    {
-        "filterCard": "item",  # or "order"
-        "filterStatuses": ["unprocessed"],
-        "filterAllCategory": True,
-        "filterCategories": [],
-    }
-)
-# JavaScript expressions for managing prefixed local variables
-filter_signals_init_expr = ";".join(
-    f"$_{k}={f'[...${k}]' if isinstance(v, list) else f'${k}'}"
-    for k, v in default_filter_signals.items()
-)
-filter_signals_reset_expr = ";".join(
-    f"${k}={json.dumps(v)};$_{k}={json.dumps(v)}"
-    for k, v in default_filter_signals.items()
-)
-filter_signals_update_expr = ";".join(
-    f"${k}={f'[...$_{k}]' if isinstance(v, list) else f'$_{k}'}"
-    for k, v in default_filter_signals.items()
-)
-
 elm_order_filter_container = div(
     "#order-filter-container",
-    data.signals(default_filter_signals).ifmissing,
-    {"data-persist": ",".join(default_filter_signals.keys())},
+    data.signals(OrderFilter.default_signals).ifmissing,
+    {"data-persist": ",".join(OrderFilter.default_signals.keys())},
 )
 
 
@@ -180,8 +186,9 @@ async def get_order_filter():
         span(class_="ml-2 peer-disabled:text-gray-300")[text],
     ]
 
+    print(OrderFilter.signal_init)
     order_filter_modal = div(
-        data.init(filter_signals_init_expr),
+        data.init(OrderFilter.signal_init),
         id="order-filter",
         class_="z-10 fixed inset-0 w-dvw h-dvh py-4 flex items-center bg-gray-500/75",
         role="dialog",
@@ -257,13 +264,13 @@ async def get_order_filter():
             ],
             div(class_="grow"),
             button(
-                data.on("click", filter_signals_reset_expr),
+                data.on("click", OrderFilter.signal_reset),
                 class_="w-full py-2 text-center text-xl font-semibold text-white bg-blue-600 rounded-sm",
             )["デフォルトに戻す"],
             button(
                 data.on(
                     "click",
-                    f"{filter_signals_update_expr};window['order-filter'].remove();@get('/orders/stream')",
+                    f"{OrderFilter.signal_update};window['order-filter'].remove();@query('/orders/stream', {{payload: {OrderFilter.signal_payload}}})",
                 ),
                 class_="w-full py-4 text-center text-xl font-semibold text-white bg-blue-600 rounded-sm",
             )["変更"],
@@ -283,7 +290,9 @@ elm_main_units = main(
 def page_orders(req: Request) -> HTMLElement:
     inner = div(
         # Delay until filter signals are initialized
-        data.init("@get('/orders/stream')").delay("50ms"),
+        data.init(
+            f"@query('/orders/stream', {{payload: {OrderFilter.signal_payload}}})"
+        ).delay("50ms"),
         class_="flex flex-col",
     )[
         header(
@@ -370,12 +379,8 @@ def item_stream_component(req: Request, ordered_items: list[ordered_item_t]) -> 
     ]
 
 
-@router.get("/orders/stream")
-async def get_orders_stream(request: Request, ipc: IPCDeps):
-    signals = await read_signals(request)
-    assert signals is not None
-
-    filter = OrderFilter.parse_from_signals(signals)
+@router.api_route("/orders/stream", methods=["QUERY"])
+async def get_orders_stream(request: Request, filter: OrderFilter, ipc: IPCDeps):
     # is_incoming = filter.status_flag == OrderFilter.StatusFlag.unprocessed
     if filter.card == "item":
         return DatastarResponse(item_unit_stream(request, ipc, filter))
