@@ -441,11 +441,6 @@ def query_items(filter: OrderFilter) -> sa_exp.Select:
     return (
         sa_exp.select(OrderedItem.order_id, OrderedItem.product_id)
         .add_columns(sa_func.count(OrderedItem.product_id).label("count"))
-        .where(
-            OrderedItem.supplied_at.is_(None)
-            if filter.status_flag == OrderFilter.StatusFlag.unprocessed
-            else sa_exp.literal(True)
-        )
         .group_by(OrderedItem.order_id, OrderedItem.product_id)
         .select_from(sa_exp.join(OrderedItem, Product))
         .add_columns(Product.name, Product.filename)
@@ -665,7 +660,7 @@ async def order_unit_stream(
 
 
 @router.post("/orders/{order_id}/products/{product_id}/supplied-at")
-async def supply_products(ipc: IPCDeps, order_id: int, product_id: int):
+async def supply_product(ipc: IPCDeps, order_id: int, product_id: int):
     completed = await supply_and_complete_order_if_done(order_id, product_id)
     await ipc.publish("order.modified", False)
     if completed:
