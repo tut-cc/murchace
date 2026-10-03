@@ -19,8 +19,7 @@ SELECT ordered_items.order_id, ordered_items.product_id, count(ordered_items.pro
 FROM ordered_items
 JOIN products ON products.product_id = ordered_items.product_id
 JOIN orders ON orders.order_id = ordered_items.order_id
-WHERE ordered_items.supplied_at IS NULL
-  AND (:param_1
+WHERE (:param_1
        OR orders.canceled_at IS NULL
        AND orders.completed_at IS NULL)
   AND :param_2
@@ -35,8 +34,7 @@ SELECT ordered_items.order_id, ordered_items.product_id, count(ordered_items.pro
 FROM ordered_items
 JOIN products ON products.product_id = ordered_items.product_id
 JOIN orders ON orders.order_id = ordered_items.order_id
-WHERE ordered_items.supplied_at IS NULL
-  AND (:param_1
+WHERE (:param_1
        OR orders.canceled_at IS NULL
        AND orders.completed_at IS NULL)
   AND products.category_id IN (__[POSTCOMPILE_category_id_1])
