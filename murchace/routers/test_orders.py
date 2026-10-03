@@ -26,7 +26,7 @@ WHERE ordered_items.supplied_at IS NULL
        AND orders.completed_at IS NULL)
   AND :param_2
 GROUP BY ordered_items.order_id, ordered_items.product_id
-ORDER BY ordered_items.product_id ASC, ordered_items.order_id ASC\
+ORDER BY ordered_items.order_id ASC, ordered_items.product_id ASC\
 """
     )
     filter.all_category = False
@@ -43,7 +43,7 @@ WHERE ordered_items.supplied_at IS NULL
        AND orders.completed_at IS NULL)
   AND products.category_id IN (__[POSTCOMPILE_category_id_1])
 GROUP BY ordered_items.order_id, ordered_items.product_id
-ORDER BY ordered_items.product_id ASC, ordered_items.order_id ASC\
+ORDER BY ordered_items.order_id ASC, ordered_items.product_id ASC\
 """)
 
 

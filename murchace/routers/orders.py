@@ -186,7 +186,6 @@ async def get_order_filter():
         span(class_="ml-2 peer-disabled:text-gray-300")[text],
     ]
 
-    print(OrderFilter.signal_init)
     order_filter_modal = div(
         data.init(OrderFilter.signal_init),
         id="order-filter",
@@ -324,7 +323,9 @@ async def get_orders(request: Request):
 type ordered_item_t = dict[str, int | str | list[dict[str, int | str | None]]]  # noqa: PYI042
 
 
-def item_stream_component(req: Request, ordered_items: list[ordered_item_t]) -> Element:
+def item_stream_component(
+    req: Request, ordered_items: dict[int, ordered_item_t]
+) -> Element:
     def item_timestamp(order: dict[str, int | str]) -> str:
         return (
             f"@{order['ordered_at']}-{order['supplied_at']}"
@@ -374,7 +375,7 @@ def item_stream_component(req: Request, ordered_items: list[ordered_item_t]) -> 
                     *orders(ordered_item)
                 ],
             ]
-            for ordered_item in ordered_items
+            for ordered_item in ordered_items.values()
         ]
     ]
 
@@ -388,53 +389,42 @@ async def get_orders_stream(request: Request, filter: OrderFilter, ipc: IPCDeps)
         return DatastarResponse(order_unit_stream(ipc, filter))
 
 
-def _items_loader() -> Callable[[sa_exp.Select], Awaitable[list[ordered_item_t]]]:
-    ordered_items: list[ordered_item_t] = []
-
-    def init_cb(product_id: int, map: Mapping):
-        ordered_items.append(
-            {"product_id": product_id, "name": map["name"], "filename": map["filename"]}
-        )
-
-    def elem_cb(map: Mapping) -> dict[str, int | str | None]:
-        return {
-            "order_id": map["order_id"],
-            "count": map["count"],
-            "ordered_at": _to_time(map["ordered_at"]),
-            "supplied_at": _to_time(map["supplied_at"]),
-        }
-
-    def list_cb(orders: list[dict[str, int | str | None]]):
-        ordered_items[-1]["orders"] = orders
-
+def _items_loader() -> Callable[[sa_exp.Select], Awaitable[dict[int, ordered_item_t]]]:
     # Hack around the situation where multiple threads potentially modifying
     # the `ordered_items` list simultaneously.
     lock = asyncio.Lock()
 
-    # NOTE:  With the current implementation, we must ensure the outer loop
-    # variables and callbacks intertwine oh-so perfectly in a very subtle way.
-    # I think the loop should be handled on the caller side rather than managing
-    # the loop deep in the call stack. Also, it would be nice to be able to
-    # cache the constructed object so that only one connection needs to
-    # construct the `ordered_items` list and let the others wait for its
-    # completion. Right now, we query the database and iterate rows for every
-    # request.
-    async def load(query: sa_exp.Select):
+    ordered_items: dict[int, ordered_item_t] = {}
+
+    # NOTE: Querying the database and iterating rows for every request is not
+    # optimal. I think the loop should be handled on the caller side rather than
+    # managing the loop deep in the call stack. Ideally we should cache the
+    # constructed object so that only one connection needs to construct the
+    # `ordered_items` list and let the others wait for its completion.
+    async def load(query: sa_exp.Select) -> dict[int, ordered_item_t]:
         async with lock:
             ordered_items.clear()
 
-            prev_unique_id = -1
-            lst: list[dict[str, int | str | None]] = []
             async for map in database.iterate(query):
-                if (unique_id := map["product_id"]) != prev_unique_id:
-                    if prev_unique_id != -1:
-                        list_cb(lst)
-                    prev_unique_id = unique_id
-                    init_cb(unique_id, map)
-                    lst: list[dict[str, int | str | None]] = []
-                lst.append(elem_cb(map))
-            if prev_unique_id != -1:
-                list_cb(lst)
+                product_id = map["product_id"]
+                ordered_item = ordered_items.setdefault(
+                    product_id,
+                    {
+                        "product_id": product_id,
+                        "name": map["name"],
+                        "filename": map["filename"],
+                        "orders": [],
+                    },
+                )
+                assert isinstance(ordered_item["orders"], list)
+                ordered_item["orders"].append(
+                    {
+                        "order_id": map["order_id"],
+                        "count": map["count"],
+                        "ordered_at": _to_time(map["ordered_at"]),
+                        "supplied_at": _to_time(map["supplied_at"]),
+                    }
+                )
 
             return ordered_items
 
@@ -460,10 +450,10 @@ def query_items(filter: OrderFilter) -> sa_exp.Select:
         .add_columns(unixepoch(Order.ordered_at), unixepoch(OrderedItem.supplied_at))
         .where(filter.status_flag.column() & filter.by_category_ids())
         .order_by(
-            OrderedItem.product_id.asc(),
             OrderedItem.order_id.asc()
             if filter.status_flag == OrderFilter.StatusFlag.unprocessed
             else OrderedItem.order_id.desc(),
+            OrderedItem.product_id.asc(),
         )
     )
 
