@@ -39,7 +39,7 @@ from markupsafe import Markup
 from pydantic import BaseModel, BeforeValidator, Field
 from sqlalchemy.sql.functions import func as sa_func
 
-from ..components import clock, page_layout
+from ..components import clock, modal, page_layout
 from ..env import LOCAL_TZINFO
 from ..ipc_bus import IPCDeps
 from ..store import (
@@ -74,7 +74,7 @@ def notif_ringtone(req: Request) -> list[Element]:
     return [
         Element("notif-ringtone")(
             data.signals({"_notifRingtone": False}),
-            data.attr({"notification": "$_notifRingtone"}),
+            data.attr(notification="$_notifRingtone"),
             data.on("playing", "$_notifRingtone = false"),
             src=str(req.url_for("static", path="notification-1.mp3")),
         ),
@@ -176,113 +176,6 @@ elm_order_filter_container = div(
 )
 
 
-@router.get("/order-filter", response_class=HTMLResponse)
-async def get_order_filter():
-    categories = await CategoryTable.select_all()
-
-    radio = lambda text, *attrs, **kwargs: label(class_="flex items-center")[
-        input(*attrs, type="radio", class_="peer size-5", **kwargs),
-        span(class_="ml-2 peer-disabled:text-gray-300")[text],
-    ]
-    checkbox = lambda text, *attrs, **kwargs: label(class_="flex items-center")[
-        input(*attrs, type="checkbox", class_="peer size-5", **kwargs),
-        span(class_="ml-2 peer-disabled:text-gray-300")[text],
-    ]
-
-    order_filter_modal = div(
-        data.init(OrderFilter.signal_init),
-        id="order-filter",
-        class_="z-10 fixed inset-0 w-dvw h-dvh py-4 flex items-center bg-gray-500/75",
-        role="dialog",
-        aria_modal="true",
-        onclick="this.remove()",
-    )[
-        div(
-            id="order-filter-modal",
-            class_="mx-auto w-5/6 md:w-2/3 xl:w-1/3 h-4/5 p-4 flex flex-col gap-y-2 rounded-lg bg-white relative animate-[scale-50_150ms_ease-in]",
-            onclick="event.stopPropagation()",
-        )[
-            button(
-                class_="absolute top-0 right-0 px-4 py-3 text-3xl font-bold bg-transparent rounded-tr-lg",
-                onclick="window['order-filter'].remove()",
-            )["✕"],
-            article(class_="min-h-0 flex flex-col gap-y-2 px-3 text-center text-lg")[
-                h2(class_="font-semibold")["フィルタ"],
-                fieldset(
-                    class_="grow min-h-0 grid grid-cols-1 md:grid-cols-4 gap-y-2 px-3 text-center text-lg"
-                )[
-                    div["表示方式"],
-                    div(
-                        class_="md:col-span-3 flex flex-col md:flex-row gap-x-4 md:ml-2"
-                    )[
-                        radio("商品ごと", data.bind("_filterCard"), value="item"),
-                        radio("注文ごと", data.bind("_filterCard"), value="order"),
-                    ],
-                    div["状態"],
-                    div(
-                        class_="md:col-span-3 flex flex-col md:flex-row gap-x-4 md:ml-2"
-                    )[
-                        checkbox(
-                            "未受取",
-                            data.bind("_filterStatuses"),
-                            value=OrderFilter.StatusFlag.unprocessed.name,
-                        ),
-                        checkbox(
-                            "キャンセル",
-                            data.bind("_filterStatuses"),
-                            value=OrderFilter.StatusFlag.canceled.name,
-                        ),
-                        checkbox(
-                            "完了",
-                            data.bind("_filterStatuses"),
-                            value=OrderFilter.StatusFlag.completed.name,
-                        ),
-                    ],
-                    div["カテゴリ"],
-                    div(class_="md:col-span-3 grow md:ml-2 overflow-y-auto")[
-                        checkbox(
-                            "すべて",
-                            data.bind("_filterAllCategory"),
-                            data.attr({"disabled": "$_filterCard == 'order'"}),
-                            switch=True,
-                        ),
-                        div(class_="flex flex-col gap-2 py-2")[
-                            (
-                                checkbox(
-                                    c.name,
-                                    data.bind("_filterCategories"),
-                                    data.attr(
-                                        {
-                                            "disabled": "$_filterAllCategory || $_filterCard == 'order'"
-                                        }
-                                    ),
-                                    value=c.category_id,
-                                )
-                                for c in categories
-                            )
-                        ],
-                    ],
-                ],
-            ],
-            div(class_="grow"),
-            button(
-                data.on("click", OrderFilter.signal_reset),
-                class_="w-full py-2 text-center text-xl font-semibold text-white bg-blue-600 rounded-sm",
-            )["デフォルトに戻す"],
-            button(
-                data.on(
-                    "click",
-                    f"{OrderFilter.signal_update};window['order-filter'].remove();@query('/orders/stream', {{payload: {OrderFilter.signal_payload}}})",
-                ),
-                class_="w-full py-4 text-center text-xl font-semibold text-white bg-blue-600 rounded-sm",
-            )["変更"],
-        ]
-    ]
-    return DatastarResponse(
-        SSE.patch_elements(elm_order_filter_container[order_filter_modal])
-    )
-
-
 elm_main_units = main(
     id="units",
     class_="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-min gap-3 py-2 px-16 overflow-y-auto",
@@ -321,6 +214,96 @@ def page_orders(req: Request) -> HTMLElement:
 @router.get("/orders", response_class=HTMLResponse)
 async def get_orders(request: Request):
     return HTMLResponse(page_orders(request))
+
+
+@router.get("/order-filter", response_class=HTMLResponse)
+async def glt_order_filter():
+    categories = await CategoryTable.select_all()
+
+    radio = lambda text, *attrs, **kwargs: label(class_="flex items-center")[
+        input(*attrs, type="radio", class_="peer size-5", **kwargs),
+        span(class_="ml-2 peer-disabled:text-gray-300")[text],
+    ]
+    checkbox = lambda text, *attrs, **kwargs: label(class_="flex items-center")[
+        input(*attrs, type="checkbox", class_="peer size-5", **kwargs),
+        span(class_="ml-2 peer-disabled:text-gray-300")[text],
+    ]
+
+    order_filter_modal = modal(
+        data.init(OrderFilter.signal_init), id="order-filter-modal", popover=True
+    )[
+        button(
+            class_="absolute top-0 right-0 px-4 py-3 text-3xl font-bold bg-transparent rounded-tr-lg",
+            onclick="window['order-filter-modal'].remove()",
+        )["✕"],
+        article(class_="min-h-0 flex flex-col gap-y-2 px-3 text-center text-lg")[
+            h2(class_="text-3xl font-semibold")["フィルタ"],
+            fieldset(
+                class_="grow min-h-0 grid grid-cols-1 md:grid-cols-4 gap-y-2 px-3 text-center text-lg overflow-y-auto"
+            )[
+                div["表示方式"],
+                div(class_="md:col-span-3 flex flex-col md:flex-row gap-x-4 md:ml-2")[
+                    radio("商品ごと", data.bind("_filterCard"), value="item"),
+                    radio("注文ごと", data.bind("_filterCard"), value="order"),
+                ],
+                div["状態"],
+                div(class_="md:col-span-3 flex flex-col md:flex-row gap-x-4 md:ml-2")[
+                    checkbox(
+                        "未受取",
+                        data.bind("_filterStatuses"),
+                        value=OrderFilter.StatusFlag.unprocessed.name,
+                    ),
+                    checkbox(
+                        "キャンセル",
+                        data.bind("_filterStatuses"),
+                        value=OrderFilter.StatusFlag.canceled.name,
+                    ),
+                    checkbox(
+                        "完了",
+                        data.bind("_filterStatuses"),
+                        value=OrderFilter.StatusFlag.completed.name,
+                    ),
+                ],
+                div["カテゴリ"],
+                div(class_="md:col-span-3 grow md:ml-2")[
+                    checkbox(
+                        "すべて",
+                        data.bind("_filterAllCategory"),
+                        data.attr(disabled="$_filterCard == 'order'"),
+                        switch=True,
+                    ),
+                    div(class_="flex flex-col gap-2 py-2")[
+                        (
+                            checkbox(
+                                c.name,
+                                data.bind("_filterCategories"),
+                                data.attr(
+                                    disabled="$_filterAllCategory || $_filterCard == 'order'"
+                                ),
+                                value=c.category_id,
+                            )
+                            for c in categories
+                        )
+                    ],
+                ],
+            ],
+        ],
+        div(class_="grow"),
+        button(
+            data.on("click", OrderFilter.signal_reset),
+            class_="w-full py-2 text-center text-xl font-semibold bg-gray-300 rounded-sm",
+        )["デフォルトに戻す"],
+        button(
+            data.on(
+                "click",
+                f"{OrderFilter.signal_update};window['order-filter-modal'].remove();@query('/orders/stream', {{payload: {OrderFilter.signal_payload}}})",
+            ),
+            class_="w-full py-4 text-center text-xl font-semibold text-white bg-blue-600 rounded-sm",
+        )["変更"],
+    ]
+    return DatastarResponse(
+        SSE.patch_elements(elm_order_filter_container[order_filter_modal])
+    )
 
 
 type ordered_item_t = dict[str, int | str | list[dict[str, int | str | None]]]  # noqa: PYI042

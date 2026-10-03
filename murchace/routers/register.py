@@ -31,7 +31,7 @@ from markupsafe import Markup
 from pydantic import BaseModel, Field, computed_field
 from sqlalchemy.sql.functions import func as sa_func
 
-from ..components import clock, page_layout
+from ..components import clock, modal, page_layout
 from ..env import LOCAL_TZINFO
 from ..ipc_bus import IPCDeps
 from ..printer import ReceiptData
@@ -130,6 +130,9 @@ def register(req: Request, products: list[Product]) -> HTMLElement:
     return page_layout(req, inner, "新規注文 - murchace")
 
 
+order_modal_container = div(id="order-modal-container")
+
+
 def items() -> Element:
     return div(id="items", class_="min-h-0 pt-2 flex flex-col")[
         # `flex-col-reverse` lets the browser to pin scroll to bottom
@@ -155,69 +158,44 @@ def items() -> Element:
                 data.attr(disabled="$items.length === 0"),
                 class_="basis-1/4 lg:text-xl text-center text-white p-2 rounded-sm bg-blue-600 disabled:cursor-not-allowed disabled:text-gray-700 disabled:bg-gray-100",
             )["確定"],
-            div(id="order-modal-container"),
+            order_modal_container,
         ],
     ]
 
 
 def confirm_modal(register: Register) -> Element:
-    return div(id="order-modal-container")[
-        div(
-            id="order-modal",
-            class_="z-10 fixed inset-0 w-dvw h-dvh py-4 flex items-center bg-gray-500/75",
-            role="dialog",
-            aria_modal="true",
-            onclick="this.remove()",
-        )[
-            div(
-                id="order-confirm-modal",
-                class_="mx-auto w-5/6 md:w-2/3 xl:w-1/3 h-4/5 p-4 flex flex-col gap-y-2 rounded-lg bg-white relative animate-[scale-50_150ms_ease-in]",
-                onclick="event.stopPropagation()",
-            )[
-                button(
-                    class_="absolute top-0 right-0 px-4 py-3 text-3xl font-bold bg-transparent rounded-tr-lg",
-                    onclick="window['order-modal'].remove()",
-                )["✕"],
-                article(
-                    class_="grow min-h-0 flex flex-col gap-y-2 px-3 text-center text-lg"
-                )[h2(class_="font-semibold")["注文の確定"], _total(register)],
-                button(
-                    data.on("click", "@post('/register', {payload: $items})"),
-                    class_="w-full py-4 text-center text-xl font-semibold text-white bg-blue-600 rounded-sm",
-                )["確認"],
-            ]
-        ]
+    order_confirm_modal = modal(id="order-confirm-modal", popover=True)[
+        button(
+            class_="absolute top-0 right-0 px-4 py-3 text-3xl font-bold bg-transparent rounded-tr-lg",
+            onclick="window['order-confirm-modal'].remove()",
+        )["✕"],
+        article(class_="grow min-h-0 flex flex-col gap-y-2 px-3 text-center text-lg")[
+            h2(class_="text-3xl font-semibold")["注文の確定"], _total(register)
+        ],
+        button(
+            data.on("click", "@post('/register', {payload: $items})"),
+            class_="w-full py-4 text-center text-xl font-semibold text-white bg-blue-600 rounded-sm",
+        )["確認"],
     ]
+    return order_modal_container[order_confirm_modal]
 
 
 def issued_modal(order_id: int, register: Register) -> Element:
-    return div(id="order-modal-container")[
-        div(
-            id="order-modal",
-            class_="z-10 fixed inset-0 w-dvw h-dvh py-4 flex items-center bg-gray-500/75",
-            role="dialog",
-            aria_modal="true",
-        )[
-            div(
-                class_="mx-auto w-5/6 md:w-2/3 xl:w-1/3 h-4/5 p-4 flex flex-col gap-y-2 rounded-lg bg-white animate-[scale-95_150ms_ease-in]"
-            )[
-                article(
-                    class_="grow min-h-0 flex flex-col gap-y-2 px-3 text-center text-lg"
-                )[
-                    h2(class_="font-semibold")[f"注文番号 #{order_id}"],
-                    _total(register),
-                ],
-                button(
-                    data.on("click", "window['order-modal'].remove()"),
-                    class_="w-full py-4 text-center text-xl font-semibold text-white bg-green-600 rounded-sm",
-                )["新規"],
-                a(
-                    href="/",
-                    class_="w-full py-4 text-center text-xl font-semibold bg-white border border-gray-300 rounded-sm",
-                )["ホームに戻る"],
-            ]
-        ]
+    order_issued_modal = modal(id="order-issued-modal")[
+        article(class_="grow min-h-0 flex flex-col gap-y-2 px-3 text-center text-lg")[
+            h2(class_="text-3xl font-semibold")[f"注文番号 #{order_id}"],
+            _total(register),
+        ],
+        button(
+            data.on("click", "window['order-issued-modal'].remove()"),
+            class_="w-full py-4 text-center text-xl font-semibold text-white bg-green-600 rounded-sm",
+        )["新規"],
+        a(
+            href="/",
+            class_="w-full py-4 text-center text-xl font-semibold bg-white border border-gray-300 rounded-sm",
+        )["ホームに戻る"],
     ]
+    return order_modal_container[order_issued_modal]
 
 
 def _total(register: Register) -> list[Element]:
@@ -247,27 +225,16 @@ def _total(register: Register) -> list[Element]:
 
 
 def error_modal(message: str) -> Element:
-    return div(id="order-modal-container")[
-        div(
-            id="order-modal",
-            class_="z-10 fixed inset-0 w-dvw h-dvh py-4 flex items-center bg-gray-500/75",
-            role="dialog",
-            aria_modal="true",
-        )[
-            div(
-                id="order-error-modal",
-                class_="mx-auto w-5/6 md:w-2/3 xl:w-1/3 h-4/5 p-4 flex flex-col gap-y-2 rounded-lg bg-white [.datastar-settling_&]:scale-50 transition-transform duration-150",
-            )[
-                article(
-                    class_="grow min-h-0 flex flex-col gap-y-2 px-3 text-center text-lg"
-                )[h2(class_="font-semibold text-red-500")["エラー"], p[message]],
-                button(
-                    data.on("click", "$items = []; window.location.reload()"),
-                    class_="w-full py-4 text-center text-xl font-semibold bg-white border border-gray-300 rounded-sm",
-                )["リロードする"],
-            ]
-        ]
+    order_error_modal = modal(id="order-error-modal")[
+        article(class_="grow min-h-0 flex flex-col gap-y-2 px-3 text-center text-lg")[
+            h2(class_="font-semibold text-red-500")["エラー"], p[message]
+        ],
+        button(
+            data.on("click", "$items = []; window.location.reload()"),
+            class_="w-full py-4 text-center text-xl font-semibold bg-white border border-gray-300 rounded-sm",
+        )["リロードする"],
     ]
+    return order_modal_container[order_error_modal]
 
 
 @router.get("/register", response_class=HTMLResponse)
