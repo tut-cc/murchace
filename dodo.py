@@ -61,9 +61,15 @@ def task__list() -> TaskDict:
 
 def task_serve() -> Generator[TaskDict]:
     """Start the prod server."""
-    cmd = LongRunning([*UVICORN_CMD, "--host", "0.0.0.0"], shell=False)
-    yield {"basename": "serve", "actions": [cmd]}
-    yield {"basename": "s", "actions": [cmd]}
+
+    def cmd(args: list[str]) -> None:
+        action = [*UVICORN_CMD, "--host", "0.0.0.0", *args]
+        env = os.environ.copy()
+        env["MURCHACE_DEBUG"] = "1"
+        LongRunning(action, shell=False, env=env).execute()
+
+    yield {"basename": "serve", "actions": [cmd], "pos_arg": "args"}
+    yield {"basename": "s", "actions": [cmd], "pos_arg": "args"}
 
 
 def task_dev() -> TaskDict:
