@@ -11,16 +11,19 @@ def format_sql(sql: str):
 def test_total_sales_query():
     assert format_sql(str(TOTAL_SALES_QUERY)) == snapshot(
         """\
-SELECT products.product_id, count(products.product_id) AS COUNT,
-       count(products.product_id) FILTER (
-                                          WHERE date(orders.ordered_at,
-                                                  'localtime') = date('now',
-                                                                   'localtime')) AS count_today, products.name, products.filename, products.price,
-       sum(products.price) AS total_sales,
-       sum(products.price) FILTER (
-                                   WHERE date(orders.ordered_at,
-                                           'localtime') = date('now',
-                                                            'localtime')) AS total_sales_today, products.no_stock
+SELECT products.product_id, sum(ordered_items.count) AS COUNT,
+       sum(ordered_items.count) FILTER (
+                                        WHERE date(orders.ordered_at,
+                                                'unixepoch', 'localtime') = date('now',
+
+                                                                              'localtime')) AS count_today, products.name, products.filename, products.price,
+       sum(ordered_items.count * products.price) AS total_sales,
+       sum(ordered_items.count * products.price) FILTER (
+                                                         WHERE date(orders.ordered_at,
+                                                                 'unixepoch',
+                                                                 'localtime') = date('now',
+
+                                                                                  'localtime')) AS total_sales_today, products.no_stock
 FROM ordered_items
 JOIN orders ON orders.order_id = ordered_items.order_id
 JOIN products ON products.product_id = ordered_items.product_id

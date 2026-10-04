@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 import sqlalchemy
-import sqlalchemy.sql.expression as sa_exp
 from datastar_py import attribute_generator as data
 from datastar_py.fastapi import DatastarResponse
 from datastar_py.sse import ServerSentEventGenerator as SSE
@@ -33,7 +32,7 @@ from htpy import (
     tr,
     ul,
 )
-from sqlalchemy.sql.functions import func as sa_func
+from sqlalchemy import sql
 
 from ..components import clock, page_layout
 from ..env import LOCAL_TZINFO
@@ -42,7 +41,6 @@ from ..store import Order, OrderedItem, Product, database
 router = APIRouter()
 
 CSV_OUTPUT_PATH = Path("./static/stat.csv")
-GRAPH_OUTPUT_PATH = Path("./static/sales.png")
 
 
 @dataclass
@@ -207,10 +205,11 @@ def zero_if_null[T](v: T | None) -> T | Literal[0]:
 
 # TODO: Use async operations for writing csv rows so that this function does not block
 async def export_orders():
-    query = """
+    query = sql.text("""
     SELECT 
         orders.order_id,
         ordered_items.item_no,
+        ordered_items.count,
         orders.ordered_at,
         orders.completed_at,
         ordered_items.product_id,
@@ -226,7 +225,7 @@ async def export_orders():
         orders.canceled_at IS NULL
     ORDER BY
         orders.order_id ASC;
-    """
+    """)
 
     with open(CSV_OUTPUT_PATH, "w", newline="") as csv_file:  # noqa: ASYNC230
         csv_writer = csv.writer(csv_file)
@@ -252,21 +251,23 @@ def _filtered_row(row: Mapping) -> list:
     return filtered_row
 
 
-_ordered_today = sa_func.date(Order.ordered_at, "localtime") == sa_func.date(
-    "now", "localtime"
-)
+_ordered_today = sql.func.date(
+    Order.ordered_at, "unixepoch", "localtime"
+) == sql.func.date("now", "localtime")
 TOTAL_SALES_QUERY: sqlalchemy.Compiled = (
-    sa_exp.select(Product.product_id)
-    .select_from(sa_exp.join(OrderedItem, Order))
+    sql.select(Product.product_id)
+    .select_from(sql.join(OrderedItem, Order))
     .join(Product)
     .add_columns(
-        sa_func.count(Product.product_id).label("count"),
-        sa_func.count(Product.product_id).filter(_ordered_today).label("count_today"),
+        sql.func.sum(OrderedItem.count).label("count"),
+        sql.func.sum(OrderedItem.count).filter(_ordered_today).label("count_today"),
         Product.name,
         Product.filename,
         Product.price,
-        sa_func.sum(Product.price).label("total_sales"),
-        sa_func.sum(Product.price).filter(_ordered_today).label("total_sales_today"),
+        sql.func.sum(OrderedItem.count * Product.price).label("total_sales"),
+        sql.func.sum(OrderedItem.count * Product.price)
+        .filter(_ordered_today)
+        .label("total_sales_today"),
         Product.no_stock,
     )
     .where(Order.canceled_at.is_(None))
@@ -280,11 +281,11 @@ class AvgServiceTimeQuery:
     @lru_cache(1)
     def all_and_recent(cls) -> sqlalchemy.Compiled:
         return (
-            sa_exp.select(
-                sa_func.avg(cls._service_time_diff).label("all"),
-                sa_func.avg(cls._last_30mins).label("recent"),
+            sql.select(
+                sql.func.avg(cls._service_time_diff).label("all"),
+                sql.func.avg(cls._last_30mins).label("recent"),
             )
-            .where(Order.completed_at.isnot(None))
+            .where(Order.completed_at.is_not(None))
             .compile()
         )
 
@@ -292,15 +293,15 @@ class AvgServiceTimeQuery:
     @lru_cache(1)
     def recent(cls) -> sqlalchemy.Compiled:
         return (
-            sa_exp.select(sa_func.avg(cls._last_30mins).label("recent"))
-            .where(Order.completed_at.isnot(None))
+            sql.select(sql.func.avg(cls._last_30mins).label("recent"))
+            .where(Order.completed_at.is_not(None))
             .compile()
         )
 
     _service_time_diff = Order.completed_at - Order.ordered_at
-    _elapsed_secs = sa_func.unixepoch() - Order.completed_at
-    _last_30mins = sa_exp.case(
-        (_elapsed_secs / sa_exp.text("60") < sa_exp.text("30"), _service_time_diff)
+    _elapsed_secs = sql.func.unixepoch() - Order.completed_at
+    _last_30mins = sql.case(
+        (_elapsed_secs / sql.text("60") < sql.text("30"), _service_time_diff)
     )
 
     @staticmethod
@@ -375,7 +376,7 @@ async def get_stat(request: Request):
 
 
 WAITING_ORDER_COUNT_QUERY: sqlalchemy.Compiled = (
-    sa_exp.select(sa_func.count(Order.order_id))
+    sql.select(sql.func.count(Order.order_id))
     .where(Order.completed_at.is_(None) & Order.canceled_at.is_(None))
     .compile()
 )
