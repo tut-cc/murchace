@@ -7,7 +7,6 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Annotated, Any, ClassVar, Literal, Self
 
-import sqlalchemy.sql.expression as sa_exp
 from datastar_py import attribute_generator as data
 from datastar_py.fastapi import DatastarResponse
 from datastar_py.sse import DatastarEvent
@@ -37,7 +36,7 @@ from htpy import (
 )
 from markupsafe import Markup
 from pydantic import BaseModel, BeforeValidator, Field
-from sqlalchemy.sql.functions import func as sa_func
+from sqlalchemy import sql
 
 from ..components import clock, modal, page_layout
 from ..env import LOCAL_TZINFO
@@ -49,8 +48,6 @@ from ..store import (
     OrderTable,
     Product,
     database,
-    supply_all_and_complete,
-    supply_and_complete_order_if_done,
 )
 
 router = APIRouter()
@@ -108,8 +105,8 @@ class OrderFilter(BaseModel):
                     res |= maybe_flag
             return res
 
-        def column(self) -> sa_exp.ColumnElement[bool]:
-            clause = sa_exp.literal(False)
+        def column(self) -> sql.ColumnElement[bool]:
+            clause = sql.literal(False)
             if self & self.unprocessed:
                 clause |= Order.canceled_at.is_(None) & Order.completed_at.is_(None)
             if self & self.canceled:
@@ -160,9 +157,9 @@ class OrderFilter(BaseModel):
         "{card: $filterCard, statuses: $filterStatuses, allCategory: $filterAllCategory, categories: $filterCategories}"
     )
 
-    def by_category_ids(self) -> sa_exp.ColumnElement[bool]:
+    def by_category_ids(self) -> sql.ColumnElement[bool]:
         return (
-            sa_exp.literal(True)
+            sql.literal(True)
             if self.all_category
             else Product.category_id.in_(self.category_ids)
         )
@@ -175,6 +172,7 @@ elm_order_filter_container = div(
     {"data-persist": ",".join(OrderFilter.default_signals.keys())},
 )
 
+order_editor_container = div(id="order-editor-container")
 
 elm_main_units = main(
     id="units",
@@ -205,6 +203,7 @@ def page_orders(req: Request) -> HTMLElement:
             div(class_="hidden md:inline-block")[clock],
         ],
         elm_order_filter_container,
+        order_editor_container,
         elm_main_units,
         notif_ringtone(req),
     ]
@@ -322,18 +321,23 @@ def item_stream_component(
     def orders(ordered_item: ordered_item_t) -> list[Element]:
         return [
             li(
-                id=f"ordered-item-{order['order_id']}-{ordered_item['product_id']}",  # ty: ignore[invalid-argument-type]
-                class_="flex flex-row items-center",
+                id=f"order-{order['order_id']}-item-{order['item_no']}",  # ty: ignore[invalid-argument-type]
+                class_="flex flex-row items-center py-1",
             )[
-                span(class_="text-xl")[f"#{order['order_id']}"],  # ty: ignore[invalid-argument-type]
-                span(class_="ml-1")[item_timestamp(order)],  # ty: ignore[invalid-argument-type]
-                span(class_="whitespace-nowrap ml-auto")[f"x {order['count']}"],  # ty: ignore[invalid-argument-type]
+                span(
+                    data.on("dblclick", f"@get('/orders/{order['order_id']}/editor')"),  # ty: ignore[invalid-argument-type]
+                    class_="text-xl font-bold",
+                )[f"#{order['order_id']}"],  # ty: ignore[invalid-argument-type]
+                span(class_="ml-1 font-mono")[item_timestamp(order)],  # ty: ignore[invalid-argument-type]
+                span(
+                    class_=f"whitespace-nowrap ml-auto text-xl {'text-red-500 font-bold' if order['count'] > 1 else ''}"  # ty: ignore[unsupported-operator, invalid-argument-type]
+                )[f"x {order['count']}"],  # ty: ignore[invalid-argument-type]
                 button(
                     data.on(
                         "click",
-                        f"@post('/orders/{order['order_id']}/products/{ordered_item['product_id']}/supplied-at')",  # ty: ignore[invalid-argument-type]
+                        f"@post('/orders/{order['order_id']}/items/{order['item_no']}/supplied-at')",  # ty: ignore[invalid-argument-type]
                     ),
-                    class_="w-1/3 py-1 m-1 text-white bg-green-600 rounded-sm",
+                    class_="w-1/3 py-1 ml-2 m-1 text-white bg-green-600 rounded-sm",
                 )["✓"]
                 if order["supplied_at"] is None  # ty: ignore[invalid-argument-type]
                 else None,
@@ -345,10 +349,10 @@ def item_stream_component(
         [
             div(
                 id=f"product-{ordered_item['product_id']}",
-                class_="h-80 flex flex-col border-2 border-gray-300 rounded-lg pb-2",
+                class_="max-h-96 flex flex-col border-2 border-gray-300 rounded-lg pb-2",
             )[
-                div(class_="width-full flex flex-row mx-1 items-start pb-2")[
-                    h3(class_="text-lg ml-1")[ordered_item["name"]]
+                div(class_="width-full flex flex-row mx-3 items-start pb-2")[
+                    h3(class_="text-lg")[ordered_item["name"]]
                 ],
                 div(class_="w-1/3 mx-auto")[
                     img(
@@ -357,7 +361,7 @@ def item_stream_component(
                         class_="mx-auto w-full h-auto aspect-square",
                     )
                 ],
-                ul(class_="grow overflow-y-auto px-2 divide-y-2 divide-gray-200")[
+                ul(class_="grow overflow-y-auto px-3 divide-y-2 divide-gray-200")[
                     *orders(ordered_item)
                 ],
             ]
@@ -375,7 +379,7 @@ async def get_orders_stream(request: Request, filter: OrderFilter, ipc: IPCDeps)
         return DatastarResponse(order_unit_stream(ipc, filter))
 
 
-def _items_loader() -> Callable[[sa_exp.Select], Awaitable[dict[int, ordered_item_t]]]:
+def _items_loader() -> Callable[[sql.Select], Awaitable[dict[int, ordered_item_t]]]:
     # Hack around the situation where multiple threads potentially modifying
     # the `ordered_items` list simultaneously.
     lock = asyncio.Lock()
@@ -387,7 +391,7 @@ def _items_loader() -> Callable[[sa_exp.Select], Awaitable[dict[int, ordered_ite
     # managing the loop deep in the call stack. Ideally we should cache the
     # constructed object so that only one connection needs to construct the
     # `ordered_items` list and let the others wait for its completion.
-    async def load(query: sa_exp.Select) -> dict[int, ordered_item_t]:
+    async def load(query: sql.Select) -> dict[int, ordered_item_t]:
         async with lock:
             ordered_items.clear()
 
@@ -406,6 +410,7 @@ def _items_loader() -> Callable[[sa_exp.Select], Awaitable[dict[int, ordered_ite
                 ordered_item["orders"].append(
                     {
                         "order_id": map["order_id"],
+                        "item_no": map["item_no"],
                         "count": map["count"],
                         "ordered_at": _to_time(map["ordered_at"]),
                         "supplied_at": _to_time(map["supplied_at"]),
@@ -420,20 +425,19 @@ def _items_loader() -> Callable[[sa_exp.Select], Awaitable[dict[int, ordered_ite
 load_items = _items_loader()
 
 
-def query_items(filter: OrderFilter) -> sa_exp.Select:
+def query_items(filter: OrderFilter) -> sql.Select:
     return (
-        sa_exp.select(OrderedItem.order_id, OrderedItem.product_id)
-        .add_columns(sa_func.count(OrderedItem.product_id).label("count"))
-        .group_by(OrderedItem.order_id, OrderedItem.product_id)
-        .select_from(sa_exp.join(OrderedItem, Product))
+        sql.select(OrderedItem)
+        .select_from(sql.join(OrderedItem, Product))
         .add_columns(Product.name, Product.filename)
         .join(Order)
-        .add_columns(Order.ordered_at, OrderedItem.supplied_at)
+        .add_columns(Order.ordered_at)
         .where(filter.status_flag.column() & filter.by_category_ids())
         .order_by(
             OrderedItem.order_id.asc()
             if filter.status_flag == OrderFilter.StatusFlag.unprocessed
             else OrderedItem.order_id.desc(),
+            OrderedItem.item_no.asc(),
             OrderedItem.product_id.asc(),
         )
     )
@@ -462,7 +466,7 @@ type order_t = dict[str, int | list[item_t] | str | datetime | None]  # noqa: PY
 def order_stream_component(orders: list[order_t]) -> Element:
     def ordered_items(order: order_t) -> list[Element]:
         return [
-            li(class_="flex flex-row items-start gap-x-2 px-1")[
+            li(class_="flex flex-row items-start gap-x-2 px-1 py-1")[
                 (
                     span(class_="text-green-500 font-bold")["✓"]
                     if item["supplied_at"]  # ty: ignore[invalid-argument-type]
@@ -489,10 +493,11 @@ def order_stream_component(orders: list[order_t]) -> Element:
         [
             div(
                 id=f"order-{order['order_id']}",
-                class_="w-full h-60 flex flex-col gap-y-1 border-2 border-gray-300 rounded-lg pb-2",
+                class_="w-full max-h-80 flex flex-col gap-y-1 border-2 border-gray-300 rounded-lg pb-2",
             )[
                 div(
-                    class_=f"width-full flex flex-row items-start p-2 {'bg-cyan-100' if order['completed_at'] else 'bg-orange-200' if order['canceled_at'] else ''}"
+                    data.on("click", f"@get('/orders/{order['order_id']}/editor')"),
+                    class_=f"width-full flex flex-row items-start p-2 {'bg-cyan-100' if order['completed_at'] else 'bg-orange-200' if order['canceled_at'] else 'bg-gray-100'}",
                 )[
                     div(class_="grow flex flex-row items-end")[
                         h3(
@@ -500,17 +505,7 @@ def order_stream_component(orders: list[order_t]) -> Element:
                         )[f"#{order['order_id']}"],
                         span(class_="ml-1")[order_timestamp(order)],
                     ],
-                    button(
-                        data.on(
-                            "click",
-                            f"confirm('完了した注文 #{order['order_id']} を取り消しますか？') && @post('/orders/{order['order_id']}/canceled-at')"
-                            if order["completed_at"]
-                            else f"confirm('一度取り消した注文 #{order['order_id']} を完了しますか？') && @post('/orders/{order['order_id']}/completed-at')"
-                            if order["canceled_at"]
-                            else f"confirm('注文 #{order['order_id']} を取り消しますか？') && @post('/orders/{order['order_id']}/canceled-at')",
-                        ),
-                        class_="px-2 py-1 text-white bg-red-600 rounded-lg",
-                    )["完了" if order["canceled_at"] else "取消"],
+                    button(class_="px-4 py-1")["編集"],
                 ],
                 ul(class_="grow overflow-y-auto px-2 divide-y-2 divide-gray-200")[
                     ordered_items(order)
@@ -519,27 +514,13 @@ def order_stream_component(orders: list[order_t]) -> Element:
                     span(class_="break-words")["合計金額"],
                     span(class_="whitespace-nowrap")[order["total_price"]],  # ty: ignore[invalid-argument-type]
                 ],
-                button(
-                    data.on(
-                        "click",
-                        f"confirm('一度取り消した注文 #{order['order_id']} を受け取り待ちに戻しますか？') && @delete('/orders/{order['order_id']}/resolved-at')",
-                    ),
-                    class_="mx-10 py-1 border border-gray-600 rounded-lg",
-                )["未受取に戻す"]
-                if order["completed_at"] or order["canceled_at"]
-                else button(
-                    data.on(
-                        "click", f"@post('/orders/{order['order_id']}/completed-at')"
-                    ),
-                    class_="mx-10 py-1 text-white bg-blue-600 rounded-lg",
-                )["完了"],
             ]
             for order in orders
         ]
     ]
 
 
-def _orders_loader() -> Callable[[sa_exp.Select], Awaitable[list[order_t]]]:
+def _orders_loader() -> Callable[[sql.Select], Awaitable[list[order_t]]]:
     orders: list[order_t] = []
     total_price = 0
 
@@ -576,7 +557,7 @@ def _orders_loader() -> Callable[[sa_exp.Select], Awaitable[list[order_t]]]:
     lock = asyncio.Lock()
 
     # NOTE: See note for load(query) closure in _items_loader()
-    async def load(query: sa_exp.Select):
+    async def load(query: sql.Select):
         async with lock:
             orders.clear()
 
@@ -601,11 +582,10 @@ def _orders_loader() -> Callable[[sa_exp.Select], Awaitable[list[order_t]]]:
 load_orders = _orders_loader()
 
 
-def query_orders(filter: OrderFilter) -> sa_exp.Select:
+def query_orders(filter: OrderFilter) -> sql.Select:
     return (
         # Query from the orders table
-        sa_exp.select(Order.order_id)
-        .group_by(Order.order_id)
+        sql.select(Order.order_id)
         .order_by(
             Order.order_id.asc()
             if filter.status_flag == OrderFilter.StatusFlag.unprocessed
@@ -615,11 +595,14 @@ def query_orders(filter: OrderFilter) -> sa_exp.Select:
         .where(filter.status_flag.column())
         .add_columns(Order.canceled_at, Order.completed_at)
         # Query the list of ordered items
-        .select_from(sa_exp.join(Order, OrderedItem))
-        .add_columns(OrderedItem.product_id, OrderedItem.supplied_at)
-        .group_by(OrderedItem.product_id)
-        .order_by(OrderedItem.id.asc())
-        .add_columns(sa_func.count(OrderedItem.product_id).label("count"))
+        .select_from(sql.join(Order, OrderedItem))
+        .add_columns(
+            OrderedItem.item_no,
+            OrderedItem.product_id,
+            OrderedItem.count,
+            OrderedItem.supplied_at,
+        )
+        .order_by(OrderedItem.id.asc(), OrderedItem.item_no.asc())
         # Query product name and price
         .join(Product)
         .add_columns(Product.name, Product.price)
@@ -642,29 +625,216 @@ async def order_unit_stream(
                 yield SSE.patch_signals({"_notifRingtone": "true"})
 
 
-@router.post("/orders/{order_id}/products/{product_id}/supplied-at")
-async def supply_product(ipc: IPCDeps, order_id: int, product_id: int):
-    completed = await supply_and_complete_order_if_done(order_id, product_id)
+@router.post("/orders/{order_id}/items/{item_no}/supplied-at")
+async def supply_product(ipc: IPCDeps, order_id: int, item_no: int):
+    async with database.transaction():
+        supply_query = (
+            sql.update(OrderedItem)
+            .where(OrderedItem.order_id == order_id, OrderedItem.item_no == item_no)
+            .values({OrderedItem.supplied_at: sql.func.unixepoch()})
+        )
+        await database.execute(supply_query)
+
+        maybe_complete_query = (
+            sql.update(Order)
+            .where(
+                (Order.order_id == order_id)
+                & sql.select(
+                    sql.func.count(OrderedItem.item_no)
+                    == sql.func.count(OrderedItem.supplied_at)
+                )
+                .where(OrderedItem.order_id == order_id)
+                .scalar_subquery()
+            )
+            .values({Order.completed_at: sql.func.unixepoch()})
+        )
+        await database.execute(maybe_complete_query)
+
     await ipc.publish("order.modified", False)
-    if completed:
-        id = f"#product-{product_id}"
-    else:
-        id = f"#ordered-item-{order_id}-{product_id}"
-    return DatastarResponse(SSE.remove_elements(id))
 
 
-@router.delete("/orders/{order_id}/resolved-at")
-async def reset(ipc: IPCDeps, order_id: int):
-    await OrderTable.reset(order_id)
-    await ipc.publish("order.modified", False)
-    return DatastarResponse(SSE.remove_elements(f"#order-{order_id}"))
+def query_order_editor(order_id: int) -> sql.Select:
+    return (
+        # Query from the orders table
+        sql.select(Order)
+        .where(Order.order_id == order_id)
+        # Query the list of ordered items
+        .select_from(sql.join(Order, OrderedItem))
+        .add_columns(
+            OrderedItem.item_no,
+            OrderedItem.product_id,
+            OrderedItem.count,
+            OrderedItem.supplied_at,
+        )
+        .order_by(OrderedItem.id.asc(), OrderedItem.item_no.asc())
+        # Query product name and price
+        .join(Product)
+        .add_columns(Product.name, Product.price)
+    )
 
 
-@router.post("/orders/{order_id}/completed-at")
-async def complete(ipc: IPCDeps, order_id: int):
-    await supply_all_and_complete(order_id)
-    await ipc.publish("order.modified", False)
-    return DatastarResponse(SSE.remove_elements(f"#order-{order_id}"))
+@router.get("/orders/{order_id}/editor")
+async def get_order_editor(order_id: int):
+    query = query_order_editor(order_id)
+
+    order = {}
+    items: list[dict[str, int | str | None]] = []
+    total_count = 0
+    total_price = 0
+    async for map in database.iterate(query):
+        count, price = map["count"], map["price"]
+        total_count += count
+        total_price += count * price
+        items.append(
+            {
+                "item_no": map["item_no"],
+                "product_id": map["product_id"],
+                "count": count,
+                "name": map["name"],
+                "price": price,
+                "supplied_at": _to_time(map["supplied_at"]),
+            }
+        )
+    order["items"] = items
+    order["total_count"] = total_count
+    order["total_price"] = total_price
+    order["ordered_at"] = _to_time(map["ordered_at"])
+    order["canceled_at"] = _to_time(map["canceled_at"])
+    order["completed_at"] = _to_time(map["completed_at"])
+
+    ordered_items = [
+        li(class_="flex flex-row items-start gap-x-2 px-1 py-2")[
+            label(
+                data.attr(
+                    {
+                        "class": f"'flex items-center ' + ($checkedItems[{item['item_no']}] === {'true' if item['supplied_at'] else 'false'} ? '' : 'text-red-600')"
+                    }
+                ),
+            )[
+                input(
+                    data.bind("checkedItems"),
+                    type="checkbox",
+                    checked=item["supplied_at"] is not None,
+                    class_="size-5",
+                ),
+                span(class_="ml-2 font-mono")[
+                    f"-{item['supplied_at']}" if item["supplied_at"] else "-XX:XX:XX"
+                ],
+                span(class_="ml-1 break-words")[item["name"]],
+            ],
+            span(class_="ml-auto whitespace-nowrap")[
+                f"{Product.to_price_str(item['price'])} x {item['count']}"  # ty: ignore[invalid-argument-type]
+            ],
+        ]
+        for item in items
+    ]
+
+    order_editor_modal = modal(
+        data.signals(
+            checkedItems=[item["supplied_at"] is not None for item in order["items"]]
+        ),
+        id="order-editor-modal",
+        popover=True,
+    )[
+        button(
+            class_="absolute top-0 right-0 px-4 py-3 text-3xl font-bold bg-transparent rounded-tr-lg",
+            onclick="window['order-editor-modal'].remove()",
+        )["✕"],
+        article(class_="min-h-0 flex flex-col gap-y-2 px-3 text-center text-lg")[
+            h2(class_="text-3xl font-semibold")[f"注文 #{order_id}の編集"],
+            ul(class_="grow overflow-y-auto divide-y-2 divide-gray-200")[
+                li(class_="flex flex-row items-start px-1 py-2")[
+                    span(class_="ml-7 font-mono")[f"@{order['ordered_at']}"],
+                    span(class_="ml-1 break-words")["商品名"],
+                    span(class_="ml-auto whitespace-nowrap")["金額 x 数"],
+                ],
+                ordered_items,
+            ],
+            p(class_="lg:ml-auto lg:w-1/2 xl:w-1/4 flex flex-row mx-1")[
+                span(class_="break-words")["合計"],
+                span(class_="grow"),
+                span(class_="whitespace-nowrap mr-4")[
+                    Product.to_price_str(order["total_price"])
+                ],
+                span(class_="whitespace-nowrap")[order["total_count"]],
+            ],
+        ],
+        div(class_="grow"),
+        button(
+            data.on(
+                "click",
+                f"confirm('本当にキャンセルしますか？') && @post('/orders/{order_id}/canceled-at')",
+            ),
+            disabled=order["canceled_at"] is not None,
+            class_="w-full py-4 text-center text-xl font-semibold text-white bg-red-400 rounded-sm disabled:cursor-not-allowed disabled:text-gray-700 disabled:bg-gray-100",
+        )["キャンセル"],
+        button(
+            data.on(
+                "click",
+                f"confirm('本当に変更／完了しますか？') && @post('/orders/{order_id}', {{payload: $checkedItems}})",
+            ),
+            class_="w-full py-4 text-center text-xl font-semibold text-white bg-blue-600 rounded-sm",
+        )["変更／完了"],
+    ]
+    return DatastarResponse(
+        SSE.patch_elements(order_editor_container[order_editor_modal])
+    )
+
+
+@router.post("/orders/{order_id}")
+async def modify_order(ipc: IPCDeps, order_id: int, checked_items: list[bool]):
+    checked_item_nums = [i for i, checked in enumerate(checked_items) if checked]
+
+    modified = False
+
+    async with database.transaction():
+        supply_query = (
+            sql.update(OrderedItem)
+            .where(OrderedItem.order_id == order_id)
+            .where(OrderedItem.item_no.in_(checked_item_nums))
+            .where(OrderedItem.supplied_at.is_(None))
+            .values({OrderedItem.supplied_at: sql.func.unixepoch()})
+            .returning(OrderedItem.item_no)
+        )
+        modified = modified or len(await database.fetch_all(supply_query)) > 0
+        unsupply_query = (
+            sql.update(OrderedItem)
+            .where(OrderedItem.order_id == order_id)
+            .where(OrderedItem.item_no.not_in(checked_item_nums))
+            .where(OrderedItem.supplied_at.is_not(None))
+            .values({OrderedItem.supplied_at: None})
+            .returning(OrderedItem.item_no)
+        )
+        modified = modified or len(await database.fetch_all(unsupply_query)) > 0
+        maybe_complete_query = (
+            sql.update(Order)
+            .where(Order.order_id == order_id)
+            .returning(
+                sql.select(Order.canceled_at.is_not(None))
+                .where(Order.order_id == order_id)
+                .scalar_subquery()
+                | (
+                    all_supplied := (
+                        sql.select(
+                            sql.func.count(OrderedItem.item_no)
+                            == sql.func.count(OrderedItem.supplied_at)
+                        )
+                        .where(OrderedItem.order_id == order_id)
+                        .scalar_subquery()
+                    )
+                )
+            )
+            .values(
+                {
+                    Order.canceled_at: None,
+                    Order.completed_at: sql.case((all_supplied, sql.func.unixepoch())),
+                }
+            )
+        )
+        modified = modified or bool(await database.fetch_val(maybe_complete_query))
+
+    if modified:
+        await ipc.publish("order.modified", False)
 
 
 @router.post("/orders/{order_id}/canceled-at")

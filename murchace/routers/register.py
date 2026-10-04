@@ -2,7 +2,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 
-import sqlalchemy.sql.expression as sa_exp
 from datastar_py import attribute_generator as data
 from datastar_py.fastapi import DatastarResponse
 from datastar_py.sse import ServerSentEventGenerator as SSE
@@ -29,7 +28,7 @@ from htpy import (
 )
 from markupsafe import Markup
 from pydantic import BaseModel, Field, computed_field
-from sqlalchemy.sql.functions import func as sa_func
+from sqlalchemy import sql
 
 from ..components import clock, modal, page_layout
 from ..env import LOCAL_TZINFO
@@ -276,7 +275,7 @@ async def place_order(
     async with database.transaction():
         # We reject order issuance when product name and price do not match up
         product_map = {p.product_id: p for p in await ProductTable.select_all()}
-        product_ids: list[int] = []
+        ordered_items: list[tuple[int, int]] = []
         for item in register.items:
             product = product_map[item.product_id]
             if product.name != item.name:
@@ -285,14 +284,13 @@ async def place_order(
             if product.price != item.price:
                 err_msg = f"値段が異なります: {product.price} != {item.price}"
                 return DatastarResponse(SSE.patch_elements(error_modal(err_msg)))
-            for _ in range(item.count):
-                product_ids.append(item.product_id)
+            ordered_items.append((item.product_id, item.count))
 
-        max_order_id_p1 = sa_exp.select(
-            sa_func.coalesce(sa_func.max(Order.order_id), 0) + 1
+        max_order_id_p1 = sql.select(
+            sql.func.coalesce(sql.func.max(Order.order_id), 0) + 1
         ).scalar_subquery()
         maybe_order_row = await database.fetch_one(
-            sa_exp.insert(Order)
+            sql.insert(Order)
             .values(order_id=max_order_id_p1)
             .returning(Order.order_id, Order.ordered_at)
         )
@@ -302,8 +300,11 @@ async def place_order(
         order_id, ordered_at = order_row["order_id"], order_row["ordered_at"]
 
         await database.execute_many(
-            sa_exp.insert(OrderedItem).values(order_id=order_id),
-            [{"item_no": i, "product_id": pid} for i, pid in enumerate(product_ids)],
+            sql.insert(OrderedItem).values(order_id=order_id),
+            [
+                {"item_no": i, "product_id": pid, "count": count}
+                for i, (pid, count) in enumerate(ordered_items)
+            ],
         )
 
         await ipc.publish("order.modified", True)

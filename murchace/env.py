@@ -38,6 +38,7 @@ def validate_tzname(tzname: str | None) -> tzinfo:
 
 
 DEBUG = bool(os.environ.get("MURCHACE_DEBUG"))
+DATABASE_PATH = Path(os.environ.get("MURCHACE_DATABASE", "db/app.db"))
 IPC_SOCKET_PATH = Path(os.environ.get("IPC_SOCKET_PATH", ".murchace.sock"))
 LOCAL_TZINFO: tzinfo = validate_tzname(os.environ.get("MURCHACE_SREVER_TZNAME"))
 RECEIPT_PRINTER_HOST = os.environ.get("MURCHACE_RECEIPT_PRINTER_HOST", "")

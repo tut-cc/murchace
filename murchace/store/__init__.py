@@ -1,15 +1,17 @@
 import sqlalchemy
-import sqlalchemy.sql.expression as sa_exp
 from databases import Database
-from sqlalchemy.sql.functions import func as sa_func
+from sqlalchemy import sql
 
+from ..env import DATABASE_PATH
 from . import category, order, ordered_item, product
 from .base import Base
-from .order import Order
+from .order import Order  # noqa: F401
 from .ordered_item import OrderedItem
 from .product import Product
 
-DATABASE_URL = "sqlite:///db/app.db"
+DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
+
+
 database = Database(DATABASE_URL)
 
 CategoryTable = category.Table(database)
@@ -20,41 +22,11 @@ OrderTable = order.Table(database)
 
 async def delete_product(product_id: int):
     async with database.transaction():
-        query = sa_exp.delete(Product).where(Product.product_id == product_id)
+        query = sql.delete(Product).where(Product.product_id == product_id)
         await database.execute(query)
 
-        query = sa_exp.delete(OrderedItem).where(OrderedItem.product_id == product_id)
+        query = sql.delete(OrderedItem).where(OrderedItem.product_id == product_id)
         await database.execute(query)
-
-
-async def supply_and_complete_order_if_done(order_id: int, product_id: int) -> bool:
-    async with database.transaction():
-        await OrderedItemTable._supply(order_id, product_id)
-
-        update_query = (
-            sa_exp.update(Order)
-            .where(
-                (Order.order_id == order_id)
-                & sa_exp.select(
-                    sa_func.count(OrderedItem.item_no)
-                    == sa_func.count(OrderedItem.supplied_at)
-                )
-                .where(OrderedItem.order_id == order_id)
-                .scalar_subquery()
-            )
-            .returning(Order.order_id.isnot(None))
-        )
-
-        values = {"completed_at": sa_func.unixepoch()}
-        completed: bool | None = await database.fetch_val(update_query, values)
-
-    return completed is not None
-
-
-async def supply_all_and_complete(order_id: int):
-    async with database.transaction():
-        await OrderedItemTable._supply_all(order_id)
-        await OrderTable._complete(order_id)
 
 
 async def _startup_db() -> None:

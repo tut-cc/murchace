@@ -1,8 +1,7 @@
-import sqlalchemy.sql.expression as sa_exp
 from databases import Database
+from sqlalchemy import sql
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.schema import ForeignKey
-from sqlalchemy.sql.functions import func as sa_func
 from sqlalchemy.sql.sqltypes import Integer
 
 from .base import Base
@@ -16,6 +15,7 @@ class OrderedItem(Base):
     order_id: Mapped[int] = mapped_column(ForeignKey(Order.order_id))
     item_no: Mapped[int]
     product_id: Mapped[int] = mapped_column(ForeignKey(Product.product_id))
+    count: Mapped[int]
     supplied_at: Mapped[int | None] = mapped_column(Integer, default=None)
 
 
@@ -26,28 +26,14 @@ class Table:
         self._db = database
 
     async def select_all(self) -> list[OrderedItem]:
-        query = sa_exp.select(OrderedItem)
+        query = sql.select(OrderedItem)
         return [OrderedItem(**m) async for m in self._db.iterate(query)]
 
     async def by_order_id(self, order_id: int) -> list[OrderedItem]:
-        query = sa_exp.select(OrderedItem).where(OrderedItem.order_id == order_id)
+        query = sql.select(OrderedItem).where(OrderedItem.order_id == order_id)
         return [OrderedItem(**m) async for m in self._db.iterate(query)]
-
-    async def _supply(self, order_id: int, product_id: int):
-        query = sa_exp.update(OrderedItem).where(
-            (OrderedItem.order_id == order_id) & (OrderedItem.product_id == product_id)
-        )
-        await self._db.execute(query, {"supplied_at": sa_func.unixepoch()})
-
-    async def _supply_all(self, order_id: int):
-        """
-        Use `supply_all_and_complete` when the `completed_at` fields of
-        `orders` table should be updated as well.
-        """
-        query = sa_exp.update(OrderedItem).where(OrderedItem.order_id == order_id)
-        await self._db.execute(query, {"supplied_at": sa_func.unixepoch()})
 
     # NOTE: this function needs authorization since it destroys all receipts
     # async def clear(self) -> None:
-    #     await self._db.execute(sa_exp.delete(OrderedItem))
+    #     await self._db.execute(sql.delete(OrderedItem))
     #     self._last_order_id = None

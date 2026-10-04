@@ -18,12 +18,8 @@
       --tw-drop-shadow-color: initial;
       --tw-drop-shadow-alpha: 100%;
       --tw-drop-shadow-size: initial;
-      --tw-duration: initial;
       --tw-ease: initial;
       --tw-divide-x-reverse: 0;
-      --tw-scale-x: 1;
-      --tw-scale-y: 1;
-      --tw-scale-z: 1;
     }
   }
 }
@@ -34,6 +30,7 @@
     sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
     monospace;
+    --color-red-400: oklch(70.4% .191 22.216);
     --color-red-500: oklch(63.7% .237 25.331);
     --color-red-600: oklch(57.7% .245 27.325);
     --color-orange-200: oklch(90.1% .076 70.697);
@@ -48,7 +45,6 @@
     --color-gray-200: oklch(92.8% .006 264.531);
     --color-gray-300: oklch(87.2% .01 258.338);
     --color-gray-500: oklch(55.1% .027 264.364);
-    --color-gray-600: oklch(44.6% .03 256.802);
     --color-gray-700: oklch(37.3% .034 259.733);
     --color-gray-900: oklch(21% .034 264.665);
     --color-black: #000;
@@ -378,8 +374,8 @@
     margin-inline: var(--spacing);
   }
 
-  .mx-10 {
-    margin-inline: calc(var(--spacing) * 10);
+  .mx-3 {
+    margin-inline: calc(var(--spacing) * 3);
   }
 
   .mx-auto {
@@ -390,12 +386,20 @@
     margin-right: var(--spacing);
   }
 
+  .mr-4 {
+    margin-right: calc(var(--spacing) * 4);
+  }
+
   .ml-1 {
     margin-left: var(--spacing);
   }
 
   .ml-2 {
     margin-left: calc(var(--spacing) * 2);
+  }
+
+  .ml-7 {
+    margin-left: calc(var(--spacing) * 7);
   }
 
   .ml-auto {
@@ -435,14 +439,6 @@
     height: 80%;
   }
 
-  .h-60 {
-    height: calc(var(--spacing) * 60);
-  }
-
-  .h-80 {
-    height: calc(var(--spacing) * 80);
-  }
-
   .h-auto {
     height: auto;
   }
@@ -453,6 +449,14 @@
 
   .h-full {
     height: 100%;
+  }
+
+  .max-h-80 {
+    max-height: calc(var(--spacing) * 80);
+  }
+
+  .max-h-96 {
+    max-height: calc(var(--spacing) * 96);
   }
 
   .min-h-0 {
@@ -513,10 +517,6 @@
 
   .animate-\[scale-50_150ms_ease-in\] {
     animation: .15s ease-in scale-50;
-  }
-
-  .animate-\[scale-95_150ms_ease-in\] {
-    animation: .15s ease-in scale-95;
   }
 
   .cursor-not-allowed {
@@ -737,10 +737,6 @@
     border-color: var(--color-gray-500);
   }
 
-  .border-gray-600 {
-    border-color: var(--color-gray-600);
-  }
-
   .bg-blue-500 {
     background-color: var(--color-blue-500);
   }
@@ -751,6 +747,10 @@
 
   .bg-cyan-100 {
     background-color: var(--color-cyan-100);
+  }
+
+  .bg-gray-100 {
+    background-color: var(--color-gray-100);
   }
 
   .bg-gray-300 {
@@ -777,6 +777,10 @@
 
   .bg-orange-200 {
     background-color: var(--color-orange-200);
+  }
+
+  .bg-red-400 {
+    background-color: var(--color-red-400);
   }
 
   .bg-red-500 {
@@ -931,6 +935,10 @@
     color: var(--color-red-500);
   }
 
+  .text-red-600 {
+    color: var(--color-red-600);
+  }
+
   .text-white {
     color: var(--color-white);
   }
@@ -947,17 +955,6 @@
     transition-property: color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to;
     transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
     transition-duration: var(--tw-duration, var(--default-transition-duration));
-  }
-
-  .transition-transform {
-    transition-property: transform, translate, scale, rotate;
-    transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
-    transition-duration: var(--tw-duration, var(--default-transition-duration));
-  }
-
-  .duration-150 {
-    --tw-duration: .15s;
-    transition-duration: .15s;
   }
 
   .ease-in-out {
@@ -1042,12 +1039,20 @@
   }
 
   @media (min-width: 64rem) {
+    .lg\:ml-auto {
+      margin-left: auto;
+    }
+
     .lg\:grid {
       display: grid;
     }
 
     .lg\:inline-block {
       display: inline-block;
+    }
+
+    .lg\:w-1\/2 {
+      width: 50%;
     }
 
     .lg\:w-2\/6 {
@@ -1101,6 +1106,10 @@
       width: 33.3333%;
     }
 
+    .xl\:w-1\/4 {
+      width: 25%;
+    }
+
     .xl\:grid-cols-4 {
       grid-template-columns: repeat(4, minmax(0, 1fr));
     }
@@ -1110,13 +1119,6 @@
     .\32 xl\:grid-cols-6 {
       grid-template-columns: repeat(6, minmax(0, 1fr));
     }
-  }
-
-  .datastar-settling .\[\.datastar-settling_\&\]\:scale-50 {
-    --tw-scale-x: 50%;
-    --tw-scale-y: 50%;
-    --tw-scale-z: 50%;
-    scale: var(--tw-scale-x) var(--tw-scale-y);
   }
 }
 
@@ -1203,11 +1205,6 @@
   inherits: false
 }
 
-@property --tw-duration {
-  syntax: "*";
-  inherits: false
-}
-
 @property --tw-ease {
   syntax: "*";
   inherits: false
@@ -1219,37 +1216,9 @@
   initial-value: 0;
 }
 
-@property --tw-scale-x {
-  syntax: "*";
-  inherits: false;
-  initial-value: 1;
-}
-
-@property --tw-scale-y {
-  syntax: "*";
-  inherits: false;
-  initial-value: 1;
-}
-
-@property --tw-scale-z {
-  syntax: "*";
-  inherits: false;
-  initial-value: 1;
-}
-
 @keyframes scale-50 {
   0% {
     transform: scale(.5);
-  }
-
-  100% {
-    transform: scale(1);
-  }
-}
-
-@keyframes scale-95 {
-  0% {
-    transform: scale(.95);
   }
 
   100% {
