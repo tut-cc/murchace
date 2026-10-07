@@ -1,4 +1,5 @@
 import asyncio
+import fcntl
 import fnmatch
 import json
 import logging
@@ -115,6 +116,9 @@ class AsyncIPCBus:
             await writer.wait_closed()
 
     async def orchestrate(self) -> None:
+        # Never unlink this file: a worker locking the old inode and another
+        # locking a recreated one would both become the parent.
+        lock_fd = os.open(IPC_SOCKET_PATH.with_suffix(".lock"), os.O_CREAT | os.O_RDWR)
         try:
             while True:
                 try:
@@ -123,6 +127,13 @@ class AsyncIPCBus:
                     self.writer = writer
                     logger.info("IPC client connected.")
                 except (ConnectionRefusedError, FileNotFoundError):
+                    try:
+                        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    except BlockingIOError:
+                        # Another worker is becoming the parent. The socket
+                        # is theirs, so we must not unlink it.
+                        await asyncio.sleep(0.1)
+                        continue
                     IPC_SOCKET_PATH.unlink(missing_ok=True)
                     self.parent_server = await asyncio.start_unix_server(
                         self.handle_worker_client, IPC_SOCKET_PATH
@@ -165,9 +176,11 @@ class AsyncIPCBus:
                 IPC_SOCKET_PATH.unlink(missing_ok=True)
                 logger.warning("IPC server closed.")
             self.worker_connections.clear()
+            os.close(lock_fd)
 
     def start(self):
         self.orchestrator_task = asyncio.create_task(self.orchestrate())
+        self.orchestrator_task.add_done_callback(log_orchestrator_failure)
 
     async def cancel(self):
         if (task := self.orchestrator_task) is not None and not task.done():
@@ -236,6 +249,11 @@ class AsyncIPCBus:
             else:
                 self.writer.write(f"{json.dumps(unsub_signal)}\x00".encode())
                 await self.writer.drain()
+
+
+def log_orchestrator_failure(task: asyncio.Task[None]) -> None:
+    if not task.cancelled() and (exc := task.exception()) is not None:
+        logger.error("IPC orchestration died.", exc_info=exc)
 
 
 def match_topic(pattern: str, topic: str) -> bool:

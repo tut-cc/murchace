@@ -11,3 +11,4 @@ wheels/
 /static/stat.csv
 .env
 .murchace.sock
+.murchace.lock
