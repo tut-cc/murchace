@@ -129,16 +129,17 @@ class AsyncIPCBus:
                 except (ConnectionRefusedError, FileNotFoundError):
                     try:
                         fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        IPC_SOCKET_PATH.unlink(missing_ok=True)
+                        self.parent_server = await asyncio.start_unix_server(
+                            self.handle_worker_client, IPC_SOCKET_PATH
+                        )
+                        logger.info("IPC server started.")
                     except BlockingIOError:
                         # Another worker is becoming the parent. The socket
                         # is theirs, so we must not unlink it.
-                        await asyncio.sleep(0.1)
+                        await asyncio.sleep(1)
                         continue
-                    IPC_SOCKET_PATH.unlink(missing_ok=True)
-                    self.parent_server = await asyncio.start_unix_server(
-                        self.handle_worker_client, IPC_SOCKET_PATH
-                    )
-                    logger.info("IPC server started.")
+
                     reader, writer = await asyncio.open_unix_connection(IPC_SOCKET_PATH)
                     self.writer = writer
                     logger.info("IPC client connected.")
@@ -180,7 +181,12 @@ class AsyncIPCBus:
 
     def start(self):
         self.orchestrator_task = asyncio.create_task(self.orchestrate())
-        self.orchestrator_task.add_done_callback(log_orchestrator_failure)
+        self.orchestrator_task.add_done_callback(self.log_orchestrator_failure)
+
+    @staticmethod
+    def log_orchestrator_failure(task: asyncio.Task[None]) -> None:
+        if not task.cancelled() and (exc := task.exception()) is not None:
+            logger.error("IPC orchestration died.", exc_info=exc)
 
     async def cancel(self):
         if (task := self.orchestrator_task) is not None and not task.done():
@@ -249,11 +255,6 @@ class AsyncIPCBus:
             else:
                 self.writer.write(f"{json.dumps(unsub_signal)}\x00".encode())
                 await self.writer.drain()
-
-
-def log_orchestrator_failure(task: asyncio.Task[None]) -> None:
-    if not task.cancelled() and (exc := task.exception()) is not None:
-        logger.error("IPC orchestration died.", exc_info=exc)
 
 
 def match_topic(pattern: str, topic: str) -> bool:
